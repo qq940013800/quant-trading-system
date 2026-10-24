@@ -5,6 +5,143 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QuantDinger Pro - 专业量化交易终端</title>
     <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
+    
+    <!-- 前端调试日志模块 -->
+    <style>
+        #debug-panel {
+            position: fixed;
+            bottom: 40px;
+            right: 12px;
+            width: 360px;
+            max-height: 240px;
+            background: rgba(18, 22, 28, 0.95);
+            border: 1px solid #f6465d;
+            border-radius: 8px;
+            z-index: 99999;
+            font-family: 'Consolas', monospace;
+            font-size: 11px;
+            overflow: hidden;
+            display: none;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        #debug-panel.visible { display: block; }
+        #debug-header {
+            background: #f6465d;
+            color: white;
+            padding: 6px 10px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+        }
+        #debug-content {
+            padding: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            color: #eaecef;
+            line-height: 1.6;
+        }
+        .debug-log { margin-bottom: 4px; word-break: break-all; }
+        .debug-error { color: #f6465d; }
+        .debug-warn { color: #f0b90b; }
+        .debug-info { color: #848e9c; }
+        .debug-success { color: #0ecb81; }
+        #debug-toggle {
+            position: fixed;
+            bottom: 12px;
+            right: 12px;
+            width: 32px;
+            height: 32px;
+            background: #f6465d;
+            color: white;
+            border-radius: 50%;
+            z-index: 99998;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+    </style>
+    <script>
+        // 调试日志系统
+        window.debugLogs = [];
+        window.debugMaxLogs = 50;
+        
+        function debugLog(msg, type = 'info') {
+            const time = new Date().toLocaleTimeString();
+            window.debugLogs.push({ time, msg, type });
+            if (window.debugLogs.length > window.debugMaxLogs) {
+                window.debugLogs.shift();
+            }
+            renderDebugPanel();
+        }
+        
+        function renderDebugPanel() {
+            const panel = document.getElementById('debug-content');
+            if (!panel) return;
+            panel.innerHTML = window.debugLogs.map(log => 
+                `<div class="debug-log debug-${log.type}">[${log.time}] ${log.msg}</div>`
+            ).join('');
+            panel.scrollTop = panel.scrollHeight;
+        }
+        
+        // 捕获全局错误
+        window.onerror = function(msg, url, line, col, error) {
+            debugLog(`JS错误: ${msg} (行:${line})`, 'error');
+            return false;
+        };
+        
+        window.addEventListener('unhandledrejection', function(e) {
+            debugLog(`Promise错误: ${e.reason}`, 'error');
+        });
+        
+        // 页面加载完成
+        document.addEventListener('DOMContentLoaded', function() {
+            debugLog('页面DOM加载完成', 'success');
+            
+            // 创建调试面板
+            const toggle = document.createElement('div');
+            toggle.id = 'debug-toggle';
+            toggle.innerHTML = '!';
+            toggle.onclick = function() {
+                const panel = document.getElementById('debug-panel');
+                panel.classList.toggle('visible');
+            };
+            document.body.appendChild(toggle);
+            
+            const panel = document.createElement('div');
+            panel.id = 'debug-panel';
+            panel.innerHTML = `
+                <div id="debug-header" onclick="document.getElementById('debug-panel').classList.toggle('visible')">
+                    <span>🐛 调试日志</span>
+                    <span onclick="this.parentElement.parentElement.classList.remove('visible')">×</span>
+                </div>
+                <div id="debug-content"></div>
+            `;
+            document.body.appendChild(panel);
+            
+            debugLog('调试面板已初始化', 'success');
+        });
+        
+        // 捕获所有fetch请求
+        const originalFetch = window.fetch;
+        window.fetch = function(...args) {
+            debugLog(`API请求: ${args[0]}`, 'info');
+            return originalFetch.apply(this, args)
+                .then(response => {
+                    debugLog(`API响应: ${args[0]} -> ${response.status}`, response.ok ? 'success' : 'error');
+                    return response;
+                })
+                .catch(err => {
+                    debugLog(`API失败: ${args[0]} -> ${err.message}`, 'error');
+                    throw err;
+                });
+        };
+    </script>
+    
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -944,7 +1081,6 @@
                 <div class="nav-item" data-page="strategies">策略中心</div>
                 <div class="nav-item" data-page="backtest">回测</div>
                 <div class="nav-item" data-page="risk">风险管理</div>
-                <div class="nav-item" data-page="validation">AI验证层</div>
                 <div class="nav-item" data-page="about">系统简介</div>
             </nav>
             <div class="nav-right">
@@ -1404,183 +1540,6 @@
                                 <label class="form-label">杠杆上限</label>
                                 <input type="number" class="form-input" value="1">
                             </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- AI验证层页面 -->
-            <div class="page-view" id="page-validation" style="padding: 24px;">
-                <!-- 顶部标签栏 -->
-                <div style="display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 1px solid var(--bg-border); padding-bottom: 16px;">
-                    <div style="padding: 8px 16px; background: rgba(139, 92, 246, 0.1); color: #8b5cf6; border-radius: 6px; font-size: 13px; font-weight: 600;">AI验证层</div>
-                    <div style="padding: 8px 16px; color: var(--text-secondary); border-radius: 6px; font-size: 13px; cursor: pointer;">验证监控</div>
-                    <div style="padding: 8px 16px; color: var(--text-secondary); border-radius: 6px; font-size: 13px; cursor: pointer;">过拟合防御</div>
-                    <div style="padding: 8px 16px; color: var(--text-secondary); border-radius: 6px; font-size: 13px; cursor: pointer;">偏差检测</div>
-                    <div style="padding: 8px 16px; color: var(--text-secondary); border-radius: 6px; font-size: 13px; cursor: pointer;">漂移监控</div>
-                    <div style="padding: 8px 16px; color: var(--text-secondary); border-radius: 6px; font-size: 13px; cursor: pointer;">决策审计</div>
-                    <div style="margin-left: auto; display: flex; align-items: center; gap: 12px;">
-                        <span style="padding: 4px 10px; background: rgba(246, 70, 93, 0.1); color: #f6465d; border-radius: 4px; font-size: 11px;">验证层独立</span>
-                        <span style="color: var(--text-secondary); font-size: 12px;">2026/10/25 05:38:40</span>
-                    </div>
-                </div>
-
-                <!-- 主内容区：左右两栏 -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
-                    <!-- 左侧：核心验证模块状态 -->
-                    <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                            <h3 style="font-size: 16px; font-weight: 600;">核心验证模块状态</h3>
-                            <span style="padding: 4px 10px; background: var(--bg-active); border-radius: 4px; font-size: 11px; color: var(--text-secondary);">13个模块</span>
-                        </div>
-                        
-                        <div style="display: flex; flex-direction: column; gap: 12px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #8b5cf6;">
-                                <span style="font-size: 13px;">过拟合防御系统 (PBO/DSR/CPCV)</span>
-                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #0ecb81;">
-                                <span style="font-size: 13px;">前视偏差自动检测器</span>
-                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #0ecb81;">
-                                <span style="font-size: 13px;">策略漂移监控（数据+概念）</span>
-                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #f0b90b;">
-                                <span style="font-size: 13px;">AB测试框架（统计显著性）</span>
-                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #f0b90b;">
-                                <span style="font-size: 13px;">决策可解释性（8层追溯）</span>
-                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #f6465d;">
-                                <span style="font-size: 13px;">四层止损体系</span>
-                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #848e9c;">
-                                <span style="font-size: 13px;">BOS/CHoCH市场结构识别</span>
-                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #848e9c;">
-                                <span style="font-size: 13px;">K线形态识别库（24形态）</span>
-                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #848e9c;">
-                                <span style="font-size: 13px;">滑点成本模型</span>
-                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #848e9c;">
-                                <span style="font-size: 13px;">策略生命周期管理</span>
-                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #848e9c;">
-                                <span style="font-size: 13px;">自动策略优化引擎</span>
-                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #848e9c;">
-                                <span style="font-size: 13px;">五层系统诊断框架</span>
-                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #848e9c;">
-                                <span style="font-size: 13px;">QuantDinger API桥接器</span>
-                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 已连接</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 右侧：决策审计日志 -->
-                    <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                            <h3 style="font-size: 16px; font-weight: 600;">决策审计日志（最近）</h3>
-                            <span style="padding: 4px 10px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">实时</span>
-                        </div>
-                        
-                        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; font-family: 'Consolas', monospace;">
-                            <div style="padding: 8px 12px; background: var(--bg-primary); border-radius: 6px;">
-                                <span style="color: var(--text-secondary);">23:08:58</span>
-                                <span style="margin-left: 8px; color: #f0b90b; font-weight: 600;">INFO</span>
-                                <span style="margin-left: 8px; color: var(--text-secondary);">守门报告生成完成：3个策略全部PASS</span>
-                            </div>
-                            <div style="padding: 8px 12px; background: var(--bg-primary); border-radius: 6px;">
-                                <span style="color: var(--text-secondary);">23:08:57</span>
-                                <span style="margin-left: 8px; color: #f0b90b; font-weight: 600;">INFO</span>
-                                <span style="margin-left: 8px; color: var(--text-secondary);">桥接模块连接成功：提取到3个真实策略</span>
-                            </div>
-                            <div style="padding: 8px 12px; background: var(--bg-primary); border-radius: 6px;">
-                                <span style="color: var(--text-secondary);">23:08:55</span>
-                                <span style="margin-left: 8px; color: #f0b90b; font-weight: 600;">INFO</span>
-                                <span style="margin-left: 8px; color: var(--text-secondary);">漂移监控检查：健康度100（真实模块）</span>
-                            </div>
-                            <div style="padding: 8px 12px; background: var(--bg-primary); border-radius: 6px;">
-                                <span style="color: var(--text-secondary);">23:08:53</span>
-                                <span style="margin-left: 8px; color: #f0b90b; font-weight: 600;">INFO</span>
-                                <span style="margin-left: 8px; color: var(--text-secondary);">过拟合PBO计算完成：0.15（低风险）</span>
-                            </div>
-                            <div style="padding: 8px 12px; background: var(--bg-primary); border-radius: 6px;">
-                                <span style="color: var(--text-secondary);">23:08:50</span>
-                                <span style="margin-left: 8px; color: #f0b90b; font-weight: 600;">INFO</span>
-                                <span style="margin-left: 8px; color: var(--text-secondary);">前视偏差扫描完成：0个警告</span>
-                            </div>
-                            <div style="padding: 8px 12px; background: var(--bg-primary); border-radius: 6px;">
-                                <span style="color: var(--text-secondary);">23:08:48</span>
-                                <span style="margin-left: 8px; color: #f0b90b; font-weight: 600;">INFO</span>
-                                <span style="margin-left: 8px; color: var(--text-secondary);">组合风险检查通过：风险敞口在限额内</span>
-                            </div>
-                            <div style="padding: 8px 12px; background: var(--bg-primary); border-radius: 6px;">
-                                <span style="color: var(--text-secondary);">23:08:45</span>
-                                <span style="margin-left: 8px; color: #f0b90b; font-weight: 600;">INFO</span>
-                                <span style="margin-left: 8px; color: var(--text-secondary);">压力测试完成：5个黑天鹅情景全部通过</span>
-                            </div>
-                            <div style="padding: 8px 12px; background: var(--bg-primary); border-radius: 6px;">
-                                <span style="color: var(--text-secondary);">23:08:40</span>
-                                <span style="margin-left: 8px; color: #f0b90b; font-weight: 600;">INFO</span>
-                                <span style="margin-left: 8px; color: var(--text-secondary);">系统启动完成：376个测试全部通过</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 底部：极端情景压力测试 -->
-                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h3 style="font-size: 16px; font-weight: 600;">极端情景压力测试</h3>
-                        <span style="padding: 4px 10px; background: var(--bg-active); border-radius: 4px; font-size: 11px; color: var(--text-secondary);">5个黑天鹅情景</span>
-                    </div>
-                    
-                    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 20px;">
-                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-top: 3px solid #f6465d;">
-                            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">2008金融危机</div>
-                            <div style="font-size: 20px; font-weight: 700; color: #f6465d; margin-bottom: 8px;">-1.22%</div>
-                            <div style="font-size: 11px; color: var(--text-secondary);">熔断触发 · 存活</div>
-                        </div>
-                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-top: 3px solid #f6465d;">
-                            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">2020新冠暴跌</div>
-                            <div style="font-size: 20px; font-weight: 700; color: #f6465d; margin-bottom: 8px;">-1.15%</div>
-                            <div style="font-size: 11px; color: var(--text-secondary);">熔断触发 · 存活</div>
-                        </div>
-                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-top: 3px solid #f0b90b;">
-                            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">2010闪电崩盘</div>
-                            <div style="font-size: 20px; font-weight: 700; color: #f0b90b; margin-bottom: 8px;">-0.85%</div>
-                            <div style="font-size: 11px; color: var(--text-secondary);">流动性危机 · 存活</div>
-                        </div>
-                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-top: 3px solid #0ecb81;">
-                            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">利率冲击</div>
-                            <div style="font-size: 20px; font-weight: 700; color: #0ecb81; margin-bottom: 8px;">-0.42%</div>
-                            <div style="font-size: 11px; color: var(--text-secondary);">正常波动 · 存活</div>
-                        </div>
-                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-top: 3px solid #8b5cf6;">
-                            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">大宗商品逼空</div>
-                            <div style="font-size: 20px; font-weight: 700; color: #8b5cf6; margin-bottom: 8px;">+1.85%</div>
-                            <div style="font-size: 11px; color: var(--text-secondary);">逼空行情 · 盈利</div>
-                        </div>
-                    </div>
-                    
-                    <div style="padding: 16px; background: rgba(14, 203, 129, 0.05); border-radius: 8px; border-left: 3px solid #0ecb81;">
-                        <div style="font-size: 13px; color: var(--text-secondary);">
-                            <span style="color: #0ecb81; font-weight: 600;">✓ 综合风险评分：72/100（中等风险）</span><br>
-                            <span style="font-size: 12px;">所有极端情景下系统均存活，最大回撤控制在2%以内。验证层独立于交易层，确保策略在上线前经过严格的质量门禁。</span>
                         </div>
                     </div>
                 </div>
@@ -2127,22 +2086,35 @@
         }
 
         // ========== 页面切换 ==========
+        debugLog('页面切换模块初始化', 'info');
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', () => {
-                document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-                item.classList.add('active');
                 const page = item.dataset.page;
-                document.querySelectorAll('.page-view').forEach(v => v.classList.remove('active'));
-                document.getElementById(`page-${page}`).classList.add('active');
-                
-                // 切换到回测页时初始化权益图
-                if (page === 'backtest') {
-                    setTimeout(() => {
-                        if (!equityChart) initEquityChart();
-                    }, 100);
+                debugLog(`切换到页面: ${page}`, 'info');
+                try {
+                    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+                    item.classList.add('active');
+                    document.querySelectorAll('.page-view').forEach(v => v.classList.remove('active'));
+                    const targetPage = document.getElementById(`page-${page}`);
+                    if (!targetPage) {
+                        debugLog(`页面不存在: page-${page}`, 'error');
+                        return;
+                    }
+                    targetPage.classList.add('active');
+                    debugLog(`页面切换成功: ${page}`, 'success');
+                    
+                    // 切换到回测页时初始化权益图
+                    if (page === 'backtest') {
+                        setTimeout(() => {
+                            if (!equityChart) initEquityChart();
+                        }, 100);
+                    }
+                } catch (err) {
+                    debugLog(`页面切换失败: ${err.message}`, 'error');
                 }
             });
         });
+        debugLog(`找到 ${document.querySelectorAll('.nav-item').length} 个导航项`, 'success');
 
         // ========== 时间周期切换 ==========
         document.querySelectorAll('.timeframe-tab').forEach(tab => {
