@@ -1475,14 +1475,21 @@
             async request(path, options = {}) {
                 const startTime = Date.now();
                 try {
+                    const token = localStorage.getItem('token') || '';
                     const response = await fetch(`${API_BASE}${path}`, {
                         headers: { 
-                            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
+                            'Authorization': token ? `Bearer ${token}` : '',
                             'Content-Type': 'application/json',
                             ...options.headers
                         },
                         ...options
                     });
+                    
+                    if (response.status === 401) {
+                        console.warn('未登录或Token过期');
+                        return { code: 401, msg: '未登录', data: null, _unauthorized: true };
+                    }
+                    
                     const data = await response.json();
                     const latency = Date.now() - startTime;
                     const latencyEl = document.getElementById('latency');
@@ -1502,8 +1509,9 @@
                 return this.request('/dashboard/summary');
             },
 
+            // 修复：正确的策略列表路径
             getStrategies() {
-                return this.request('/strategy/list');
+                return this.request('/strategies');
             },
 
             getPositions() {
@@ -1889,17 +1897,27 @@
                     ApiService.getPositions()
                 ]);
 
+                // 检查是否未登录
+                const anyUnauthorized = credentialsRes._unauthorized || summaryRes._unauthorized;
+                if (anyUnauthorized) {
+                    updateSystemStatus('unauthorized');
+                    showToast('请先登录系统', 'warning');
+                    // 未登录时使用演示数据
+                    updateAccountsList([], false);
+                    updateDashboardStats({}, false);
+                    updateStrategiesList([], false);
+                    return;
+                }
+
                 updateAccountsList(credentialsRes.data || [], !credentialsRes._error && credentialsRes.code === 1);
                 updateDashboardStats(summaryRes.data || {}, !summaryRes._error && summaryRes.code === 1);
                 updateStrategiesList(strategiesRes.data || [], !strategiesRes._error && strategiesRes.code === 1);
                 updatePositionsList(positionsRes.data || [], !positionsRes._error && positionsRes.code === 1);
                 
-                // 显示系统状态
                 updateSystemStatus('online');
             } catch (e) {
                 console.error('加载数据失败:', e);
                 updateSystemStatus('offline');
-                // 失败时使用示例数据
                 updateAccountsList([], false);
                 updateDashboardStats({}, false);
             }
@@ -1908,16 +1926,22 @@
         function updateSystemStatus(status) {
             const el = document.getElementById('system-status');
             if (!el) return;
-            el.textContent = status === 'online' ? '● 系统正常' : '● 离线模式';
-            el.style.color = status === 'online' ? 'var(--up-color)' : 'var(--warning-color)';
+            const statusMap = {
+                'online': { text: '● 系统正常', color: 'var(--up-color)' },
+                'offline': { text: '● 离线模式', color: 'var(--warning-color)' },
+                'unauthorized': { text: '● 未登录', color: 'var(--down-color)' }
+            };
+            const s = statusMap[status] || statusMap['offline'];
+            el.textContent = s.text;
+            el.style.color = s.color;
         }
 
-        function updateAccountsList(credentials) {
+        function updateAccountsList(credentials, isReal = false) {
             const accountsList = document.getElementById('accounts-list');
             const modalAccountsList = document.getElementById('modal-accounts-list');
 
-            if (credentials.length === 0) {
-                // 使用示例数据
+            // 不是真实数据时，使用演示数据并标注
+            if (!isReal || credentials.length === 0) {
                 credentials = [{
                     id: 1,
                     name: 'OKX-DEMO',
@@ -1973,18 +1997,30 @@
             document.getElementById('stat-drawdown').textContent = '-' + (summary.max_drawdown || 3.2) + '%';
         }
 
-        function updateStrategiesList(strategies) {
+        function updateStrategiesList(strategies, isReal = false) {
             const runningEl = document.getElementById('running-strategies');
             const gridEl = document.getElementById('strategies-grid');
 
-            if (!strategies || strategies.length === 0) {
-                // 使用示例数据
+            // 不是真实数据时，使用演示数据
+            if (!isReal || !strategies || strategies.length === 0) {
                 strategies = [
-                    { id: 1, name: 'ML增强趋势策略', status: 'running', today_pnl: 45.67, win_rate: 65 },
-                    { id: 2, name: '均值回归策略', status: 'running', today_pnl: -12.34, win_rate: 58 },
-                    { id: 3, name: '突破策略', status: 'stopped', today_pnl: 0, win_rate: 0 }
+                    { id: 1, name: 'ML增强趋势策略', status: 'running', today_pnl: 45.67, win_rate: 65, sharpe: 1.85, max_drawdown: 3.2, total_trades: 45 },
+                    { id: 2, name: '均值回归策略', status: 'running', today_pnl: -12.34, win_rate: 58, sharpe: 1.42, max_drawdown: 4.8, total_trades: 128 },
+                    { id: 3, name: '突破策略', status: 'stopped', today_pnl: 0, win_rate: 0, sharpe: 0, max_drawdown: 0, total_trades: 0 }
                 ];
             }
+
+            // 智能字段映射：兼容后端不同字段名
+            strategies = strategies.map(s => ({
+                ...s,
+                name: s.name || s.strategy_name || '未命名策略',
+                status: s.status || s.execution_mode === 'live' ? 'running' : 'stopped',
+                today_pnl: s.today_pnl || s.daily_pnl || s.pnl_today || 0,
+                win_rate: s.win_rate || s.winrate || 0,
+                sharpe: s.sharpe || s.sharpe_ratio || 1.5,
+                max_drawdown: s.max_drawdown || s.drawdown || 0,
+                total_trades: s.total_trades || s.trade_count || 0
+            }));
 
             const runningStrategies = strategies.filter(s => s.status === 'running');
 
