@@ -1027,15 +1027,19 @@
                                     <div class="chart-title">
                                         <span id="chart-symbol">BTC/USDT</span>
                                         <span id="chart-price" style="color: var(--up-color); margin-left: 12px; font-family: var(--font-mono);">--</span>
+                                        <span id="data-source-badge" style="margin-left: 12px;"></span>
                                     </div>
                                     <div class="timeframe-tabs">
                                         <button class="timeframe-tab" data-tf="1m">1m</button>
                                         <button class="timeframe-tab" data-tf="5m">5m</button>
                                         <button class="timeframe-tab" data-tf="15m">15m</button>
-                                        <button class="timeframe-tab active" data-tf="1h">1H</button>
-                                        <button class="timeframe-tab" data-tf="4h">4H</button>
-                                        <button class="timeframe-tab" data-tf="1d">1D</button>
+                                        <button class="timeframe-tab active" data-tf="1H">1H</button>
+                                        <button class="timeframe-tab" data-tf="4H">4H</button>
+                                        <button class="timeframe-tab" data-tf="1D">1D</button>
                                     </div>
+                                </div>
+                                <div id="kline-loading" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10; background: rgba(18, 22, 28, 0.9); padding: 12px 20px; border-radius: 8px; font-size: 12px; color: var(--text-secondary);">
+                                    加载K线数据...
                                 </div>
                                 <div class="chart-placeholder" id="main-chart"></div>
                                 <div class="volume-chart-container" id="volume-chart"></div>
@@ -1481,12 +1485,12 @@
                     });
                     const data = await response.json();
                     const latency = Date.now() - startTime;
-                    document.getElementById('latency').textContent = latency + 'ms';
+                    const latencyEl = document.getElementById('latency');
+                    if (latencyEl) latencyEl.textContent = latency + 'ms';
                     return data;
                 } catch (e) {
                     console.error('API Error:', path, e);
-                    showToast('网络请求失败', 'error');
-                    return { code: 0, msg: e.message, data: null };
+                    return { code: 0, msg: e.message, data: null, _error: true };
                 }
             },
 
@@ -1506,14 +1510,22 @@
                 return this.request('/portfolio/positions');
             },
 
-            getKline(symbol, interval, limit = 100) {
-                return this.request(`/kline/${symbol}?interval=${interval}&limit=${limit}`);
+            // 修复：正确的K线API路径和参数
+            getKline(symbol, timeframe = '1H', limit = 300) {
+                return this.request(`/kline?market=Crypto&symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}&limit=${limit}`);
             },
 
+            // 修复：正确的回测API参数
             runBacktest(params) {
                 return this.request('/backtest/run', {
                     method: 'POST',
-                    body: JSON.stringify(params)
+                    body: JSON.stringify({
+                        code: params.code || '# 简单趋势策略\nimport numpy as np\n\ndef initialize(context):\n    context.sma_short = 20\n    context.sma_long = 50\n\ndef handle_data(context, data):\n    pass',
+                        startDate: params.startDate || '2024-01-01',
+                        endDate: params.endDate || '2024-12-31',
+                        initialCapital: parseFloat(params.initialCapital) || 10000,
+                        leverageEnabled: false
+                    })
                 });
             }
         };
@@ -1530,8 +1542,10 @@
         // ========== K线图初始化 ==========
         let mainChart = null;
         let candlestickSeries = null;
+        let volumeSeries = null;
         let currentSymbol = 'BTC/USDT';
-        let currentTimeframe = '1h';
+        let currentTimeframe = '1H';
+        let isUsingMockData = false;
 
         function initMainChart() {
             const container = document.getElementById('main-chart');
@@ -1567,9 +1581,74 @@
                 wickUpColor: '#0ecb81',
             });
 
-            // 生成模拟数据
-            generateMockKlineData();
+            // 初始化成交量副图
             initVolumeChart();
+
+            // 从真实API加载K线
+            loadKlineData();
+        }
+
+        function initVolumeChart() {
+            if (!mainChart) return;
+            volumeSeries = mainChart.addHistogramSeries({
+                priceFormat: { type: 'volume' },
+                priceScaleId: '',
+            });
+            volumeSeries.priceScale().applyOptions({
+                scaleMargins: { top: 0.7, bottom: 0 },
+            });
+        }
+
+        // 修复：真实API加载K线，失败才用模拟数据并明确标注
+        async function loadKlineData() {
+            showKlineLoading(true);
+            
+            try {
+                const res = await ApiService.getKline(currentSymbol, currentTimeframe, 300);
+                
+                if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+                    isUsingMockData = false;
+                    const klineData = res.data.map(k => ({
+                        time: k.time || k.timestamp,
+                        open: parseFloat(k.open),
+                        high: parseFloat(k.high),
+                        low: parseFloat(k.low),
+                        close: parseFloat(k.close),
+                    }));
+                    
+                    const volumeData = res.data.map(k => ({
+                        time: k.time || k.timestamp,
+                        value: parseFloat(k.volume || 0),
+                        color: parseFloat(k.close) >= parseFloat(k.open) ? 'rgba(14, 203, 129, 0.5)' : 'rgba(246, 70, 93, 0.5)'
+                    }));
+                    
+                    candlestickSeries.setData(klineData);
+                    if (volumeSeries) volumeSeries.setData(volumeData);
+                    showDataSourceBadge('live');
+                } else {
+                    generateMockKlineData();
+                    showDataSourceBadge('mock');
+                }
+            } catch (e) {
+                console.warn('K线API失败，使用模拟数据:', e);
+                generateMockKlineData();
+                showDataSourceBadge('mock');
+            } finally {
+                showKlineLoading(false);
+            }
+        }
+
+        function showKlineLoading(show) {
+            const el = document.getElementById('kline-loading');
+            if (el) el.style.display = show ? 'flex' : 'none';
+        }
+
+        function showDataSourceBadge(type) {
+            const el = document.getElementById('data-source-badge');
+            if (!el) return;
+            el.innerHTML = type === 'live' 
+                ? '<span style="color: #0ecb81; font-size: 10px; font-weight: 600;">● LIVE 实时数据</span>'
+                : '<span style="color: #f0b90b; font-size: 10px; font-weight: 600;">○ 模拟数据</span>';
         }
 
         function generateMockKlineData() {
@@ -1697,7 +1776,7 @@
                 document.querySelectorAll('.timeframe-tab').forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
                 currentTimeframe = tab.dataset.tf;
-                generateMockKlineData(); // 重新生成数据
+                loadKlineData(); // 重新从API加载数据
             });
         });
 
@@ -1802,17 +1881,35 @@
 
         // ========== 数据加载 ==========
         async function loadAllData() {
-            const [credentialsRes, summaryRes, strategiesRes, positionsRes] = await Promise.all([
-                ApiService.getCredentials(),
-                ApiService.getDashboardSummary(),
-                ApiService.getStrategies(),
-                ApiService.getPositions()
-            ]);
+            try {
+                const [credentialsRes, summaryRes, strategiesRes, positionsRes] = await Promise.all([
+                    ApiService.getCredentials(),
+                    ApiService.getDashboardSummary(),
+                    ApiService.getStrategies(),
+                    ApiService.getPositions()
+                ]);
 
-            updateAccountsList(credentialsRes.data || []);
-            updateDashboardStats(summaryRes.data || {});
-            updateStrategiesList(strategiesRes.data || []);
-            updatePositionsList(positionsRes.data || []);
+                updateAccountsList(credentialsRes.data || [], !credentialsRes._error && credentialsRes.code === 1);
+                updateDashboardStats(summaryRes.data || {}, !summaryRes._error && summaryRes.code === 1);
+                updateStrategiesList(strategiesRes.data || [], !strategiesRes._error && strategiesRes.code === 1);
+                updatePositionsList(positionsRes.data || [], !positionsRes._error && positionsRes.code === 1);
+                
+                // 显示系统状态
+                updateSystemStatus('online');
+            } catch (e) {
+                console.error('加载数据失败:', e);
+                updateSystemStatus('offline');
+                // 失败时使用示例数据
+                updateAccountsList([], false);
+                updateDashboardStats({}, false);
+            }
+        }
+
+        function updateSystemStatus(status) {
+            const el = document.getElementById('system-status');
+            if (!el) return;
+            el.textContent = status === 'online' ? '● 系统正常' : '● 离线模式';
+            el.style.color = status === 'online' ? 'var(--up-color)' : 'var(--warning-color)';
         }
 
         function updateAccountsList(credentials) {
