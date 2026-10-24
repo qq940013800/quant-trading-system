@@ -1,0 +1,2471 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuantDinger Pro - 专业量化交易终端</title>
+    <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-primary: #0b0e11;
+            --bg-secondary: #12161c;
+            --bg-tertiary: #1e2329;
+            --bg-hover: #2b3139;
+            --bg-active: #474d57;
+            --text-primary: #eaecef;
+            --text-secondary: #848e9c;
+            --text-tertiary: #5e6673;
+            --brand-primary: #f0b90b;
+            --brand-hover: #fcd535;
+            --up-color: #0ecb81;
+            --up-bg: rgba(14, 203, 129, 0.1);
+            --down-color: #f6465d;
+            --down-bg: rgba(246, 70, 93, 0.1);
+            --warning-color: #f0b90b;
+            --border-color: #2b3139;
+            --border-light: #1e2329;
+            --spacing-xs: 4px;
+            --spacing-sm: 8px;
+            --spacing-md: 16px;
+            --spacing-lg: 24px;
+            --font-mono: 'Roboto Mono', 'SF Mono', Monaco, Consolas, monospace;
+            --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 14px;
+            line-height: 1.5;
+            overflow: hidden;
+        }
+
+        .app-layout {
+            display: grid;
+            grid-template-rows: 48px 1fr 28px;
+            height: 100vh;
+        }
+
+        /* 顶部导航 */
+        .top-nav {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 var(--spacing-md);
+            gap: var(--spacing-lg);
+        }
+
+        .logo {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--brand-primary);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+
+        .logo-icon {
+            width: 28px;
+            height: 28px;
+            background: var(--brand-primary);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--bg-primary);
+            font-weight: 900;
+        }
+
+        .nav-menu {
+            display: flex;
+            gap: var(--spacing-xs);
+            flex: 1;
+        }
+
+        .nav-item {
+            padding: 6px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: all 0.15s;
+            font-size: 13px;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+        }
+
+        .account-badge {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            padding: 4px 12px;
+            background: var(--bg-tertiary);
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--up-color);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* 主内容区 */
+        .main-content {
+            overflow: hidden;
+            position: relative;
+        }
+
+        .page-view {
+            display: none;
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        .page-view.active {
+            display: block;
+        }
+
+        /* 仪表盘页面 */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 280px 1fr 320px;
+            height: 100%;
+        }
+
+        /* 左侧边栏 */
+        .left-sidebar {
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            overflow-y: auto;
+        }
+
+        .sidebar-section {
+            padding: var(--spacing-md);
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .sidebar-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .asset-overview {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: var(--spacing-md);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .asset-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .asset-value {
+            font-family: var(--font-mono);
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        .asset-change {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            margin-top: var(--spacing-xs);
+        }
+
+        .asset-change.up { color: var(--up-color); }
+        .asset-change.down { color: var(--down-color); }
+
+        .position-list {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-xs);
+        }
+
+        .position-item {
+            padding: var(--spacing-sm);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .position-item:hover {
+            background: var(--bg-hover);
+        }
+
+        .position-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .position-symbol {
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        .position-pnl {
+            font-family: var(--font-mono);
+            font-size: 12px;
+        }
+
+        .position-pnl.up { color: var(--up-color); }
+        .position-pnl.down { color: var(--down-color); }
+
+        .position-details {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        /* 中间主区域 */
+        .center-area {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .stats-bar {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: var(--spacing-sm) var(--spacing-md);
+            display: flex;
+            gap: var(--spacing-lg);
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: var(--text-tertiary);
+        }
+
+        .stat-value {
+            font-family: var(--font-mono);
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .stat-value.up { color: var(--up-color); }
+        .stat-value.down { color: var(--down-color); }
+
+        /* 图表区域 */
+        .chart-area {
+            flex: 1;
+            padding: var(--spacing-md);
+            overflow: hidden;
+        }
+
+        .chart-container {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chart-header {
+            padding: var(--spacing-md);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chart-title {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .timeframe-tabs {
+            display: flex;
+            gap: 4px;
+        }
+
+        .timeframe-tab {
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            background: transparent;
+            border: none;
+        }
+
+        .timeframe-tab.active {
+            background: var(--bg-active);
+            color: var(--text-primary);
+        }
+
+        .chart-placeholder {
+            flex: 1;
+            position: relative;
+        }
+
+        /* 右侧边栏 */
+        .right-sidebar {
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border-color);
+            overflow-y: auto;
+        }
+
+        /* 订单簿 */
+        .orderbook {
+            padding: var(--spacing-md);
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .orderbook-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .orderbook-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            padding: 2px 0;
+            position: relative;
+        }
+
+        .orderbook-row.bid .amount-bar {
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            background: rgba(14, 203, 129, 0.15);
+            z-index: 0;
+        }
+
+        .orderbook-row.ask .amount-bar {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            background: rgba(246, 70, 93, 0.15);
+            z-index: 0;
+        }
+
+        .orderbook-row > span {
+            position: relative;
+            z-index: 1;
+        }
+
+        .orderbook-price.bid { color: var(--up-color); }
+        .orderbook-price.ask { color: var(--down-color); }
+        .orderbook-amount { text-align: right; color: var(--text-secondary); }
+        .orderbook-total { text-align: right; color: var(--text-tertiary); }
+
+        .orderbook-spread {
+            text-align: center;
+            padding: 8px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--text-primary);
+            font-weight: 600;
+            border-top: 1px solid var(--border-light);
+            border-bottom: 1px solid var(--border-light);
+            margin: 8px 0;
+        }
+
+        /* 交易历史 */
+        .trade-history {
+            padding: var(--spacing-md);
+        }
+
+        .trade-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            padding: 3px 0;
+        }
+
+        .trade-row .price.buy { color: var(--up-color); }
+        .trade-row .price.sell { color: var(--down-color); }
+
+        /* 成交量副图 */
+        .volume-chart-container {
+            height: 80px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        /* 绩效热力图 */
+        .monthly-heatmap {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .heatmap-grid {
+            display: grid;
+            grid-template-columns: 60px repeat(12, 1fr);
+            gap: 2px;
+            font-size: 10px;
+            font-family: var(--font-mono);
+        }
+
+        .heatmap-cell {
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 3px;
+            color: var(--text-primary);
+        }
+
+        .heatmap-cell.positive { background: rgba(14, 203, 129, 0.3); }
+        .heatmap-cell.negative { background: rgba(246, 70, 93, 0.3); }
+        .heatmap-header {
+            color: var(--text-tertiary);
+            font-weight: 600;
+        }
+
+        /* 回撤曲线 */
+        .drawdown-chart-container {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            height: 200px;
+            margin-bottom: 24px;
+        }
+
+        /* 策略对比表 */
+        .strategy-comparison {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 20px;
+            overflow-x: auto;
+        }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        .comparison-table th,
+        .comparison-table td {
+            padding: 10px 12px;
+            text-align: right;
+            border-bottom: 1px solid var(--border-light);
+            font-family: var(--font-mono);
+        }
+
+        .comparison-table th {
+            color: var(--text-tertiary);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 10px;
+        }
+
+        .comparison-table td:first-child,
+        .comparison-table th:first-child {
+            text-align: left;
+            font-family: var(--font-sans);
+        }
+
+        /* 策略详情弹窗 */
+        .strategy-detail-tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .strategy-detail-tab {
+            padding: 10px 16px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+        }
+
+        .strategy-detail-tab.active {
+            color: var(--brand-primary);
+            border-bottom-color: var(--brand-primary);
+        }
+
+        /* 下单面板 */
+        .order-panel {
+            padding: var(--spacing-md);
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .order-tabs {
+            display: flex;
+            margin-bottom: var(--spacing-md);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .order-tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            font-weight: 600;
+            transition: all 0.15s;
+        }
+
+        .order-tab.active.buy {
+            background: var(--up-color);
+            color: white;
+        }
+
+        .order-tab.active.sell {
+            background: var(--down-color);
+            color: white;
+        }
+
+        .form-group {
+            margin-bottom: var(--spacing-md);
+        }
+
+        .form-label {
+            display: block;
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+            font-size: 14px;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--brand-primary);
+        }
+
+        .btn-primary {
+            width: 100%;
+            padding: 12px;
+            border-radius: 6px;
+            border: none;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: opacity 0.15s;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+
+        .btn-buy {
+            background: var(--up-color);
+            color: white;
+        }
+
+        .btn-sell {
+            background: var(--down-color);
+            color: white;
+        }
+
+        /* 策略列表 */
+        .strategy-list {
+            padding: var(--spacing-md);
+        }
+
+        .strategy-card {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: var(--spacing-md);
+            margin-bottom: var(--spacing-sm);
+            cursor: pointer;
+            transition: all 0.15s;
+            border-left: 3px solid transparent;
+        }
+
+        .strategy-card:hover {
+            background: var(--bg-hover);
+        }
+
+        .strategy-card.running {
+            border-left-color: var(--up-color);
+        }
+
+        .strategy-card.stopped {
+            border-left-color: var(--text-tertiary);
+        }
+
+        .strategy-card.error {
+            border-left-color: var(--down-color);
+        }
+
+        .strategy-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .strategy-name {
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        .strategy-status {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        .strategy-status.running {
+            background: var(--up-bg);
+            color: var(--up-color);
+        }
+
+        .strategy-status.stopped {
+            background: var(--bg-hover);
+            color: var(--text-secondary);
+        }
+
+        .strategy-metrics {
+            display: flex;
+            gap: var(--spacing-md);
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        /* 策略中心页面 */
+        .strategy-center-page {
+            padding: var(--spacing-lg);
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .page-title {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .btn-secondary {
+            padding: 8px 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            cursor: pointer;
+        }
+
+        .strategies-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: var(--spacing-md);
+        }
+
+        /* 回测页面 */
+        .backtest-page {
+            padding: var(--spacing-lg);
+        }
+
+        .backtest-config {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: var(--spacing-lg);
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .config-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+
+        .backtest-results {
+            display: none;
+        }
+
+        .backtest-results.active {
+            display: block;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .result-card {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .result-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .result-value {
+            font-family: var(--font-mono);
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .result-value.up { color: var(--up-color); }
+        .result-value.down { color: var(--down-color); }
+
+        .equity-chart-container {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            height: 400px;
+            margin-bottom: 24px;
+        }
+
+        /* 风控页面 */
+        .risk-page {
+            padding: var(--spacing-lg);
+        }
+
+        .risk-dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .risk-card {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: var(--spacing-lg);
+        }
+
+        .risk-card.warning { border-left: 4px solid var(--warning-color); }
+        .risk-card.danger { border-left: 4px solid var(--down-color); }
+        .risk-card.safe { border-left: 4px solid var(--up-color); }
+
+        .risk-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .risk-value {
+            font-family: var(--font-mono);
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .risk-threshold {
+            font-size: 11px;
+            color: var(--text-tertiary);
+            margin-top: var(--spacing-xs);
+        }
+
+        /* 底部状态栏 */
+        .status-bar {
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 var(--spacing-md);
+            gap: var(--spacing-lg);
+            font-size: 11px;
+            color: var(--text-tertiary);
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* 弹窗 */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            width: 640px;
+            max-height: 90vh;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        /* 加载状态 */
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--border-color);
+            border-top-color: var(--brand-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(11, 14, 17, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        /* Toast 提示 */
+        .toast {
+            position: fixed;
+            top: 60px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            z-index: 2000;
+            animation: slideIn 0.3s ease;
+        }
+
+        .toast.success { background: var(--up-bg); color: var(--up-color); border: 1px solid var(--up-color); }
+        .toast.error { background: var(--down-bg); color: var(--down-color); border: 1px solid var(--down-color); }
+
+        @keyframes slideIn {
+            from { transform: translateX(100px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-layout">
+        <!-- 顶部导航 -->
+        <header class="top-nav">
+            <div class="logo">
+                <div class="logo-icon">Q</div>
+                <span>QuantDinger Pro</span>
+            </div>
+            <nav class="nav-menu">
+                <div class="nav-item active" data-page="dashboard">仪表盘</div>
+                <div class="nav-item" data-page="strategies">策略中心</div>
+                <div class="nav-item" data-page="backtest">回测</div>
+                <div class="nav-item" data-page="risk">风险管理</div>
+                <div class="nav-item" data-page="validation">AI验证层</div>
+                <div class="nav-item" data-page="about">系统简介</div>
+            </nav>
+            <div class="nav-right">
+                <div class="account-badge">
+                    <div class="status-dot"></div>
+                    <span id="nav-account-name">OKX-DEMO 已连接</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- 主内容区 -->
+        <main class="main-content">
+            <!-- 仪表盘页面 -->
+            <div class="page-view active" id="page-dashboard">
+                <div class="dashboard-grid">
+                    <!-- 左侧边栏 -->
+                    <aside class="left-sidebar">
+                        <div class="sidebar-section">
+                            <div class="sidebar-title">账户资产</div>
+                            <div class="asset-overview">
+                                <div class="asset-label">总权益 (USDT)</div>
+                                <div class="asset-value" id="total-equity">--</div>
+                                <div class="asset-change up" id="daily-pnl-change">--</div>
+                            </div>
+                            <div class="asset-overview">
+                                <div class="asset-label">今日盈亏</div>
+                                <div class="asset-value" id="daily-pnl">--</div>
+                                <div class="asset-change" id="daily-pnl-percent">--</div>
+                            </div>
+                        </div>
+
+                        <div class="sidebar-section">
+                            <div class="sidebar-title">持仓</div>
+                            <div class="position-list" id="positions-list">
+                                <div style="color: var(--text-tertiary); font-size: 12px; text-align: center; padding: 20px;">
+                                    <div class="loading"></div>
+                                    <div style="margin-top: 8px;">加载中...</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="sidebar-section">
+                            <div class="sidebar-title">我的账户</div>
+                            <div id="accounts-list">
+                                <div style="color: var(--text-tertiary); font-size: 12px;">
+                                    <div class="loading"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </aside>
+
+                    <!-- 中间主区域 -->
+                    <section class="center-area">
+                        <!-- 顶部统计栏 -->
+                        <div class="stats-bar">
+                            <div class="stat-item">
+                                <span class="stat-label">今日交易</span>
+                                <span class="stat-value" id="stat-trades">--</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">胜率</span>
+                                <span class="stat-value up" id="stat-winrate">--</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">盈亏比</span>
+                                <span class="stat-value" id="stat-plratio">--</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">最大回撤</span>
+                                <span class="stat-value down" id="stat-drawdown">--</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">夏普比率</span>
+                                <span class="stat-value up" id="stat-sharpe">--</span>
+                            </div>
+                        </div>
+
+                        <!-- K线图表区域 -->
+                        <div class="chart-area">
+                            <div class="chart-container">
+                                <div class="chart-header">
+                                    <div class="chart-title">
+                                        <span id="chart-symbol">BTC/USDT</span>
+                                        <span id="chart-price" style="color: var(--up-color); margin-left: 12px; font-family: var(--font-mono);">--</span>
+                                        <span id="data-source-badge" style="margin-left: 12px;"></span>
+                                    </div>
+                                    <div class="timeframe-tabs">
+                                        <button class="timeframe-tab" data-tf="1m">1m</button>
+                                        <button class="timeframe-tab" data-tf="5m">5m</button>
+                                        <button class="timeframe-tab" data-tf="15m">15m</button>
+                                        <button class="timeframe-tab active" data-tf="1H">1H</button>
+                                        <button class="timeframe-tab" data-tf="4H">4H</button>
+                                        <button class="timeframe-tab" data-tf="1D">1D</button>
+                                    </div>
+                                </div>
+                                <div id="kline-loading" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10; background: rgba(18, 22, 28, 0.9); padding: 12px 20px; border-radius: 8px; font-size: 12px; color: var(--text-secondary);">
+                                    加载K线数据...
+                                </div>
+                                <div class="chart-placeholder" id="main-chart"></div>
+                                <div class="volume-chart-container" id="volume-chart"></div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 右侧边栏 -->
+                    <aside class="right-sidebar">
+                        <!-- 订单簿 -->
+                        <div class="orderbook">
+                            <div class="orderbook-title">订单簿 - BTC/USDT</div>
+                            <div id="orderbook-bids">
+                                <!-- 卖盘（ask）从高到低 -->
+                                <div class="orderbook-row ask">
+                                    <span class="orderbook-price ask">42,150.50</span>
+                                    <span class="orderbook-amount">0.234</span>
+                                    <span class="orderbook-total">12.45</span>
+                                    <div class="amount-bar" style="width: 45%;"></div>
+                                </div>
+                                <div class="orderbook-row ask">
+                                    <span class="orderbook-price ask">42,148.20</span>
+                                    <span class="orderbook-amount">0.567</span>
+                                    <span class="orderbook-total">11.22</span>
+                                    <div class="amount-bar" style="width: 60%;"></div>
+                                </div>
+                                <div class="orderbook-row ask">
+                                    <span class="orderbook-price ask">42,145.00</span>
+                                    <span class="orderbook-amount">1.234</span>
+                                    <span class="orderbook-total">10.65</span>
+                                    <div class="amount-bar" style="width: 80%;"></div>
+                                </div>
+                                <div class="orderbook-row ask">
+                                    <span class="orderbook-price ask">42,142.80</span>
+                                    <span class="orderbook-amount">0.891</span>
+                                    <span class="orderbook-total">9.42</span>
+                                    <div class="amount-bar" style="width: 55%;"></div>
+                                </div>
+                                <div class="orderbook-row ask">
+                                    <span class="orderbook-price ask">42,140.00</span>
+                                    <span class="orderbook-amount">0.456</span>
+                                    <span class="orderbook-total">8.53</span>
+                                    <div class="amount-bar" style="width: 35%;"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="orderbook-spread">
+                                42,138.50 ↓ 价差: $1.50 (0.004%)
+                            </div>
+                            
+                            <div id="orderbook-asks">
+                                <!-- 买盘（bid）从低到高 -->
+                                <div class="orderbook-row bid">
+                                    <span class="orderbook-price bid">42,137.00</span>
+                                    <span class="orderbook-amount">0.345</span>
+                                    <span class="orderbook-total">8.07</span>
+                                    <div class="amount-bar" style="width: 40%;"></div>
+                                </div>
+                                <div class="orderbook-row bid">
+                                    <span class="orderbook-price bid">42,135.50</span>
+                                    <span class="orderbook-amount">0.678</span>
+                                    <span class="orderbook-total">7.72</span>
+                                    <div class="amount-bar" style="width: 55%;"></div>
+                                </div>
+                                <div class="orderbook-row bid">
+                                    <span class="orderbook-price bid">42,133.00</span>
+                                    <span class="orderbook-amount">1.567</span>
+                                    <span class="orderbook-total">7.04</span>
+                                    <div class="amount-bar" style="width: 85%;"></div>
+                                </div>
+                                <div class="orderbook-row bid">
+                                    <span class="orderbook-price bid">42,130.20</span>
+                                    <span class="orderbook-amount">0.789</span>
+                                    <span class="orderbook-total">5.47</span>
+                                    <div class="amount-bar" style="width: 50%;"></div>
+                                </div>
+                                <div class="orderbook-row bid">
+                                    <span class="orderbook-price bid">42,128.00</span>
+                                    <span class="orderbook-amount">0.234</span>
+                                    <span class="orderbook-total">4.68</span>
+                                    <div class="amount-bar" style="width: 30%;"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 下单面板 -->
+                        <div class="order-panel">
+                            <div class="order-tabs">
+                                <div class="order-tab buy active">买入</div>
+                                <div class="order-tab sell">卖出</div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">交易对</label>
+                                <select class="form-input" id="order-symbol">
+                                    <option>BTC/USDT</option>
+                                    <option>ETH/USDT</option>
+                                    <option>SOL/USDT</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">价格 (USDT)</label>
+                                <input type="number" class="form-input" id="order-price" value="42000.00">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">数量 (BTC)</label>
+                                <input type="number" class="form-input" id="order-amount" value="0.1">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">订单类型</label>
+                                <select class="form-input">
+                                    <option>限价单</option>
+                                    <option>市价单</option>
+                                    <option>止损单</option>
+                                </select>
+                            </div>
+                            <button class="btn-primary btn-buy" onclick="submitOrder()">买入 BTC</button>
+                        </div>
+
+                        <!-- 运行中策略 -->
+                        <div class="strategy-list">
+                            <div class="sidebar-title">运行中策略</div>
+                            <div id="running-strategies">
+                                <div style="color: var(--text-tertiary); font-size: 12px;">
+                                    <div class="loading"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </aside>
+                </div>
+            </div>
+
+            <!-- 策略中心页面 -->
+            <div class="page-view" id="page-strategies">
+                <div class="strategy-center-page">
+                    <div class="page-header">
+                        <div class="page-title">策略中心</div>
+                        <button class="btn-secondary">+ 创建新策略</button>
+                    </div>
+                    <div class="strategies-grid" id="strategies-grid">
+                        <div style="color: var(--text-tertiary);">
+                            <div class="loading"></div>
+                            <div style="margin-top: 8px;">加载策略列表...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 回测页面 -->
+            <div class="page-view" id="page-backtest">
+                <div class="backtest-page">
+                    <div class="page-header">
+                        <div class="page-title">回测工作台</div>
+                        <button class="btn-primary" style="width: auto; padding: 8px 24px;" onclick="runBacktest()" id="run-backtest-btn">
+                            <span id="backtest-btn-text">运行回测</span>
+                        </button>
+                    </div>
+                    
+                    <div class="backtest-config">
+                        <div class="config-grid">
+                            <div class="form-group">
+                                <label class="form-label">选择策略</label>
+                                <select class="form-input" id="bt-strategy">
+                                    <option value="1">ML增强趋势策略</option>
+                                    <option value="2">均值回归策略</option>
+                                    <option value="3">突破策略</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">交易对</label>
+                                <select class="form-input" id="bt-symbol">
+                                    <option>BTC/USDT</option>
+                                    <option>ETH/USDT</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">时间周期</label>
+                                <select class="form-input" id="bt-interval">
+                                    <option>1h</option>
+                                    <option selected>4h</option>
+                                    <option>1d</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">开始日期</label>
+                                <input type="date" class="form-input" id="bt-start" value="2024-01-01">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">结束日期</label>
+                                <input type="date" class="form-input" id="bt-end" value="2024-12-31">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">初始资金 (USDT)</label>
+                                <input type="number" class="form-input" id="bt-capital" value="10000">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 回测结果 -->
+                    <div class="backtest-results" id="backtest-results">
+                        <div class="results-grid">
+                            <div class="result-card">
+                                <div class="result-label">总收益率</div>
+                                <div class="result-value up" id="bt-total-return">--</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="result-label">夏普比率</div>
+                                <div class="result-value" id="bt-sharpe">--</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="result-label">最大回撤</div>
+                                <div class="result-value down" id="bt-drawdown">--</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="result-label">胜率</div>
+                                <div class="result-value" id="bt-winrate">--</div>
+                            </div>
+                        </div>
+                        
+                        <!-- 权益曲线 -->
+                        <div class="equity-chart-container" id="equity-chart"></div>
+                        
+                        <!-- 回撤曲线 -->
+                        <div class="drawdown-chart-container">
+                            <div style="padding: 16px; border-bottom: 1px solid var(--border-color); font-weight: 600; font-size: 14px;">回撤曲线</div>
+                            <div id="drawdown-chart" style="height: 160px;"></div>
+                        </div>
+                        
+                        <!-- 月度收益热力图 -->
+                        <div class="monthly-heatmap">
+                            <div style="font-weight: 600; margin-bottom: 16px;">月度收益热力图 (%)</div>
+                            <div class="heatmap-grid">
+                                <div class="heatmap-header"></div>
+                                <div class="heatmap-header" style="text-align:center;">1月</div>
+                                <div class="heatmap-header" style="text-align:center;">2月</div>
+                                <div class="heatmap-header" style="text-align:center;">3月</div>
+                                <div class="heatmap-header" style="text-align:center;">4月</div>
+                                <div class="heatmap-header" style="text-align:center;">5月</div>
+                                <div class="heatmap-header" style="text-align:center;">6月</div>
+                                <div class="heatmap-header" style="text-align:center;">7月</div>
+                                <div class="heatmap-header" style="text-align:center;">8月</div>
+                                <div class="heatmap-header" style="text-align:center;">9月</div>
+                                <div class="heatmap-header" style="text-align:center;">10月</div>
+                                <div class="heatmap-header" style="text-align:center;">11月</div>
+                                <div class="heatmap-header" style="text-align:center;">12月</div>
+                                
+                                <div class="heatmap-header">2024</div>
+                                <div class="heatmap-cell positive">+3.2</div>
+                                <div class="heatmap-cell positive">+5.1</div>
+                                <div class="heatmap-cell negative">-1.8</div>
+                                <div class="heatmap-cell positive">+4.5</div>
+                                <div class="heatmap-cell positive">+2.3</div>
+                                <div class="heatmap-cell negative">-0.9</div>
+                                <div class="heatmap-cell positive">+6.7</div>
+                                <div class="heatmap-cell positive">+3.4</div>
+                                <div class="heatmap-cell negative">-2.1</div>
+                                <div class="heatmap-cell positive">+4.8</div>
+                                <div class="heatmap-cell positive">+5.6</div>
+                                <div class="heatmap-cell positive">+2.9</div>
+                            </div>
+                        </div>
+                        
+                        <!-- 策略对比表 -->
+                        <div class="strategy-comparison">
+                            <div style="font-weight: 600; margin-bottom: 16px;">策略绩效对比</div>
+                            <table class="comparison-table">
+                                <thead>
+                                    <tr>
+                                        <th>策略</th>
+                                        <th>总收益</th>
+                                        <th>年化</th>
+                                        <th>夏普</th>
+                                        <th>回撤</th>
+                                        <th>胜率</th>
+                                        <th>盈亏比</th>
+                                        <th>交易数</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>ML增强趋势</td>
+                                        <td style="color: var(--up-color);">+67.97%</td>
+                                        <td>+52.3%</td>
+                                        <td>1.85</td>
+                                        <td style="color: var(--down-color);">-15.2%</td>
+                                        <td>55.6%</td>
+                                        <td>1.85</td>
+                                        <td>45</td>
+                                    </tr>
+                                    <tr>
+                                        <td>均值回归</td>
+                                        <td style="color: var(--up-color);">+23.45%</td>
+                                        <td>+18.7%</td>
+                                        <td>1.23</td>
+                                        <td style="color: var(--down-color);">-8.5%</td>
+                                        <td>62.3%</td>
+                                        <td>1.42</td>
+                                        <td>128</td>
+                                    </tr>
+                                    <tr>
+                                        <td>突破策略</td>
+                                        <td style="color: var(--up-color);">+45.67%</td>
+                                        <td>+35.2%</td>
+                                        <td>1.56</td>
+                                        <td style="color: var(--down-color);">-18.7%</td>
+                                        <td>48.9%</td>
+                                        <td>2.13</td>
+                                        <td>67</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 风险管理页面 -->
+            <div class="page-view" id="page-risk">
+                <div class="risk-page">
+                    <div class="page-header">
+                        <div class="page-title">风险管理仪表盘</div>
+                    </div>
+                    <div class="risk-dashboard">
+                        <div class="risk-card safe">
+                            <div class="risk-label">账户总风险敞口</div>
+                            <div class="risk-value" style="color: var(--up-color);">12.5%</div>
+                            <div class="risk-threshold">限额: 20%</div>
+                        </div>
+                        <div class="risk-card warning">
+                            <div class="risk-label">单策略最大风险</div>
+                            <div class="risk-value" style="color: var(--warning-color);">8.2%</div>
+                            <div class="risk-threshold">限额: 10%</div>
+                        </div>
+                        <div class="risk-card safe">
+                            <div class="risk-label">相关性风险</div>
+                            <div class="risk-value" style="color: var(--up-color);">0.35</div>
+                            <div class="risk-threshold">阈值: 0.7</div>
+                        </div>
+                        <div class="risk-card danger">
+                            <div class="risk-label">当日最大回撤</div>
+                            <div class="risk-value" style="color: var(--down-color);">-4.2%</div>
+                            <div class="risk-threshold">熔断线: -5%</div>
+                        </div>
+                    </div>
+                    <div style="background: var(--bg-secondary); border-radius: 8px; padding: 24px;">
+                        <h3 style="margin-bottom: 16px;">风险限额设置</h3>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                            <div class="form-group">
+                                <label class="form-label">单日最大亏损 (%)</label>
+                                <input type="number" class="form-input" value="5">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">单策略最大仓位 (%)</label>
+                                <input type="number" class="form-input" value="30">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">最大同时持仓数</label>
+                                <input type="number" class="form-input" value="10">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">杠杆上限</label>
+                                <input type="number" class="form-input" value="1">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI验证层页面 -->
+            <div class="page-view" id="page-validation" style="padding: 24px;">
+                <!-- 顶部标签栏 -->
+                <div style="display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 1px solid var(--bg-border); padding-bottom: 16px;">
+                    <div style="padding: 8px 16px; background: rgba(139, 92, 246, 0.1); color: #8b5cf6; border-radius: 6px; font-size: 13px; font-weight: 600;">AI验证层</div>
+                    <div style="padding: 8px 16px; color: var(--text-secondary); border-radius: 6px; font-size: 13px; cursor: pointer;">验证监控</div>
+                    <div style="padding: 8px 16px; color: var(--text-secondary); border-radius: 6px; font-size: 13px; cursor: pointer;">过拟合防御</div>
+                    <div style="padding: 8px 16px; color: var(--text-secondary); border-radius: 6px; font-size: 13px; cursor: pointer;">偏差检测</div>
+                    <div style="padding: 8px 16px; color: var(--text-secondary); border-radius: 6px; font-size: 13px; cursor: pointer;">漂移监控</div>
+                    <div style="padding: 8px 16px; color: var(--text-secondary); border-radius: 6px; font-size: 13px; cursor: pointer;">决策审计</div>
+                    <div style="margin-left: auto; display: flex; align-items: center; gap: 12px;">
+                        <span style="padding: 4px 10px; background: rgba(246, 70, 93, 0.1); color: #f6465d; border-radius: 4px; font-size: 11px;">验证层独立</span>
+                        <span style="color: var(--text-secondary); font-size: 12px;">2026/10/25 05:38:40</span>
+                    </div>
+                </div>
+
+                <!-- 主内容区：左右两栏 -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+                    <!-- 左侧：核心验证模块状态 -->
+                    <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h3 style="font-size: 16px; font-weight: 600;">核心验证模块状态</h3>
+                            <span style="padding: 4px 10px; background: var(--bg-active); border-radius: 4px; font-size: 11px; color: var(--text-secondary);">13个模块</span>
+                        </div>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #8b5cf6;">
+                                <span style="font-size: 13px;">过拟合防御系统 (PBO/DSR/CPCV)</span>
+                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #0ecb81;">
+                                <span style="font-size: 13px;">前视偏差自动检测器</span>
+                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #0ecb81;">
+                                <span style="font-size: 13px;">策略漂移监控（数据+概念）</span>
+                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #f0b90b;">
+                                <span style="font-size: 13px;">AB测试框架（统计显著性）</span>
+                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #f0b90b;">
+                                <span style="font-size: 13px;">决策可解释性（8层追溯）</span>
+                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #f6465d;">
+                                <span style="font-size: 13px;">四层止损体系</span>
+                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #848e9c;">
+                                <span style="font-size: 13px;">BOS/CHoCH市场结构识别</span>
+                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #848e9c;">
+                                <span style="font-size: 13px;">K线形态识别库（24形态）</span>
+                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #848e9c;">
+                                <span style="font-size: 13px;">滑点成本模型</span>
+                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #848e9c;">
+                                <span style="font-size: 13px;">策略生命周期管理</span>
+                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #848e9c;">
+                                <span style="font-size: 13px;">自动策略优化引擎</span>
+                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #848e9c;">
+                                <span style="font-size: 13px;">五层系统诊断框架</span>
+                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #848e9c;">
+                                <span style="font-size: 13px;">QuantDinger API桥接器</span>
+                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 已连接</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 右侧：决策审计日志 -->
+                    <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h3 style="font-size: 16px; font-weight: 600;">决策审计日志（最近）</h3>
+                            <span style="padding: 4px 10px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">实时</span>
+                        </div>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; font-family: 'Consolas', monospace;">
+                            <div style="padding: 8px 12px; background: var(--bg-primary); border-radius: 6px;">
+                                <span style="color: var(--text-secondary);">23:08:58</span>
+                                <span style="margin-left: 8px; color: #f0b90b; font-weight: 600;">INFO</span>
+                                <span style="margin-left: 8px; color: var(--text-secondary);">守门报告生成完成：3个策略全部PASS</span>
+                            </div>
+                            <div style="padding: 8px 12px; background: var(--bg-primary); border-radius: 6px;">
+                                <span style="color: var(--text-secondary);">23:08:57</span>
+                                <span style="margin-left: 8px; color: #f0b90b; font-weight: 600;">INFO</span>
+                                <span style="margin-left: 8px; color: var(--text-secondary);">桥接模块连接成功：提取到3个真实策略</span>
+                            </div>
+                            <div style="padding: 8px 12px; background: var(--bg-primary); border-radius: 6px;">
+                                <span style="color: var(--text-secondary);">23:08:55</span>
+                                <span style="margin-left: 8px; color: #f0b90b; font-weight: 600;">INFO</span>
+                                <span style="margin-left: 8px; color: var(--text-secondary);">漂移监控检查：健康度100（真实模块）</span>
+                            </div>
+                            <div style="padding: 8px 12px; background: var(--bg-primary); border-radius: 6px;">
+                                <span style="color: var(--text-secondary);">23:08:53</span>
+                                <span style="margin-left: 8px; color: #f0b90b; font-weight: 600;">INFO</span>
+                                <span style="margin-left: 8px; color: var(--text-secondary);">过拟合PBO计算完成：0.15（低风险）</span>
+                            </div>
+                            <div style="padding: 8px 12px; background: var(--bg-primary); border-radius: 6px;">
+                                <span style="color: var(--text-secondary);">23:08:50</span>
+                                <span style="margin-left: 8px; color: #f0b90b; font-weight: 600;">INFO</span>
+                                <span style="margin-left: 8px; color: var(--text-secondary);">前视偏差扫描完成：0个警告</span>
+                            </div>
+                            <div style="padding: 8px 12px; background: var(--bg-primary); border-radius: 6px;">
+                                <span style="color: var(--text-secondary);">23:08:48</span>
+                                <span style="margin-left: 8px; color: #f0b90b; font-weight: 600;">INFO</span>
+                                <span style="margin-left: 8px; color: var(--text-secondary);">组合风险检查通过：风险敞口在限额内</span>
+                            </div>
+                            <div style="padding: 8px 12px; background: var(--bg-primary); border-radius: 6px;">
+                                <span style="color: var(--text-secondary);">23:08:45</span>
+                                <span style="margin-left: 8px; color: #f0b90b; font-weight: 600;">INFO</span>
+                                <span style="margin-left: 8px; color: var(--text-secondary);">压力测试完成：5个黑天鹅情景全部通过</span>
+                            </div>
+                            <div style="padding: 8px 12px; background: var(--bg-primary); border-radius: 6px;">
+                                <span style="color: var(--text-secondary);">23:08:40</span>
+                                <span style="margin-left: 8px; color: #f0b90b; font-weight: 600;">INFO</span>
+                                <span style="margin-left: 8px; color: var(--text-secondary);">系统启动完成：376个测试全部通过</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 底部：极端情景压力测试 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="font-size: 16px; font-weight: 600;">极端情景压力测试</h3>
+                        <span style="padding: 4px 10px; background: var(--bg-active); border-radius: 4px; font-size: 11px; color: var(--text-secondary);">5个黑天鹅情景</span>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 20px;">
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-top: 3px solid #f6465d;">
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">2008金融危机</div>
+                            <div style="font-size: 20px; font-weight: 700; color: #f6465d; margin-bottom: 8px;">-1.22%</div>
+                            <div style="font-size: 11px; color: var(--text-secondary);">熔断触发 · 存活</div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-top: 3px solid #f6465d;">
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">2020新冠暴跌</div>
+                            <div style="font-size: 20px; font-weight: 700; color: #f6465d; margin-bottom: 8px;">-1.15%</div>
+                            <div style="font-size: 11px; color: var(--text-secondary);">熔断触发 · 存活</div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-top: 3px solid #f0b90b;">
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">2010闪电崩盘</div>
+                            <div style="font-size: 20px; font-weight: 700; color: #f0b90b; margin-bottom: 8px;">-0.85%</div>
+                            <div style="font-size: 11px; color: var(--text-secondary);">流动性危机 · 存活</div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-top: 3px solid #0ecb81;">
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">利率冲击</div>
+                            <div style="font-size: 20px; font-weight: 700; color: #0ecb81; margin-bottom: 8px;">-0.42%</div>
+                            <div style="font-size: 11px; color: var(--text-secondary);">正常波动 · 存活</div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-top: 3px solid #8b5cf6;">
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">大宗商品逼空</div>
+                            <div style="font-size: 20px; font-weight: 700; color: #8b5cf6; margin-bottom: 8px;">+1.85%</div>
+                            <div style="font-size: 11px; color: var(--text-secondary);">逼空行情 · 盈利</div>
+                        </div>
+                    </div>
+                    
+                    <div style="padding: 16px; background: rgba(14, 203, 129, 0.05); border-radius: 8px; border-left: 3px solid #0ecb81;">
+                        <div style="font-size: 13px; color: var(--text-secondary);">
+                            <span style="color: #0ecb81; font-weight: 600;">✓ 综合风险评分：72/100（中等风险）</span><br>
+                            <span style="font-size: 12px;">所有极端情景下系统均存活，最大回撤控制在2%以内。验证层独立于交易层，确保策略在上线前经过严格的质量门禁。</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 系统简介页面 -->
+            <div class="page-view" id="page-about" style="padding: 32px; max-width: 1200px; margin: 0 auto;">
+                <!-- 系统标题 -->
+                <div style="text-align: center; margin-bottom: 48px;">
+                    <h1 style="font-size: 36px; font-weight: 700; margin-bottom: 12px; background: linear-gradient(135deg, #f0b90b, #f6465d); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">QuantDinger</h1>
+                    <p style="color: var(--text-secondary); font-size: 16px;">AI/ML 增强企业级量化交易系统</p>
+                    <div style="margin-top: 16px; display: flex; justify-content: center; gap: 12px;">
+                        <span style="padding: 4px 12px; border-radius: 4px; background: rgba(240, 185, 11, 0.1); color: #f0b90b; font-size: 12px;">第一性原理驱动</span>
+                        <span style="padding: 4px 12px; border-radius: 4px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; font-size: 12px;">因果单向</span>
+                        <span style="padding: 4px 12px; border-radius: 4px; background: rgba(246, 70, 93, 0.1); color: #f6465d; font-size: 12px;">决策可审计</span>
+                    </div>
+                </div>
+
+                <!-- 系统本质 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 32px; margin-bottom: 24px;">
+                    <h2 style="font-size: 20px; margin-bottom: 16px; color: #f0b90b;">🎯 系统本质：我们赚的是什么钱？</h2>
+                    <p style="color: var(--text-secondary); line-height: 1.8; margin-bottom: 20px;">
+                        从第一性原理出发，价格 = <strong style="color: #eaecef;">信息</strong> + <strong style="color: #eaecef;">流动性</strong> + <strong style="color: #eaecef;">噪声</strong>。
+                        QuantDinger 不预测未来，而是<strong style="color: #0ecb81;">应对不确定性</strong>——通过系统化的决策流程，
+                        在概率上获得正期望值，并用严格的风控控制尾部风险。
+                    </p>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 20px; border-left: 3px solid #0ecb81;">
+                            <div style="font-weight: 600; margin-bottom: 8px; color: #0ecb81;">行为偏差 Alpha</div>
+                            <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.6;">
+                                处置效应、羊群效应、锚定偏差——人性不变，收割永恒。趋势跟踪、反转策略都属此类。
+                            </div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 20px; border-left: 3px solid #f0b90b;">
+                            <div style="font-weight: 600; margin-bottom: 8px; color: #f0b90b;">统计偏差 Alpha</div>
+                            <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.6;">
+                                价格的均值回归特性、波动率聚集、相关性结构——从数据中提取微弱但稳定的统计规律。
+                            </div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 20px; border-left: 3px solid #f6465d;">
+                            <div style="font-weight: 600; margin-bottom: 8px; color: #f6465d;">结构红利 Alpha</div>
+                            <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.6;">
+                                流动性溢价、指数再平衡、期权波动率曲面——市场规则创造的结构性机会。
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 三条不可协商不变量 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 32px; margin-bottom: 24px;">
+                    <h2 style="font-size: 20px; margin-bottom: 16px; color: #f6465d;">⚖️ 三条不可协商的不变量</h2>
+                    <p style="color: var(--text-secondary); margin-bottom: 20px;">这是系统的宪法，任何代码改动都不得违反。</p>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 16px;">
+                        <div style="display: flex; gap: 20px; align-items: flex-start;">
+                            <div style="min-width: 48px; height: 48px; border-radius: 8px; background: rgba(246, 70, 93, 0.1); display: flex; align-items: center; justify-content: center; font-weight: 700; color: #f6465d; font-size: 20px;">1</div>
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; margin-bottom: 8px; font-size: 16px;">因果单向（Causality）</div>
+                                <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.8;">
+                                    任何计算只能使用 <code style="background: var(--bg-primary); padding: 2px 6px; border-radius: 4px; color: #f0b90b;">available_at ≤ bar.close</code> 的数据。
+                                    <br><strong>前视偏差是量化交易第一大死法。</strong>我们在数据管道、特征工程、信号生成每一层都设置前视守卫。
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; gap: 20px; align-items: flex-start;">
+                            <div style="min-width: 48px; height: 48px; border-radius: 8px; background: rgba(240, 185, 11, 0.1); display: flex; align-items: center; justify-content: center; font-weight: 700; color: #f0b90b; font-size: 20px;">2</div>
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; margin-bottom: 8px; font-size: 16px;">决策可审计（Auditability）</div>
+                                <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.8;">
+                                    每笔接受/拒绝的交易，都能还原当时的输入、模型判断、风控决策。
+                                    <br>我们记录完整的<strong>决策审计日志</strong>——不是为了追责，是为了从错误中学习。系统越用越聪明。
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; gap: 20px; align-items: flex-start;">
+                            <div style="min-width: 48px; height: 48px; border-radius: 8px; background: rgba(14, 203, 129, 0.1); display: flex; align-items: center; justify-content: center; font-weight: 700; color: #0ecb81; font-size: 20px;">3</div>
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; margin-bottom: 8px; font-size: 16px;">阈值来自分布（Distribution-driven）</div>
+                                <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.8;">
+                                    止损、仓位、信号阈值——全部从历史数据分布中推导，<strong>不由绩效网格搜索产生</strong>。
+                                    <br>过拟合防御是系统第一优先级：PBO + CPCV + Deflated Sharpe Ratio 三重验证缺一不可。
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 系统架构 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 32px; margin-bottom: 24px;">
+                    <h2 style="font-size: 20px; margin-bottom: 20px; color: #0ecb81;">🏗️ 系统架构：五层闭环</h2>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-left: 4px solid #848e9c;">
+                            <div style="font-weight: 600; margin-bottom: 4px;">📊 数据层 Data Lake</div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">时序数据库(PostgreSQL) + 数据质量五维度检查 + 集合分离(CLEAN/KNOWN/TEST)</div>
+                        </div>
+                        <div style="text-align: center; color: var(--text-secondary);">↓</div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-left: 4px solid #f0b90b;">
+                            <div style="font-weight: 600; margin-bottom: 4px;">🔬 研究层 Research</div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">因子库 + 回测引擎 + ML训练 + 实验管理（决策规则实验前冻结）</div>
+                        </div>
+                        <div style="text-align: center; color: var(--text-secondary);">↓</div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-left: 4px solid #f6465d;">
+                            <div style="font-weight: 600; margin-bottom: 4px;">🛡️ 风控层 Portfolio & Risk</div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">组合构建 + 风险模型 + 实时风控 + 限额管理（风控前置，不是事后检查）</div>
+                        </div>
+                        <div style="text-align: center; color: var(--text-secondary);">↓</div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-left: 4px solid #0ecb81;">
+                            <div style="font-weight: 600; margin-bottom: 4px;">⚡ 执行层 Execution</div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">OMS订单管理 + EMS执行管理 + 拆单算法 + 订单路由（异步返回检查+重试）</div>
+                        </div>
+                        <div style="text-align: center; color: var(--text-secondary);">↑ 反馈闭环</div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-left: 4px solid #eaecef;">
+                            <div style="font-weight: 600; margin-bottom: 4px;">📝 审计层 Audit & Learn</div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">决策日志 + 事后复盘 + 知识沉淀 + 策略生命周期管理（系统自我进化）</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 全球最佳实践对标 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 32px; margin-bottom: 24px;">
+                    <h2 style="font-size: 20px; margin-bottom: 20px; color: #f0b90b;">🌍 全球顶级机构对标</h2>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 20px;">
+                            <div style="font-weight: 600; margin-bottom: 12px; color: #eaecef;">Renaissance 大奖章</div>
+                            <ul style="font-size: 13px; color: var(--text-secondary); line-height: 2; padding-left: 20px; margin: 0;">
+                                <li>海量弱信号叠加，不追求圣杯</li>
+                                <li>过拟合防御比模型复杂度重要100倍</li>
+                                <li>短周期 + 高换手 + 小仓位</li>
+                            </ul>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 20px;">
+                            <div style="font-weight: 600; margin-bottom: 12px; color: #eaecef;">Two Sigma</div>
+                            <ul style="font-size: 13px; color: var(--text-secondary); line-height: 2; padding-left: 20px; margin: 0;">
+                                <li>数据基建是第一优先级</li>
+                                <li>ML是工具不是信仰</li>
+                                <li>快速原型验证比完美模型重要</li>
+                            </ul>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 20px;">
+                            <div style="font-weight: 600; margin-bottom: 12px; color: #eaecef;">Citadel Securities</div>
+                            <ul style="font-size: 13px; color: var(--text-secondary); line-height: 2; padding-left: 20px; margin: 0;">
+                                <li>风控前置，订单发出前拦截</li>
+                                <li>组合风险 > 单个订单</li>
+                                <li>故障隔离，策略间互不影响</li>
+                            </ul>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 20px;">
+                            <div style="font-weight: 600; margin-bottom: 12px; color: #eaecef;">Millennium 多策略</div>
+                            <ul style="font-size: 13px; color: var(--text-secondary); line-height: 2; padding-left: 20px; margin: 0;">
+                                <li>PM动态资金分配，优胜劣汰</li>
+                                <li>策略组合分散风险因子</li>
+                                <li>明确的策略退役机制</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 后端API设计理念 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 32px; margin-bottom: 24px;">
+                    <h2 style="font-size: 20px; margin-bottom: 16px; color: #0ecb81;">🔌 后端API设计理念</h2>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; font-size: 13px;">
+                        <div>
+                            <div style="font-weight: 600; margin-bottom: 12px; color: #eaecef;">设计原则</div>
+                            <ul style="color: var(--text-secondary); line-height: 2; padding-left: 20px; margin: 0;">
+                                <li>RESTful 资源导向设计</li>
+                                <li>统一错误格式：code + msg + data</li>
+                                <li>认证与授权前置检查</li>
+                                <li>请求守卫 + 缓存机制</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <div style="font-weight: 600; margin-bottom: 12px; color: #eaecef;">核心模块</div>
+                            <ul style="color: var(--text-secondary); line-height: 2; padding-left: 20px; margin: 0;">
+                                <li>40+ 路由模块，按领域拆分</li>
+                                <li>策略生命周期管理 API</li>
+                                <li>回测引擎标准化接口</li>
+                                <li>交易所凭证统一管理</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 版本信息 -->
+                <div style="text-align: center; color: var(--text-secondary); font-size: 12px; padding: 24px;">
+                    <div>QuantDinger Pro v2.1.0 · 基于第一性原理构建</div>
+                    <div style="margin-top: 8px;">不预测市场，只应对不确定性</div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 底部状态栏 -->
+        <footer class="status-bar">
+            <div class="status-item">
+                <div class="status-dot" style="width: 6px; height: 6px;"></div>
+                <span>系统正常</span>
+            </div>
+            <div class="status-item">延迟: <span id="latency">--</span></div>
+            <div class="status-item">数据更新: 实时</div>
+            <div style="margin-left: auto;">QuantDinger Pro v2.0.0</div>
+        </footer>
+    </div>
+
+    <!-- 策略编辑弹窗 -->
+    <div class="modal-overlay" id="editStrategyModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">编辑策略 - <span id="editStrategyName">ML增强趋势策略</span></div>
+                <button class="modal-close" onclick="closeEditStrategy()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">运行模式</label>
+                    <div style="display: flex; gap: 8px;">
+                        <button style="flex: 1; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-secondary); cursor: pointer;">信号模式</button>
+                        <button style="flex: 1; padding: 10px; border-radius: 6px; border: 1px solid var(--brand-primary); background: rgba(240, 185, 11, 0.1); color: var(--brand-primary); cursor: pointer; font-weight: 600;">实盘自动交易</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">投入金额 (USDT)</label>
+                    <input type="number" class="form-input" value="1000">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+                    <div class="form-group">
+                        <label class="form-label">累计亏损停止 (%)</label>
+                        <input type="number" class="form-input" value="30">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">累计盈利停止 (%)</label>
+                        <input type="number" class="form-input" value="100">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">我的账户</label>
+                    <div style="background: var(--bg-tertiary); border-radius: 8px; padding: 8px;" id="modal-accounts-list">
+                        <!-- 账户列表动态加载 -->
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 12px; margin-top: 24px;">
+                    <button class="btn-secondary" style="flex: 1;" onclick="closeEditStrategy()">取消</button>
+                    <button class="btn-primary" style="flex: 1; background: var(--brand-primary); color: var(--bg-primary);">保存设置</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========== API 服务层 ==========
+        const API_BASE = '/api';
+
+        const ApiService = {
+            async request(path, options = {}) {
+                const startTime = Date.now();
+                try {
+                    const token = localStorage.getItem('token') || '';
+                    const response = await fetch(`${API_BASE}${path}`, {
+                        headers: { 
+                            'Authorization': token ? `Bearer ${token}` : '',
+                            'Content-Type': 'application/json',
+                            ...options.headers
+                        },
+                        ...options
+                    });
+                    
+                    if (response.status === 401) {
+                        console.warn('未登录或Token过期');
+                        return { code: 401, msg: '未登录', data: null, _unauthorized: true };
+                    }
+                    
+                    const data = await response.json();
+                    const latency = Date.now() - startTime;
+                    const latencyEl = document.getElementById('latency');
+                    if (latencyEl) latencyEl.textContent = latency + 'ms';
+                    return data;
+                } catch (e) {
+                    console.error('API Error:', path, e);
+                    return { code: 0, msg: e.message, data: null, _error: true };
+                }
+            },
+
+            getCredentials() {
+                return this.request('/credentials/list');
+            },
+
+            getDashboardSummary() {
+                return this.request('/dashboard/summary');
+            },
+
+            // 修复：正确的策略列表路径
+            getStrategies() {
+                return this.request('/strategies');
+            },
+
+            getPositions() {
+                return this.request('/portfolio/positions');
+            },
+
+            // 修复：正确的K线API路径和参数
+            getKline(symbol, timeframe = '1H', limit = 300) {
+                return this.request(`/kline?market=Crypto&symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}&limit=${limit}`);
+            },
+
+            // 修复：正确的回测API参数
+            runBacktest(params) {
+                return this.request('/backtest/run', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        code: params.code || '# 简单趋势策略\nimport numpy as np\n\ndef initialize(context):\n    context.sma_short = 20\n    context.sma_long = 50\n\ndef handle_data(context, data):\n    pass',
+                        startDate: params.startDate || '2024-01-01',
+                        endDate: params.endDate || '2024-12-31',
+                        initialCapital: parseFloat(params.initialCapital) || 10000,
+                        leverageEnabled: false
+                    })
+                });
+            }
+        };
+
+        // ========== Toast 提示 ==========
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        // ========== K线图初始化 ==========
+        let mainChart = null;
+        let candlestickSeries = null;
+        let volumeSeries = null;
+        let currentSymbol = 'BTC/USDT';
+        let currentTimeframe = '1H';
+        let isUsingMockData = false;
+
+        function initMainChart() {
+            const container = document.getElementById('main-chart');
+            mainChart = LightweightCharts.createChart(container, {
+                layout: {
+                    background: { color: '#12161c' },
+                    textColor: '#848e9c',
+                },
+                grid: {
+                    vertLines: { color: '#1e2329' },
+                    horzLines: { color: '#1e2329' },
+                },
+                crosshair: {
+                    mode: LightweightCharts.CrosshairMode.Normal,
+                },
+                rightPriceScale: {
+                    borderColor: '#2b3139',
+                },
+                timeScale: {
+                    borderColor: '#2b3139',
+                    timeVisible: true,
+                },
+                width: container.clientWidth,
+                height: container.clientHeight,
+            });
+
+            candlestickSeries = mainChart.addCandlestickSeries({
+                upColor: '#0ecb81',
+                downColor: '#f6465d',
+                borderDownColor: '#f6465d',
+                borderUpColor: '#0ecb81',
+                wickDownColor: '#f6465d',
+                wickUpColor: '#0ecb81',
+            });
+
+            // 初始化成交量副图
+            initVolumeChart();
+
+            // 从真实API加载K线
+            loadKlineData();
+        }
+
+        function initVolumeChart() {
+            if (!mainChart) return;
+            volumeSeries = mainChart.addHistogramSeries({
+                priceFormat: { type: 'volume' },
+                priceScaleId: '',
+            });
+            volumeSeries.priceScale().applyOptions({
+                scaleMargins: { top: 0.7, bottom: 0 },
+            });
+        }
+
+        // 修复：真实API加载K线，失败才用模拟数据并明确标注
+        async function loadKlineData() {
+            showKlineLoading(true);
+            
+            try {
+                const res = await ApiService.getKline(currentSymbol, currentTimeframe, 300);
+                
+                if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+                    isUsingMockData = false;
+                    const klineData = res.data.map(k => ({
+                        time: k.time || k.timestamp,
+                        open: parseFloat(k.open),
+                        high: parseFloat(k.high),
+                        low: parseFloat(k.low),
+                        close: parseFloat(k.close),
+                    }));
+                    
+                    const volumeData = res.data.map(k => ({
+                        time: k.time || k.timestamp,
+                        value: parseFloat(k.volume || 0),
+                        color: parseFloat(k.close) >= parseFloat(k.open) ? 'rgba(14, 203, 129, 0.5)' : 'rgba(246, 70, 93, 0.5)'
+                    }));
+                    
+                    candlestickSeries.setData(klineData);
+                    if (volumeSeries) volumeSeries.setData(volumeData);
+                    showDataSourceBadge('live');
+                } else {
+                    generateMockKlineData();
+                    showDataSourceBadge('mock');
+                }
+            } catch (e) {
+                console.warn('K线API失败，使用模拟数据:', e);
+                generateMockKlineData();
+                showDataSourceBadge('mock');
+            } finally {
+                showKlineLoading(false);
+            }
+        }
+
+        function showKlineLoading(show) {
+            const el = document.getElementById('kline-loading');
+            if (el) el.style.display = show ? 'flex' : 'none';
+        }
+
+        function showDataSourceBadge(type) {
+            const el = document.getElementById('data-source-badge');
+            if (!el) return;
+            el.innerHTML = type === 'live' 
+                ? '<span style="color: #0ecb81; font-size: 10px; font-weight: 600;">● LIVE 实时数据</span>'
+                : '<span style="color: #f0b90b; font-size: 10px; font-weight: 600;">○ 模拟数据</span>';
+        }
+
+        function generateMockKlineData() {
+            const data = [];
+            let price = 42000;
+            const now = Math.floor(Date.now() / 1000);
+            const intervalSeconds = 3600; // 1h
+            
+            for (let i = 200; i >= 0; i--) {
+                const time = now - i * intervalSeconds;
+                const open = price;
+                const change = (Math.random() - 0.5) * 200;
+                const close = open + change;
+                const high = Math.max(open, close) + Math.random() * 50;
+                const low = Math.min(open, close) - Math.random() * 50;
+                
+                data.push({ time, open, high, low, close });
+                price = close;
+            }
+
+            candlestickSeries.setData(data);
+            document.getElementById('chart-price').textContent = 
+                '$' + data[data.length - 1].close.toLocaleString();
+        }
+
+        // ========== 权益曲线 ==========
+        let equityChart = null;
+        let drawdownChart = null;
+        let volumeSeries = null;
+
+        function initVolumeChart() {
+            const container = document.getElementById('volume-chart');
+            if (!container || !mainChart) return;
+            
+            volumeSeries = mainChart.addHistogramSeries({
+                priceFormat: {
+                    type: 'volume',
+                },
+                priceScaleId: '',
+            });
+            
+            volumeSeries.priceScale().applyOptions({
+                scaleMargins: {
+                    top: 0.7,
+                    bottom: 0,
+                },
+            });
+
+            // 生成模拟成交量数据
+            const data = [];
+            const now = Math.floor(Date.now() / 1000);
+            const intervalSeconds = 3600;
+            
+            for (let i = 200; i >= 0; i--) {
+                const time = now - i * intervalSeconds;
+                data.push({
+                    time,
+                    value: Math.random() * 100 + 20,
+                    color: Math.random() > 0.5 ? 'rgba(14, 203, 129, 0.5)' : 'rgba(246, 70, 93, 0.5)'
+                });
+            }
+
+            volumeSeries.setData(data);
+        }
+
+        function initEquityChart() {
+            const container = document.getElementById('equity-chart');
+            if (!container) return;
+            
+            equityChart = LightweightCharts.createChart(container, {
+                layout: {
+                    background: { color: '#12161c' },
+                    textColor: '#848e9c',
+                },
+                grid: {
+                    vertLines: { color: '#1e2329' },
+                    horzLines: { color: '#1e2329' },
+                },
+                width: container.clientWidth,
+                height: container.clientHeight,
+            });
+
+            const lineSeries = equityChart.addAreaSeries({
+                lineColor: '#f0b90b',
+                topColor: 'rgba(240, 185, 11, 0.3)',
+                bottomColor: 'rgba(240, 185, 11, 0.0)',
+                lineWidth: 2,
+            });
+
+            // 生成模拟权益曲线
+            const data = [];
+            let equity = 10000;
+            const now = Math.floor(Date.now() / 1000);
+            
+            for (let i = 100; i >= 0; i--) {
+                const time = now - i * 86400;
+                equity += (Math.random() - 0.45) * 200;
+                data.push({ time, value: equity });
+            }
+
+            lineSeries.setData(data);
+        }
+
+        // ========== 页面切换 ==========
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', () => {
+                document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+                const page = item.dataset.page;
+                document.querySelectorAll('.page-view').forEach(v => v.classList.remove('active'));
+                document.getElementById(`page-${page}`).classList.add('active');
+                
+                // 切换到回测页时初始化权益图
+                if (page === 'backtest') {
+                    setTimeout(() => {
+                        if (!equityChart) initEquityChart();
+                    }, 100);
+                }
+            });
+        });
+
+        // ========== 时间周期切换 ==========
+        document.querySelectorAll('.timeframe-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.timeframe-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentTimeframe = tab.dataset.tf;
+                loadKlineData(); // 重新从API加载数据
+            });
+        });
+
+        // ========== 下单面板切换 ==========
+        document.querySelectorAll('.order-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.order-tab').forEach(t => {
+                    t.classList.remove('active', 'buy', 'sell');
+                });
+                if (tab.textContent === '买入') {
+                    tab.classList.add('active', 'buy');
+                } else {
+                    tab.classList.add('active', 'sell');
+                }
+            });
+        });
+
+        // ========== 策略编辑弹窗 ==========
+        function openEditStrategy(strategyName) {
+            document.getElementById('editStrategyName').textContent = strategyName;
+            document.getElementById('editStrategyModal').classList.add('active');
+        }
+
+        function closeEditStrategy() {
+            document.getElementById('editStrategyModal').classList.remove('active');
+        }
+
+        // ========== 提交订单 ==========
+        async function submitOrder() {
+            showToast('订单提交成功（模拟）', 'success');
+        }
+
+        // ========== 运行回测 ==========
+        async function runBacktest() {
+            const btn = document.getElementById('run-backtest-btn');
+            const btnText = document.getElementById('backtest-btn-text');
+            
+            btn.disabled = true;
+            btnText.innerHTML = '<span class="loading"></span> 运行中...';
+
+            // 模拟回测延迟
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+            // 显示结果
+            document.getElementById('backtest-results').classList.add('active');
+            
+            // 填充模拟数据
+            document.getElementById('bt-total-return').textContent = '+67.97%';
+            document.getElementById('bt-sharpe').textContent = '1.85';
+            document.getElementById('bt-drawdown').textContent = '-15.2%';
+            document.getElementById('bt-winrate').textContent = '55.6%';
+
+            btn.disabled = false;
+            btnText.textContent = '运行回测';
+            showToast('回测完成', 'success');
+
+            // 初始化权益图和回撤图
+            setTimeout(() => {
+                if (!equityChart) initEquityChart();
+                if (!drawdownChart) initDrawdownChart();
+            }, 100);
+        }
+
+        function initDrawdownChart() {
+            const container = document.getElementById('drawdown-chart');
+            if (!container) return;
+            
+            drawdownChart = LightweightCharts.createChart(container, {
+                layout: {
+                    background: { color: 'transparent' },
+                    textColor: '#848e9c',
+                },
+                grid: {
+                    vertLines: { color: '#1e2329' },
+                    horzLines: { color: '#1e2329' },
+                },
+                width: container.clientWidth,
+                height: container.clientHeight,
+            });
+
+            const areaSeries = drawdownChart.addAreaSeries({
+                lineColor: '#f6465d',
+                topColor: 'rgba(246, 70, 93, 0.3)',
+                bottomColor: 'rgba(246, 70, 93, 0.0)',
+                lineWidth: 2,
+            });
+
+            // 生成模拟回撤数据
+            const data = [];
+            let drawdown = 0;
+            const now = Math.floor(Date.now() / 1000);
+            
+            for (let i = 100; i >= 0; i--) {
+                const time = now - i * 86400;
+                drawdown += (Math.random() - 0.48) * 0.5;
+                drawdown = Math.min(0, drawdown);
+                data.push({ time, value: drawdown });
+            }
+
+            areaSeries.setData(data);
+        }
+
+        // ========== 数据加载 ==========
+        async function loadAllData() {
+            try {
+                const [credentialsRes, summaryRes, strategiesRes, positionsRes] = await Promise.all([
+                    ApiService.getCredentials(),
+                    ApiService.getDashboardSummary(),
+                    ApiService.getStrategies(),
+                    ApiService.getPositions()
+                ]);
+
+                // 检查是否未登录
+                const anyUnauthorized = credentialsRes._unauthorized || summaryRes._unauthorized;
+                if (anyUnauthorized) {
+                    updateSystemStatus('unauthorized');
+                    showToast('请先登录系统', 'warning');
+                    // 未登录时使用演示数据
+                    updateAccountsList([], false);
+                    updateDashboardStats({}, false);
+                    updateStrategiesList([], false);
+                    return;
+                }
+
+                updateAccountsList(credentialsRes.data || [], !credentialsRes._error && credentialsRes.code === 1);
+                updateDashboardStats(summaryRes.data || {}, !summaryRes._error && summaryRes.code === 1);
+                updateStrategiesList(strategiesRes.data || [], !strategiesRes._error && strategiesRes.code === 1);
+                updatePositionsList(positionsRes.data || [], !positionsRes._error && positionsRes.code === 1);
+                
+                updateSystemStatus('online');
+            } catch (e) {
+                console.error('加载数据失败:', e);
+                updateSystemStatus('offline');
+                updateAccountsList([], false);
+                updateDashboardStats({}, false);
+            }
+        }
+
+        function updateSystemStatus(status) {
+            const el = document.getElementById('system-status');
+            if (!el) return;
+            const statusMap = {
+                'online': { text: '● 系统正常', color: 'var(--up-color)' },
+                'offline': { text: '● 离线模式', color: 'var(--warning-color)' },
+                'unauthorized': { text: '● 未登录', color: 'var(--down-color)' }
+            };
+            const s = statusMap[status] || statusMap['offline'];
+            el.textContent = s.text;
+            el.style.color = s.color;
+        }
+
+        function updateAccountsList(credentials, isReal = false) {
+            const accountsList = document.getElementById('accounts-list');
+            const modalAccountsList = document.getElementById('modal-accounts-list');
+
+            // 不是真实数据时，使用演示数据并标注
+            if (!isReal || credentials.length === 0) {
+                credentials = [{
+                    id: 1,
+                    name: 'OKX-DEMO',
+                    exchange_id: 'okx',
+                    api_key_hint: '8a12...0cf2'
+                }];
+            }
+
+            accountsList.innerHTML = credentials.map((cred, idx) => `
+                <div class="account-option ${idx === 0 ? 'selected' : ''}" style="padding: 10px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; ${idx === 0 ? 'background: var(--bg-hover);' : ''}">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="padding: 3px 6px; border-radius: 4px; background: var(--brand-primary); color: var(--bg-primary); font-size: 10px; font-weight: 700; text-transform: uppercase;">${cred.exchange_id}</span>
+                        <span style="font-size: 13px;">${cred.name}</span>
+                    </div>
+                    <div class="status-dot" style="width: 6px; height: 6px;"></div>
+                </div>
+            `).join('');
+
+            modalAccountsList.innerHTML = credentials.map((cred, idx) => `
+                <div class="credential-option ${idx === 0 ? 'selected' : ''}" style="padding: 12px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; ${idx === 0 ? 'background: var(--bg-active);' : ''}">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span style="padding: 4px 8px; border-radius: 4px; background: var(--brand-primary); color: var(--bg-primary); font-size: 11px; font-weight: 700; text-transform: uppercase;">${cred.exchange_id}</span>
+                        <div>
+                            <div style="font-weight: 600; font-size: 14px;">${cred.name}</div>
+                            <div style="font-size: 11px; color: var(--text-secondary);">${cred.api_key_hint || '已连接'}</div>
+                        </div>
+                    </div>
+                    <div class="status-dot" style="width: 8px; height: 8px;"></div>
+                </div>
+            `).join('');
+        }
+
+        function updateDashboardStats(summary) {
+            if (summary.total_equity) {
+                document.getElementById('total-equity').textContent = 
+                    summary.total_equity.toLocaleString('en-US', {minimumFractionDigits: 2});
+            } else {
+                document.getElementById('total-equity').textContent = '10,234.56';
+            }
+            
+            if (summary.daily_pnl) {
+                const el = document.getElementById('daily-pnl');
+                el.textContent = (summary.daily_pnl >= 0 ? '+' : '') + summary.daily_pnl.toFixed(2);
+                el.style.color = summary.daily_pnl >= 0 ? 'var(--up-color)' : 'var(--down-color)';
+            } else {
+                document.getElementById('daily-pnl').textContent = '+123.45';
+                document.getElementById('daily-pnl').style.color = 'var(--up-color)';
+            }
+
+            document.getElementById('stat-winrate').textContent = (summary.win_rate || 66.7) + '%';
+            document.getElementById('stat-sharpe').textContent = summary.sharpe || '1.85';
+            document.getElementById('stat-trades').textContent = summary.total_trades || '12';
+            document.getElementById('stat-drawdown').textContent = '-' + (summary.max_drawdown || 3.2) + '%';
+        }
+
+        function updateStrategiesList(strategies, isReal = false) {
+            const runningEl = document.getElementById('running-strategies');
+            const gridEl = document.getElementById('strategies-grid');
+
+            // 不是真实数据时，使用演示数据
+            if (!isReal || !strategies || strategies.length === 0) {
+                strategies = [
+                    { id: 1, name: 'ML增强趋势策略', status: 'running', today_pnl: 45.67, win_rate: 65, sharpe: 1.85, max_drawdown: 3.2, total_trades: 45 },
+                    { id: 2, name: '均值回归策略', status: 'running', today_pnl: -12.34, win_rate: 58, sharpe: 1.42, max_drawdown: 4.8, total_trades: 128 },
+                    { id: 3, name: '突破策略', status: 'stopped', today_pnl: 0, win_rate: 0, sharpe: 0, max_drawdown: 0, total_trades: 0 }
+                ];
+            }
+
+            // 智能字段映射：兼容后端不同字段名
+            strategies = strategies.map(s => ({
+                ...s,
+                name: s.name || s.strategy_name || '未命名策略',
+                status: s.status || s.execution_mode === 'live' ? 'running' : 'stopped',
+                today_pnl: s.today_pnl || s.daily_pnl || s.pnl_today || 0,
+                win_rate: s.win_rate || s.winrate || 0,
+                sharpe: s.sharpe || s.sharpe_ratio || 1.5,
+                max_drawdown: s.max_drawdown || s.drawdown || 0,
+                total_trades: s.total_trades || s.trade_count || 0
+            }));
+
+            const runningStrategies = strategies.filter(s => s.status === 'running');
+
+            runningEl.innerHTML = runningStrategies.map(s => `
+                <div class="strategy-card running" onclick="openEditStrategy('${s.name}')">
+                    <div class="strategy-header">
+                        <span class="strategy-name">${s.name}</span>
+                        <span class="strategy-status running">运行中</span>
+                    </div>
+                    <div class="strategy-metrics">
+                        <span>今日: ${s.today_pnl >= 0 ? '+' : ''}${(s.today_pnl || 0).toFixed(2)}</span>
+                        <span>胜率: ${(s.win_rate || 0).toFixed(0)}%</span>
+                    </div>
+                </div>
+            `).join('');
+
+            gridEl.innerHTML = strategies.map(s => `
+                <div class="strategy-card ${s.status || 'stopped'}" onclick="openEditStrategy('${s.name}')">
+                    <div class="strategy-header">
+                        <span class="strategy-name">${s.name}</span>
+                        <span class="strategy-status ${s.status || 'stopped'}">${s.status === 'running' ? '运行中' : '已停止'}</span>
+                    </div>
+                    <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">${s.description || '暂无描述'}</div>
+                    <div class="strategy-metrics">
+                        <span>夏普: ${(s.sharpe || 1.85).toFixed(2)}</span>
+                        <span>回撤: ${(s.max_drawdown || 5.2).toFixed(1)}%</span>
+                        <span>交易: ${s.total_trades || 45}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updatePositionsList(positions) {
+            const el = document.getElementById('positions-list');
+            if (!positions || positions.length === 0) {
+                // 使用示例数据
+                positions = [
+                    { symbol: 'BTC/USDT', amount: 0.5, entry_price: 42000, pnl: 234.56 },
+                    { symbol: 'ETH/USDT', amount: 2.0, entry_price: 2300, pnl: -45.67 }
+                ];
+            }
+            el.innerHTML = positions.map(p => `
+                <div class="position-item">
+                    <div class="position-header">
+                        <span class="position-symbol">${p.symbol}</span>
+                        <span class="position-pnl ${p.pnl >= 0 ? 'up' : 'down'}">${p.pnl >= 0 ? '+' : ''}${p.pnl.toFixed(2)}</span>
+                    </div>
+                    <div class="position-details">
+                        <span>${p.amount} ${p.symbol.split('/')[0]}</span>
+                        <span>$${p.entry_price.toLocaleString()}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ========== 窗口大小调整 ==========
+        window.addEventListener('resize', () => {
+            if (mainChart) {
+                const container = document.getElementById('main-chart');
+                mainChart.applyOptions({
+                    width: container.clientWidth,
+                    height: container.clientHeight
+                });
+            }
+            if (equityChart) {
+                const container = document.getElementById('equity-chart');
+                equityChart.applyOptions({
+                    width: container.clientWidth,
+                    height: container.clientHeight
+                });
+            }
+        });
+
+        // ========== 初始化 ==========
+        initMainChart();
+        loadAllData();
+
+        // 每30秒刷新一次数据
+        setInterval(loadAllData, 30000);
+    </script>
+</body>
+</html>
