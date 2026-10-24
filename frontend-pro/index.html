@@ -1069,7 +1069,31 @@
     </style>
 </head>
 <body>
-    <div class="app-layout">
+    <!-- 登录页面 -->
+    <div id="login-page" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0b0e11; z-index: 10000; display: flex; align-items: center; justify-content: center;">
+        <div style="background: #12161c; border-radius: 16px; padding: 40px; width: 400px; border: 1px solid #2b3139;">
+            <div style="text-align: center; margin-bottom: 32px;">
+                <div style="width: 56px; height: 56px; background: #f0b90b; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 28px; font-weight: bold; color: #0b0e11;">Q</div>
+                <h2 style="color: #eaecef; margin: 0 0 8px; font-size: 24px;">QuantDinger Pro</h2>
+                <p style="color: #848e9c; margin: 0; font-size: 14px;">AI/ML 增强量化交易系统</p>
+            </div>
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; color: #848e9c; font-size: 13px; margin-bottom: 8px;">用户名</label>
+                <input type="text" id="login-username" placeholder="请输入用户名" style="width: 100%; padding: 12px; background: #1e2329; border: 1px solid #2b3139; border-radius: 8px; color: #eaecef; font-size: 14px; box-sizing: border-box; outline: none;" />
+            </div>
+            <div style="margin-bottom: 24px;">
+                <label style="display: block; color: #848e9c; font-size: 13px; margin-bottom: 8px;">密码</label>
+                <input type="password" id="login-password" placeholder="请输入密码" style="width: 100%; padding: 12px; background: #1e2329; border: 1px solid #2b3139; border-radius: 8px; color: #eaecef; font-size: 14px; box-sizing: border-box; outline: none;" />
+            </div>
+            <div id="login-error" style="color: #f6465d; font-size: 13px; margin-bottom: 16px; display: none;"></div>
+            <button id="login-btn" style="width: 100%; padding: 14px; background: #f0b90b; border: none; border-radius: 8px; color: #0b0e11; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.2s;">登 录</button>
+            <div style="text-align: center; margin-top: 20px; color: #848e9c; font-size: 12px;">
+                <span id="login-status"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="app-layout" id="main-app" style="display: none;">
         <!-- 顶部导航 -->
         <header class="top-nav">
             <div class="logo">
@@ -1800,7 +1824,7 @@
             async request(path, options = {}) {
                 const startTime = Date.now();
                 try {
-                    const token = localStorage.getItem('token') || '';
+                    const token = localStorage.getItem('qd_token') || '';
                     const response = await fetch(`${API_BASE}${path}`, {
                         headers: { 
                             'Authorization': token ? `Bearer ${token}` : '',
@@ -1843,9 +1867,9 @@
                 return this.request('/portfolio/positions');
             },
 
-            // 修复：正确的K线API路径和参数
+            // 修复：正确的K线API路径（后端注册在/api/indicator前缀下）
             getKline(symbol, timeframe = '1H', limit = 300) {
-                return this.request(`/kline?market=Crypto&symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}&limit=${limit}`);
+                return this.request(`/indicator/kline?market=Crypto&symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}&limit=${limit}`);
             },
 
             // 修复：正确的回测API参数
@@ -2431,12 +2455,149 @@
             }
         });
 
+        // ========== 认证管理 ==========
+        const Auth = {
+            TOKEN_KEY: 'qd_token',
+            USER_KEY: 'qd_user',
+            
+            getToken() {
+                return localStorage.getItem(this.TOKEN_KEY);
+            },
+            
+            setToken(token) {
+                localStorage.setItem(this.TOKEN_KEY, token);
+            },
+            
+            getUser() {
+                const u = localStorage.getItem(this.USER_KEY);
+                return u ? JSON.parse(u) : null;
+            },
+            
+            setUser(user) {
+                localStorage.setItem(this.USER_KEY, JSON.stringify(user));
+            },
+            
+            isLoggedIn() {
+                return !!this.getToken();
+            },
+            
+            logout() {
+                localStorage.removeItem(this.TOKEN_KEY);
+                localStorage.removeItem(this.USER_KEY);
+                this.showLogin();
+            },
+            
+            showLogin() {
+                document.getElementById('login-page').style.display = 'flex';
+                document.getElementById('main-app').style.display = 'none';
+            },
+            
+            showMain() {
+                document.getElementById('login-page').style.display = 'none';
+                document.getElementById('main-app').style.display = 'block';
+            },
+            
+            async login(username, password) {
+                try {
+                    debugLog(`尝试登录: ${username}`, 'info');
+                    const res = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+                    const data = await res.json();
+                    if (data.code === 1 && data.data.token) {
+                        this.setToken(data.data.token);
+                        this.setUser(data.data.userinfo);
+                        debugLog(`登录成功: ${data.data.userinfo.username}`, 'success');
+                        this.showMain();
+                        loadAllData();
+                        return true;
+                    } else {
+                        debugLog(`登录失败: ${data.msg}`, 'error');
+                        return false;
+                    }
+                } catch (e) {
+                    debugLog(`登录请求失败: ${e.message}`, 'error');
+                    return false;
+                }
+            }
+        };
+
+        // ========== API请求拦截器（自动添加token） ==========
+        const originalFetch2 = window.fetch;
+        window.fetch = async function(url, options = {}) {
+            // 跳过登录接口本身
+            if (!url.includes('/api/auth/login')) {
+                const token = Auth.getToken();
+                if (token) {
+                    options.headers = { ...options.headers, 'Authorization': `Bearer ${token}` };
+                }
+            }
+            const response = await originalFetch2(url, options);
+            // 401自动跳转登录
+            if (response.status === 401 && !url.includes('/api/auth/login')) {
+                debugLog('Token失效，跳转到登录页', 'warn');
+                Auth.logout();
+            }
+            return response;
+        };
+
+        // ========== 登录按钮事件 ==========
+        document.getElementById('login-btn').addEventListener('click', async () => {
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value.trim();
+            const errorEl = document.getElementById('login-error');
+            const statusEl = document.getElementById('login-status');
+            
+            if (!username || !password) {
+                errorEl.textContent = '请输入用户名和密码';
+                errorEl.style.display = 'block';
+                return;
+            }
+            
+            const btn = document.getElementById('login-btn');
+            btn.disabled = true;
+            btn.textContent = '登录中...';
+            errorEl.style.display = 'none';
+            statusEl.textContent = '正在验证身份...';
+            
+            const success = await Auth.login(username, password);
+            
+            btn.disabled = false;
+            btn.textContent = '登 录';
+            
+            if (!success) {
+                errorEl.textContent = '用户名或密码错误';
+                errorEl.style.display = 'block';
+                statusEl.textContent = '';
+            }
+        });
+
+        // 回车登录
+        document.getElementById('login-password').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('login-btn').click();
+            }
+        });
+
         // ========== 初始化 ==========
+        // 检查登录状态
+        if (Auth.isLoggedIn()) {
+            Auth.showMain();
+        } else {
+            Auth.showLogin();
+        }
+        
         initMainChart();
-        loadAllData();
+        if (Auth.isLoggedIn()) {
+            loadAllData();
+        }
 
         // 每30秒刷新一次数据
-        setInterval(loadAllData, 30000);
+        setInterval(() => {
+            if (Auth.isLoggedIn()) loadAllData();
+        }, 30000);
     </script>
 </body>
 </html>
