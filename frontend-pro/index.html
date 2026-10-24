@@ -1563,6 +1563,200 @@
                     </div>
                 </div>
 
+                <!-- ML模型选型原理 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 32px; margin-bottom: 24px;">
+                    <h2 style="font-size: 20px; margin-bottom: 16px; color: #f0b90b;">🤖 ML模型选型：什么时候用什么？</h2>
+                    <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 20px;">ML不是预测神器——它擅长从大量弱信号中提取模式，不擅长预测强趋势或拐点。</p>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 20px; border-top: 3px solid #0ecb81;">
+                            <div style="font-weight: 600; margin-bottom: 12px; color: #0ecb81;">规则/统计模型（首选）</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.8; margin-bottom: 12px;">
+                                当逻辑清晰、样本不足、或需要强可解释性时，用规则方法。
+                            </div>
+                            <div style="font-size: 12px; color: #848e9c;">
+                                ✓ 趋势跟踪（SMA/EMA交叉）<br>
+                                ✓ 均值回归（布林带/RSI）<br>
+                                ✓ 突破交易（支撑阻力位）<br>
+                                ✗ 可解释性强，易于审计
+                            </div>
+                        </div>
+                        
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 20px; border-top: 3px solid #f0b90b;">
+                            <div style="font-weight: 600; margin-bottom: 12px; color: #f0b90b;">ML增强（辅助）</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.8; margin-bottom: 12px;">
+                                当有大量弱信号需要融合、需要识别非线性模式时，用ML做meta-labeling。
+                            </div>
+                            <div style="font-size: 12px; color: #848e9c;">
+                                ✓ 信号过滤（哪些信号更可信）<br>
+                                ✓ 仓位调整（什么时候加大仓位）<br>
+                                ✓ 市场状态识别（趋势/震荡）<br>
+                                ✗ 不直接生成交易信号
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 20px; padding: 16px; background: rgba(246, 70, 93, 0.05); border-radius: 8px; border-left: 3px solid #f6465d;">
+                        <div style="font-size: 13px; color: var(--text-secondary);">
+                            <strong style="color: #f6465d;">⚠️ 反模式警告：</strong>不要用深度学习预测明天涨还是跌。市场接近弱有效，短期方向预测信噪比极低。
+                            ML的价值是<strong style="color: #eaecef;">提高现有信号的胜率和仓位管理的精度</strong>，不是创造新的圣杯信号。
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 风控数学原理 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 32px; margin-bottom: 24px;">
+                    <h2 style="font-size: 20px; margin-bottom: 16px; color: #f6465d;">🛡️ 风控数学：为什么这样设计？</h2>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; font-size: 13px;">
+                        <div>
+                            <div style="font-weight: 600; margin-bottom: 12px; color: #eaecef;">核心公式：Kelly仓位</div>
+                            <div style="background: var(--bg-primary); padding: 16px; border-radius: 8px; font-family: monospace; font-size: 14px; text-align: center; color: #f0b90b; margin-bottom: 12px;">
+                                f* = (bp - q) / b
+                            </div>
+                            <div style="color: var(--text-secondary); line-height: 1.8;">
+                                b = 盈亏比，p = 胜率，q = 败率<br>
+                                <strong style="color: #0ecb81;">实战修正：用1/4 ~ 1/2 Kelly</strong><br>
+                                不用全Kelly——因为你估计的p和b都不准
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <div style="font-weight: 600; margin-bottom: 12px; color: #eaecef;">风险定义的本质</div>
+                            <div style="color: var(--text-secondary); line-height: 1.8;">
+                                <strong style="color: #f6465d;">风险 ≠ 波动率</strong><br>
+                                风险 = <strong>永久性资本损失的概率和幅度</strong><br><br>
+                                波动率大但永远向上的资产，风险很低<br>
+                                波动率很小但某天归零的资产，风险极高
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; font-size: 12px;">
+                        <div style="background: var(--bg-primary); padding: 12px; border-radius: 6px; text-align: center;">
+                            <div style="color: #0ecb81; font-weight: 600; margin-bottom: 4px;">截断亏损</div>
+                            <div style="color: #848e9c;">左尾截断<br>单笔损失可控</div>
+                        </div>
+                        <div style="background: var(--bg-primary); padding: 12px; border-radius: 6px; text-align: center;">
+                            <div style="color: #f0b90b; font-weight: 600; margin-bottom: 4px;">让利润奔跑</div>
+                            <div style="color: #848e9c;">右尾暴露<br>盈利策略复利</div>
+                        </div>
+                        <div style="background: var(--bg-primary); padding: 12px; border-radius: 6px; text-align: center;">
+                            <div style="color: #f6465d; font-weight: 600; margin-bottom: 4px;">高频小注</div>
+                            <div style="color: #848e9c;">重复下注<br>大数定律生效</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 过拟合防御方法论 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 32px; margin-bottom: 24px;">
+                    <h2 style="font-size: 20px; margin-bottom: 16px; color: #0ecb81;">🔬 过拟合防御：三重验证体系</h2>
+                    <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 20px;">任何回测好看但样本外失效的策略都是垃圾。过拟合防御比模型复杂度重要100倍。</p>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <div style="display: flex; gap: 16px; align-items: flex-start;">
+                            <div style="min-width: 48px; height: 48px; border-radius: 8px; background: rgba(246, 70, 93, 0.1); display: flex; align-items: center; justify-content: center; font-weight: 700; color: #f6465d; font-size: 14px;">PBO</div>
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; margin-bottom: 4px;">概率回测过拟合 (Probability of Backtest Overfitting)</div>
+                                <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">
+                                    把数据切成N份，在每份上测试策略组合。如果最优策略在大多数切分上都跑输中位数，说明你过拟合了。
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; gap: 16px; align-items: flex-start;">
+                            <div style="min-width: 48px; height: 48px; border-radius: 8px; background: rgba(240, 185, 11, 0.1); display: flex; align-items: center; justify-content: center; font-weight: 700; color: #f0b90b; font-size: 14px;">CPCV</div>
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; margin-bottom: 4px;">组合交叉验证 (Combinatorial Purged Cross-Validation)</div>
+                                <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">
+                                    不是简单的时间序列切分，而是组合式的训练/测试集切分。同时做去泄露（purge）和 embargo，防止前视偏差。
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; gap: 16px; align-items: flex-start;">
+                            <div style="min-width: 48px; height: 48px; border-radius: 8px; background: rgba(14, 203, 129, 0.1); display: flex; align-items: center; justify-content: center; font-weight: 700; color: #0ecb81; font-size: 14px;">DSR</div>
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; margin-bottom: 4px;">Deflated Sharpe Ratio（缩水夏普比率）</div>
+                                <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">
+                                    试了100个策略选最好的那个，它的Sharpe是被高估的。DSR根据试验次数对Sharpe做"缩水"修正。
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 20px; padding: 16px; background: rgba(240, 185, 11, 0.05); border-radius: 8px;">
+                        <div style="font-size: 13px; color: var(--text-secondary);">
+                            <strong style="color: #f0b90b;">📏 铁律：</strong>
+                            决策规则必须在实验前冻结。不允许根据回测结果调整阈值。
+                            trials_N 只能由实验脚本原子递增（含失败/中止的试验，只增不减）。
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 执行微观结构 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 32px; margin-bottom: 24px;">
+                    <h2 style="font-size: 20px; margin-bottom: 16px; color: #eaecef;">⚡ 执行层：微观结构原理</h2>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; font-size: 13px;">
+                        <div>
+                            <div style="font-weight: 600; margin-bottom: 12px; color: #eaecef;">交易成本五分解</div>
+                            <div style="color: var(--text-secondary); line-height: 2;">
+                                1. <strong style="color: #eaecef;">买卖价差</strong> — 提供即时性的报酬<br>
+                                2. <strong style="color: #eaecef;">佣金</strong> — 固定成本<br>
+                                3. <strong style="color: #eaecef;">市场冲击</strong> — 大单推动价格<br>
+                                4. <strong style="color: #eaecef;">时机风险</strong> — 拆单期间价格变动<br>
+                                5. <strong style="color: #eaecef;">滑点</strong> — 预期价 vs 成交价
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <div style="font-weight: 600; margin-bottom: 12px; color: #eaecef;">执行算法目标</div>
+                            <div style="color: var(--text-secondary); line-height: 1.8;">
+                                拆单算法的目标<strong style="color: #0ecb81;">不是"平均价格"</strong>，<br>
+                                是<strong style="color: #0ecb81;">最小化总交易成本</strong>：<br><br>
+                                价差 + 冲击 + 时机风险<br><br>
+                                <span style="font-size: 12px;">大单不要一次性打进——你会吃掉价差，还要承担市场冲击。</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 自我进化机制 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 32px; margin-bottom: 24px;">
+                    <h2 style="font-size: 20px; margin-bottom: 16px; color: #8b5cf6;">🧬 知识沉淀：系统自我进化</h2>
+                    <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 20px;">如果每次交易决策、每次故障排查都不能沉淀下来，系统永远在原地踏步。</p>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 20px;">
+                            <div style="font-weight: 600; margin-bottom: 12px; color: #8b5cf6;">四层知识模型</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 2;">
+                                <strong style="color: #eaecef;">信号层</strong>：哪些信号有效/失效<br>
+                                <strong style="color: #eaecef;">运行层</strong>：故障模式与解决方案<br>
+                                <strong style="color: #eaecef;">项目层</strong>：架构决策与权衡<br>
+                                <strong style="color: #eaecef;">组织层</strong>：流程规范与经验
+                            </div>
+                        </div>
+                        
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 20px;">
+                            <div style="font-weight: 600; margin-bottom: 12px; color: #8b5cf6;">自动审计闭环</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 2;">
+                                ✓ 决策审计日志自动写入<br>
+                                ✓ 故障自动捕获与分类<br>
+                                ✓ 事后复盘自动触发<br>
+                                ✓ 知识检索与复用<br>
+                                ✓ 策略健康自动监控
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 20px; padding: 16px; background: rgba(139, 92, 246, 0.05); border-radius: 8px; text-align: center;">
+                        <div style="font-size: 14px; color: #8b5cf6; font-style: italic;">
+                            "好的系统不是一开始就完美，而是每次犯错后都变得更聪明。"
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 后端API设计理念 -->
                 <div style="background: var(--bg-secondary); border-radius: 12px; padding: 32px; margin-bottom: 24px;">
                     <h2 style="font-size: 20px; margin-bottom: 16px; color: #0ecb81;">🔌 后端API设计理念</h2>
