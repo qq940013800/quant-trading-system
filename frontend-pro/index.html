@@ -1020,6 +1020,77 @@
             padding: 24px;
         }
 
+        /* 策略详情弹窗样式 */
+        .detail-section {
+            margin-bottom: 24px;
+        }
+        .detail-section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: var(--bg-secondary);
+            border-radius: 6px;
+        }
+        .detail-label {
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+        .detail-value {
+            color: var(--text-primary);
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .detail-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+        .stat-card-mini {
+            background: var(--bg-secondary);
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-label-mini {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+        .stat-value-mini {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .stat-value-mini.up { color: var(--up-color); }
+        .stat-value-mini.down { color: var(--down-color); }
+        .detail-table {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .detail-table-header {
+            display: grid;
+            grid-template-columns: 1.5fr 0.8fr 1fr 1fr 1fr;
+            padding: 10px 12px;
+            background: var(--bg-secondary);
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
         /* 加载状态 */
         .loading {
             display: inline-block;
@@ -1349,6 +1420,127 @@
                         <div style="color: var(--text-tertiary);">
                             <div class="loading"></div>
                             <div style="margin-top: 8px;">加载策略列表...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 策略详情弹窗 -->
+            <div class="modal-overlay" id="strategyDetailModal">
+                <div class="modal-content" style="max-width: 900px; max-height: 85vh; overflow-y: auto;">
+                    <div class="modal-header">
+                        <h3 id="detail-strategy-name">策略详情</h3>
+                        <button class="modal-close" onclick="closeStrategyDetail()">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- 策略概览 -->
+                        <div class="detail-section">
+                            <div class="detail-section-title">基本信息</div>
+                            <div class="detail-grid">
+                                <div class="detail-item">
+                                    <span class="detail-label">策略ID</span>
+                                    <span class="detail-value" id="detail-strategy-id">--</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">状态</span>
+                                    <span class="detail-value" id="detail-strategy-status">--</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">交易对</span>
+                                    <span class="detail-value" id="detail-strategy-symbol">--</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">创建时间</span>
+                                    <span class="detail-value" id="detail-strategy-created">--</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 绩效指标 -->
+                        <div class="detail-section">
+                            <div class="detail-section-title">绩效指标</div>
+                            <div class="detail-stats-grid">
+                                <div class="stat-card-mini">
+                                    <div class="stat-label-mini">总收益率</div>
+                                    <div class="stat-value-mini up" id="detail-total-return">--</div>
+                                </div>
+                                <div class="stat-card-mini">
+                                    <div class="stat-label-mini">夏普比率</div>
+                                    <div class="stat-value-mini" id="detail-sharpe">--</div>
+                                </div>
+                                <div class="stat-card-mini">
+                                    <div class="stat-label-mini">最大回撤</div>
+                                    <div class="stat-value-mini down" id="detail-drawdown">--</div>
+                                </div>
+                                <div class="stat-card-mini">
+                                    <div class="stat-label-mini">胜率</div>
+                                    <div class="stat-value-mini" id="detail-winrate">--</div>
+                                </div>
+                                <div class="stat-card-mini">
+                                    <div class="stat-label-mini">交易次数</div>
+                                    <div class="stat-value-mini" id="detail-trades">--</div>
+                                </div>
+                                <div class="stat-card-mini">
+                                    <div class="stat-label-mini">盈亏比</div>
+                                    <div class="stat-value-mini" id="detail-profit-factor">--</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 当前持仓 -->
+                        <div class="detail-section">
+                            <div class="detail-section-title">当前持仓</div>
+                            <div id="detail-positions">
+                                <div style="color: var(--text-tertiary); font-size: 13px;">暂无持仓</div>
+                            </div>
+                        </div>
+
+                        <!-- 参数配置 -->
+                        <div class="detail-section">
+                            <div class="detail-section-title">参数配置</div>
+                            <div class="detail-grid">
+                                <div class="detail-item">
+                                    <span class="detail-label">投入资金 (USDT)</span>
+                                    <span class="detail-value" id="detail-capital">1000</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">杠杆倍数</span>
+                                    <span class="detail-value" id="detail-leverage">1x</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">止损比例</span>
+                                    <span class="detail-value" id="detail-stop-loss">-5%</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">累计亏损停止</span>
+                                    <span class="detail-value" id="detail-max-loss">30%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 最近交易 -->
+                        <div class="detail-section">
+                            <div class="detail-section-title">最近交易记录</div>
+                            <div class="detail-table">
+                                <div class="detail-table-header">
+                                    <span>时间</span>
+                                    <span>方向</span>
+                                    <span>价格</span>
+                                    <span>数量</span>
+                                    <span>盈亏</span>
+                                </div>
+                                <div id="detail-trade-history">
+                                    <div style="color: var(--text-tertiary); font-size: 13px; padding: 12px; text-align: center;">暂无交易记录</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 操作按钮 -->
+                        <div style="display: flex; gap: 12px; margin-top: 20px;">
+                            <button class="btn-primary" style="flex: 1;" onclick="toggleStrategyStatus()">
+                                <span id="detail-toggle-btn-text">停止策略</span>
+                            </button>
+                            <button class="btn-secondary" style="flex: 1;" onclick="closeStrategyDetail()">关闭</button>
                         </div>
                     </div>
                 </div>
@@ -2584,6 +2776,64 @@
             document.getElementById('editStrategyModal').classList.remove('active');
         }
 
+        // ========== 策略详情弹窗 ==========
+        let currentDetailStrategy = null;
+
+        function openStrategyDetail(strategy) {
+            currentDetailStrategy = strategy;
+            
+            // 填充基本信息
+            document.getElementById('detail-strategy-name').textContent = strategy.name || '策略详情';
+            document.getElementById('detail-strategy-id').textContent = strategy.id || '--';
+            document.getElementById('detail-strategy-status').textContent = 
+                (strategy.status === 'running' || strategy.status === 'active') ? '运行中' : '已停止';
+            document.getElementById('detail-strategy-symbol').textContent = strategy.symbol || 'BTC/USDT';
+            document.getElementById('detail-strategy-created').textContent = strategy.created_at || '2026-01-01';
+            
+            // 填充绩效指标（模拟数据，后续对接真实API）
+            document.getElementById('detail-total-return').textContent = '+12.5%';
+            document.getElementById('detail-sharpe').textContent = '1.85';
+            document.getElementById('detail-drawdown').textContent = '-8.3%';
+            document.getElementById('detail-winrate').textContent = '58.2%';
+            document.getElementById('detail-trades').textContent = '128';
+            document.getElementById('detail-profit-factor').textContent = '1.65';
+            
+            // 更新按钮文字
+            const isRunning = strategy.status === 'running' || strategy.status === 'active';
+            document.getElementById('detail-toggle-btn-text').textContent = isRunning ? '停止策略' : '启动策略';
+            
+            // 显示弹窗
+            document.getElementById('strategyDetailModal').classList.add('active');
+            
+            logDebug('info', '打开策略详情: ' + (strategy.name || '未知'));
+        }
+
+        function closeStrategyDetail() {
+            document.getElementById('strategyDetailModal').classList.remove('active');
+            currentDetailStrategy = null;
+        }
+
+        function toggleStrategyStatus() {
+            if (!currentDetailStrategy) return;
+            const isRunning = currentDetailStrategy.status === 'running' || currentDetailStrategy.status === 'active';
+            const action = isRunning ? '停止' : '启动';
+            
+            if (confirm(`确定要${action}策略 "${currentDetailStrategy.name}" 吗？`)) {
+                showToast(`策略已${action}（模拟）`, 'success');
+                logDebug('success', `${action}策略: ${currentDetailStrategy.name}`);
+                
+                // 更新状态
+                currentDetailStrategy.status = isRunning ? 'stopped' : 'running';
+                document.getElementById('detail-strategy-status').textContent = isRunning ? '已停止' : '运行中';
+                document.getElementById('detail-toggle-btn-text').textContent = isRunning ? '启动策略' : '停止策略';
+                
+                // 刷新策略列表
+                setTimeout(() => {
+                    if (typeof loadStrategies === 'function') loadStrategies();
+                }, 500);
+            }
+        }
+
         // ========== 提交订单（对接真实API）==========
         // 基于第一性原理：危险操作需要明确反馈，成功/失败都要用户知道
         async function submitOrder() {
@@ -2953,8 +3203,8 @@
 
             const runningStrategies = strategies.filter(s => s.status === 'running');
 
-            runningEl.innerHTML = runningStrategies.map(s => `
-                <div class="strategy-card running" onclick="openEditStrategy('${s.name}')">
+            runningEl.innerHTML = runningStrategies.map((s, idx) => `
+                <div class="strategy-card running" onclick='openStrategyDetail(${JSON.stringify(s).replace(/'/g, "&apos;")})'>
                     <div class="strategy-header">
                         <span class="strategy-name">${s.name}</span>
                         <span class="strategy-status running">运行中</span>
@@ -2967,7 +3217,7 @@
             `).join('');
 
             gridEl.innerHTML = strategies.map(s => `
-                <div class="strategy-card ${s.status || 'stopped'}" onclick="openEditStrategy('${s.name}')">
+                <div class="strategy-card ${s.status || 'stopped'}" onclick='openStrategyDetail(${JSON.stringify(s).replace(/'/g, "&apos;")})'>
                     <div class="strategy-header">
                         <span class="strategy-name">${s.name}</span>
                         <span class="strategy-status ${s.status || 'stopped'}">${s.status === 'running' ? '运行中' : '已停止'}</span>
