@@ -1114,6 +1114,9 @@
                     <div class="status-dot"></div>
                     <span id="nav-account-name">OKX-DEMO 已连接</span>
                 </div>
+                <span id="ws-status">
+                    <span style="color: #848e9c; font-size: 11px; margin-left: 8px;">○ WS 未连接</span>
+                </span>
             </div>
         </header>
 
@@ -1319,7 +1322,7 @@
                                     <option>止损单</option>
                                 </select>
                             </div>
-                            <button class="btn-primary btn-buy" onclick="submitOrder()">买入 BTC</button>
+                            <button class="btn-primary btn-buy" id="submit-order-btn" onclick="submitOrder()">买入 BTC</button>
                         </div>
 
                         <!-- 运行中策略 -->
@@ -2138,6 +2141,9 @@
 
             // 从真实API加载K线
             loadKlineData();
+            
+            // 启动WebSocket实时推送
+            initRealtimeWebSocket();
         }
 
         function initVolumeChart() {
@@ -2225,6 +2231,201 @@
             document.getElementById('chart-price').textContent = 
                 '$' + data[data.length - 1].close.toLocaleString();
         }
+
+        // ========== WebSocket 实时推送 ==========
+        // 基于第一性原理：公共行情数据无需认证，前端直连交易所公共WebSocket
+        // 全球最佳实践：Binance/OKX前端都直接连接公共WS，不经过后端中转
+        let priceSocket = null;
+        let orderbookSocket = null;
+        let wsReconnectTimer = null;
+        let lastPrice = 0;
+
+        function initRealtimeWebSocket() {
+            logDebug('info', '初始化WebSocket实时推送...');
+            
+            // 连接Binance公共行情WebSocket（免费、稳定、无需API key）
+            connectPriceWebSocket();
+            
+            // 连接订单簿深度WebSocket
+            connectOrderbookWebSocket();
+        }
+
+        function connectPriceWebSocket() {
+            if (priceSocket) {
+                priceSocket.close();
+            }
+            
+            // Binance BTC/USDT 1分钟K线流
+            const wsUrl = 'wss://stream.binance.com:9443/ws/btcusdt@miniTicker';
+            
+            try {
+                priceSocket = new WebSocket(wsUrl);
+                
+                priceSocket.onopen = function() {
+                    logDebug('success', 'WebSocket行情连接成功');
+                    updateWsStatus('connected');
+                };
+                
+                priceSocket.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        handlePriceUpdate(data);
+                    } catch (e) {
+                        console.warn('WebSocket消息解析失败:', e);
+                    }
+                };
+                
+                priceSocket.onerror = function(error) {
+                    logDebug('error', 'WebSocket行情错误: ' + error);
+                    updateWsStatus('error');
+                };
+                
+                priceSocket.onclose = function() {
+                    logDebug('warn', 'WebSocket行情断开，5秒后重连...');
+                    updateWsStatus('disconnected');
+                    // 自动重连
+                    wsReconnectTimer = setTimeout(connectPriceWebSocket, 5000);
+                };
+            } catch (e) {
+                logDebug('error', 'WebSocket初始化失败: ' + e.message);
+                updateWsStatus('error');
+            }
+        }
+
+        function handlePriceUpdate(data) {
+            // Binance miniTicker 数据格式:
+            // {c: 当前收盘价, o: 开盘价, h: 最高价, l: 最低价, v: 成交量}
+            const price = parseFloat(data.c);
+            if (!price || isNaN(price)) return;
+            
+            lastPrice = price;
+            
+            // 更新顶部价格显示
+            const priceEl = document.getElementById('chart-price');
+            if (priceEl) {
+                const priceDiff = price - (priceEl.dataset.lastPrice || price);
+                priceEl.textContent = '$' + price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                priceEl.dataset.lastPrice = price;
+                
+                // 涨跌颜色闪烁
+                priceEl.style.color = priceDiff >= 0 ? '#0ecb81' : '#f6465d';
+                setTimeout(() => { priceEl.style.color = ''; }, 300);
+            }
+            
+            // 更新买卖面板价格
+            const orderPriceInput = document.getElementById('order-price');
+            if (orderPriceInput && !orderPriceInput.dataset.userEdited) {
+                orderPriceInput.value = price.toFixed(2);
+            }
+            
+            // 更新最后价格到日志
+            if (Math.random() < 0.05) { // 每20条记录一条，避免刷屏
+                logDebug('info', '实时价格: $' + price.toFixed(2));
+            }
+        }
+
+        function connectOrderbookWebSocket() {
+            if (orderbookSocket) {
+                orderbookSocket.close();
+            }
+            
+            // Binance BTC/USDT 订单簿深度流（20档）
+            const wsUrl = 'wss://stream.binance.com:9443/ws/btcusdt@depth20@100ms';
+            
+            try {
+                orderbookSocket = new WebSocket(wsUrl);
+                
+                orderbookSocket.onopen = function() {
+                    logDebug('success', 'WebSocket订单簿连接成功');
+                };
+                
+                orderbookSocket.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        handleOrderbookUpdate(data);
+                    } catch (e) {
+                        console.warn('订单簿WebSocket解析失败:', e);
+                    }
+                };
+                
+                orderbookSocket.onerror = function(error) {
+                    logDebug('error', '订单簿WebSocket错误: ' + error);
+                };
+                
+                orderbookSocket.onclose = function() {
+                    logDebug('warn', '订单簿WebSocket断开，5秒后重连...');
+                    setTimeout(connectOrderbookWebSocket, 5000);
+                };
+            } catch (e) {
+                logDebug('warn', '订单簿WebSocket初始化失败: ' + e.message);
+            }
+        }
+
+        function handleOrderbookUpdate(data) {
+            // 更新订单簿显示
+            const bids = data.b || [];  // 买单
+            const asks = data.a || [];  // 卖单
+            
+            const orderbookEl = document.getElementById('orderbook-content');
+            if (!orderbookEl) return;
+            
+            // 只显示前10档
+            const displayBids = bids.slice(0, 10);
+            const displayAsks = asks.slice(0, 10);
+            
+            let html = '';
+            
+            // 卖单（从高到低）
+            displayAsks.slice().reverse().forEach(([price, amount]) => {
+                const p = parseFloat(price).toFixed(2);
+                const a = parseFloat(amount).toFixed(4);
+                html += `<div class="orderbook-row ask">
+                    <span style="color: #f6465d;">${p}</span>
+                    <span style="color: #848e9c;">${a}</span>
+                </div>`;
+            });
+            
+            // 价差
+            if (displayAsks.length > 0 && displayBids.length > 0) {
+                const spread = parseFloat(displayAsks[0][0]) - parseFloat(displayBids[0][0]);
+                html += `<div class="orderbook-spread">
+                    价差: $${spread.toFixed(2)}
+                </div>`;
+            }
+            
+            // 买单（从高到低）
+            displayBids.forEach(([price, amount]) => {
+                const p = parseFloat(price).toFixed(2);
+                const a = parseFloat(amount).toFixed(4);
+                html += `<div class="orderbook-row bid">
+                    <span style="color: #0ecb81;">${p}</span>
+                    <span style="color: #848e9c;">${a}</span>
+                </div>`;
+            });
+            
+            orderbookEl.innerHTML = html;
+        }
+
+        function updateWsStatus(status) {
+            const statusEl = document.getElementById('ws-status');
+            if (!statusEl) return;
+            
+            const statusMap = {
+                connected: { text: '● WS已连接', color: '#0ecb81' },
+                disconnected: { text: '○ WS重连中', color: '#f0b90b' },
+                error: { text: '✕ WS错误', color: '#f6465d' }
+            };
+            
+            const s = statusMap[status] || statusMap.disconnected;
+            statusEl.innerHTML = `<span style="color: ${s.color}; font-size: 11px; margin-left: 8px;">${s.text}</span>`;
+        }
+
+        // 页面卸载时关闭WebSocket
+        window.addEventListener('beforeunload', function() {
+            if (priceSocket) priceSocket.close();
+            if (orderbookSocket) orderbookSocket.close();
+            if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
+        });
 
         // ========== 权益曲线 ==========
         let equityChart = null;
@@ -2357,10 +2558,18 @@
                 document.querySelectorAll('.order-tab').forEach(t => {
                     t.classList.remove('active', 'buy', 'sell');
                 });
-                if (tab.textContent === '买入') {
+                const isBuy = tab.textContent === '买入';
+                if (isBuy) {
                     tab.classList.add('active', 'buy');
                 } else {
                     tab.classList.add('active', 'sell');
+                }
+                
+                // 更新按钮文字和颜色
+                const submitBtn = document.getElementById('submit-order-btn');
+                if (submitBtn) {
+                    submitBtn.textContent = isBuy ? '买入 BTC' : '卖出 BTC';
+                    submitBtn.className = isBuy ? 'btn-primary btn-buy' : 'btn-primary btn-sell';
                 }
             });
         });
@@ -2375,9 +2584,71 @@
             document.getElementById('editStrategyModal').classList.remove('active');
         }
 
-        // ========== 提交订单 ==========
+        // ========== 提交订单（对接真实API）==========
+        // 基于第一性原理：危险操作需要明确反馈，成功/失败都要用户知道
         async function submitOrder() {
-            showToast('订单提交成功（模拟）', 'success');
+            try {
+                // 1. 获取当前订单方向（买入/卖出）
+                const activeTab = document.querySelector('.order-tab.active');
+                const side = activeTab && activeTab.textContent.includes('卖出') ? 'sell' : 'buy';
+                
+                // 2. 获取交易对
+                const symbolSelect = document.getElementById('order-symbol');
+                const symbol = symbolSelect ? symbolSelect.value : 'BTC/USDT';
+                
+                // 3. 获取价格（限价单才用）
+                const priceInput = document.getElementById('order-price');
+                const price = priceInput ? parseFloat(priceInput.value) : 0;
+                
+                // 4. 获取数量/金额
+                const amountInput = document.getElementById('order-amount');
+                const amount = amountInput ? parseFloat(amountInput.value) : 100;
+                
+                // 5. 获取杠杆
+                const leverageInput = document.getElementById('order-leverage');
+                const leverage = leverageInput ? parseInt(leverageInput.value) : 1;
+                
+                // 6. 获取当前选中的凭证ID（从账户列表第一个）
+                const firstAccount = document.querySelector('.credential-option');
+                const credentialId = firstAccount ? parseInt(firstAccount.dataset.id || 1) : 1;
+                
+                logDebug('info', `提交订单: ${side} ${amount} USDT ${symbol}`);
+                
+                // 7. 调用真实API
+                const orderData = {
+                    credential_id: credentialId,
+                    symbol: symbol,
+                    side: side,
+                    order_type: price > 0 ? 'limit' : 'market',
+                    amount: amount,
+                    price: price,
+                    leverage: leverage,
+                    market_type: leverage > 1 ? 'swap' : 'spot',
+                    source: 'manual'
+                };
+                
+                const result = await ApiService.request('/quick-trade/place-order', {
+                    method: 'POST',
+                    body: JSON.stringify(orderData)
+                });
+                
+                if (result.code === 1 || result.code === 200) {
+                    showToast(`订单提交成功！${side === 'buy' ? '买入' : '卖出'} ${amount} USDT ${symbol}`, 'success');
+                    logDebug('success', '下单成功: ' + JSON.stringify(result.data || result));
+                    
+                    // 刷新持仓和资产
+                    setTimeout(() => {
+                        if (typeof loadDashboardData === 'function') loadDashboardData();
+                    }, 1000);
+                } else {
+                    showToast('下单失败: ' + (result.msg || result.message || '未知错误'), 'error');
+                    logDebug('error', '下单失败: ' + JSON.stringify(result));
+                }
+            } catch (e) {
+                console.error('下单错误:', e);
+                showToast('下单错误: ' + e.message, 'error');
+                logDebug('error', '下单异常: ' + e.message);
+            }
         }
 
         // ========== 运行回测 ==========
