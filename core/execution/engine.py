@@ -21,12 +21,17 @@
 """
 from __future__ import annotations
 
+import logging
+import uuid
+
 import numpy as np
 import pandas as pd
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Optional, Callable
+
+logger = logging.getLogger("core.execution")
 
 
 # ------------------------------------------------------------------
@@ -177,8 +182,28 @@ class ExecutionEngine:
         Returns:
             新建持仓，失败返回None
         """
+        decision_id = f"exec-{uuid.uuid4().hex[:12]}"
+
+        # 0. 决策前自动引用历史经验（知识复用）
+        # 基于第一性原理：不要重新发明轮子，站在过去的肩膀上
+        historical_lessons = self._retrieve_historical_lessons(symbol, side)
+        if historical_lessons:
+            logger.info("历史经验参考 for %s %s:", symbol, side.value)
+            for lesson in historical_lessons:
+                logger.info("  - %s", lesson)
+
         # 1. 信号强度过滤
         if signal_strength < 0.3:
+            self._record_decision(
+                decision_id=decision_id,
+                symbol=symbol,
+                side=side,
+                accepted=False,
+                reject_reason=f"signal_strength={signal_strength:.2f} < 0.3",
+                lots=0.0,
+                atr=atr,
+                equity=equity,
+            )
             return None  # 信号太弱，不交易
 
         # 2. 仓位计算
@@ -193,6 +218,16 @@ class ExecutionEngine:
         current_price = self._get_current_price(symbol)
         risk_ok, risk_msg = self.risk_check_fn(symbol, side, quantity, current_price)
         if not risk_ok:
+            self._record_decision(
+                decision_id=decision_id,
+                symbol=symbol,
+                side=side,
+                accepted=False,
+                reject_reason=f"risk_check: {risk_msg}",
+                lots=quantity,
+                atr=atr,
+                equity=equity,
+            )
             return None
 
         # 4. 下单执行（带重试）
@@ -200,6 +235,16 @@ class ExecutionEngine:
         order = self._submit_with_retry(order)
 
         if order.status != OrderStatus.FILLED:
+            self._record_decision(
+                decision_id=decision_id,
+                symbol=symbol,
+                side=side,
+                accepted=False,
+                reject_reason=f"order_failed: {order.error_message or order.status.value}",
+                lots=quantity,
+                atr=atr,
+                equity=equity,
+            )
             return None
 
         # 5. 创建持仓
@@ -214,6 +259,20 @@ class ExecutionEngine:
         )
 
         self.positions[symbol] = position
+
+        # 记录成功决策
+        self._record_decision(
+            decision_id=decision_id,
+            symbol=symbol,
+            side=side,
+            accepted=True,
+            reject_reason=None,
+            lots=order.filled_quantity,
+            atr=atr,
+            equity=equity,
+            entry_price=order.avg_fill_price,
+        )
+
         return position
 
     def close_position(self, symbol: str, reason: str = "signal") -> Optional[Order]:
@@ -239,6 +298,48 @@ class ExecutionEngine:
             )
             pos.realized_pnl = pnl
             del self.positions[symbol]
+
+            # 记录平仓决策审计
+            close_decision_id = f"close-{uuid.uuid4().hex[:12]}"
+            self._record_decision(
+                decision_id=close_decision_id,
+                symbol=symbol,
+                side=close_side,
+                accepted=True,
+                reject_reason=f"close_reason: {reason}",
+                lots=pos.quantity,
+                atr=abs(order.avg_fill_price - pos.entry_price) / pos.quantity if pos.quantity > 0 else 0,
+                equity=0,  # 平仓时不需要equity
+                entry_price=order.avg_fill_price,
+            )
+
+            # 自动写入交易日志
+            self._record_trade_journal(
+                symbol=symbol,
+                side=pos.side.value.lower(),
+                entry_price=pos.entry_price,
+                exit_price=order.avg_fill_price,
+                quantity=pos.quantity,
+                entry_time=pos.entry_time,
+                exit_time=order.filled_at or datetime.now(),
+                gross_pnl=pnl,
+                exit_reason=reason,
+            )
+
+            # 自动触发复盘监控
+            try:
+                from core.audit.review_monitor import get_review_monitor
+                monitor = get_review_monitor()
+                risk_amount = abs(pos.entry_price - order.avg_fill_price) * pos.quantity
+                r_multiple = pnl / risk_amount if risk_amount > 0 else 0
+                monitor.on_trade_closed(
+                    trade_uid=f"trade-close-{uuid.uuid4().hex[:8]}",
+                    symbol=symbol,
+                    net_pnl=pnl,
+                    r_multiple=r_multiple,
+                )
+            except Exception as e:
+                logger.warning("review monitor failed: %s", e)
 
         return order
 
@@ -300,3 +401,130 @@ class ExecutionEngine:
     def _get_current_price(self, symbol: str) -> float:
         """获取当前价格（模拟用）。"""
         return 2000.0  # XAUUSD 模拟价格
+
+    def _record_decision(self,
+                         decision_id: str,
+                         symbol: str,
+                         side: OrderSide,
+                         accepted: bool,
+                         reject_reason: Optional[str],
+                         lots: float,
+                         atr: float,
+                         equity: float,
+                         entry_price: Optional[float] = None) -> None:
+        """记录决策审计到数据库。
+
+        基于第一性原理：每笔决策（无论接受/拒绝）都必须留下审计痕迹。
+        失败不影响主交易流程（只记日志）。
+        """
+        try:
+            from core.audit.db_writer import write_decision_to_db
+            from core.audit.record import Decision
+
+            class _Signal:
+                def __init__(self, sym, s):
+                    self.symbol = sym
+                    self.side = s.value
+
+            class _RiskState:
+                def __init__(self, conf):
+                    self.confidence = conf
+
+            decision = Decision(
+                decision_id=decision_id,
+                signal=_Signal(symbol, side),
+                feature_snapshot={
+                    "atr": atr,
+                    "equity": equity,
+                    "entry_price": entry_price,
+                },
+                model_version="execution-engine-v1.0",
+                risk_state=_RiskState(0.8 if accepted else 0.2),
+                accepted=accepted,
+                reject_reason=reject_reason,
+                final_signed_lots=abs(lots) if accepted else 0.0,  # 平仓时lots是反向，取绝对值
+                threshold_dataset="CLEAN",
+                decision_rule_version="v1.0",
+            )
+
+            write_decision_to_db(decision)
+            logger.debug("decision recorded: %s accepted=%s", decision_id, accepted)
+
+        except Exception as e:
+            # 审计失败不影响主流程
+            logger.warning("failed to record decision: %s", e)
+
+    def _record_trade_journal(self,
+                               symbol: str,
+                               side: str,
+                               entry_price: float,
+                               exit_price: float,
+                               quantity: float,
+                               entry_time,
+                               exit_time,
+                               gross_pnl: float,
+                               exit_reason: str) -> None:
+        """记录交易日志到数据库。
+
+        基于第一性原理：每笔完整交易（开+平）都应该有完整的日志记录，
+        用于绩效归因分析。
+        """
+        try:
+            from core.audit.db_writer import write_trade_to_db
+
+            # 转换numpy类型为Python原生类型
+            entry_price = float(entry_price)
+            exit_price = float(exit_price)
+            quantity = float(quantity)
+            gross_pnl = float(gross_pnl)
+
+            trade_uid = f"trade-{uuid.uuid4().hex[:12]}"
+            risk_amount = abs(entry_price - exit_price) * quantity if entry_price > 0 else 1
+            r_multiple = round(gross_pnl / risk_amount, 2) if risk_amount > 0 else 0
+
+            write_trade_to_db(
+                trade_uid=trade_uid,
+                symbol=symbol,
+                side=side,
+                entry_time=entry_time,
+                entry_price=entry_price,
+                exit_time=exit_time,
+                exit_price=exit_price,
+                quantity=quantity,
+                gross_pnl=gross_pnl,
+                commission=0,  # 模拟交易无手续费
+                slippage_cost=0,
+                net_pnl=gross_pnl,
+                r_multiple=r_multiple,
+                exit_reason=exit_reason,
+                confidence=0.8,
+                status="closed",
+            )
+            logger.debug("trade journal recorded: %s", trade_uid)
+
+        except Exception as e:
+            logger.warning("failed to record trade journal: %s", e)
+
+    def _retrieve_historical_lessons(self, symbol: str, side: OrderSide) -> list:
+        """决策前自动检索历史经验（知识复用）。
+
+        基于第一性原理：
+            不要重新发明轮子。
+            每次决策前，先看看历史上类似情况是怎么处理的，
+            避免重复犯同样的错误。
+
+        Returns:
+            历史教训列表
+        """
+        try:
+            from core.audit.knowledge_retriever import get_knowledge_retriever
+            retriever = get_knowledge_retriever()
+
+            side_str = side.value.lower()
+            lessons = retriever.get_lessons_for_decision(symbol, side_str, "unknown")
+
+            return lessons
+
+        except Exception as e:
+            logger.debug("historical lessons retrieval skipped: %s", e)
+            return []
