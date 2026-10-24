@@ -1,0 +1,8 @@
+{
+  "c01_shift_neg": {"1": "FAIL"},
+  "c02_center_true": {"1": "FAIL"},
+  "c03_stop_widen": {"4": "FAIL"},
+  "c04_atr_recompute": {"5": "FAIL"},
+  "c05_clean": {"1": "PASS", "4": "PASS", "5": "PASS", "6": "PASS"},
+  "c06_intrabar": {"6": "FAIL"}
+}

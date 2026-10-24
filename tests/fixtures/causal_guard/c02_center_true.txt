@@ -1,0 +1,4 @@
+def build_features(df):
+    df["sma"] = df["close"].rolling(window=21, center=True, min_periods=21).mean()
+    df["dist"] = (df["close"] - df["sma"]) / (df["sma"] + 1e-9)
+    return df

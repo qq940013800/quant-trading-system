@@ -1,0 +1,167 @@
+{
+  "src": "D:\\Trader\\docs\\量化交易全球最佳实践知识库.html",
+  "url": "file:///D:/Trader/docs/%E9%87%8F%E5%8C%96%E4%BA%A4%E6%98%93%E5%85%A8%E7%90%83%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5%E7%9F%A5%E8%AF%86%E5%BA%93.html",
+  "outdir": "D:\\Trader\\docs\\_shots",
+  "include": [
+    "lint",
+    "screenshots",
+    "structure"
+  ],
+  "shots": {
+    "desktop": {
+      "slices": [
+        "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_desktop_p1of5.jpg",
+        "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_desktop_p2of5.jpg",
+        "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_desktop_p3of5.jpg",
+        "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_desktop_p4of5.jpg",
+        "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_desktop_p5of5.jpg"
+      ],
+      "sliceHint": "按顺序 Read slices 里的各分片。",
+      "truncated": false,
+      "structure": {
+        "title": "AI/ML 增强量化交易系统 · 全球最佳实践知识库",
+        "firstH1": "量化交易全球最佳实践知识库AI/ML 增强交易系统 · XAUUSD M5 · Python 研究层 + MQL5 执行层",
+        "viewport": {
+          "w": 1416,
+          "h": 761
+        },
+        "fullpage": {
+          "w": 1416,
+          "h": 21404
+        },
+        "counts": {
+          "section": 8,
+          "h1": 1,
+          "h2": 8,
+          "img": 0,
+          "canvas": 4,
+          "svg": 1,
+          "links": 620,
+          "buttons": 37
+        }
+      },
+      "consoleErrors": [],
+      "consoleWarnings": [],
+      "horizontalOverflow": [],
+      "resourceErrors": [],
+      "reportSource": "cdp"
+    },
+    "mobile": {
+      "slices": [
+        "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_mobile_p1of12.jpg",
+        "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_mobile_p2of12.jpg",
+        "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_mobile_p3of12.jpg",
+        "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_mobile_p4of12.jpg",
+        "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_mobile_p5of12.jpg",
+        "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_mobile_p6of12.jpg",
+        "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_mobile_p7of12.jpg",
+        "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_mobile_p8of12.jpg",
+        "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_mobile_p9of12.jpg",
+        "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_mobile_p10of12.jpg",
+        "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_mobile_p11of12.jpg",
+        "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_mobile_p12of12.jpg"
+      ],
+      "sliceHint": "按顺序 Read slices 里的各分片。",
+      "truncated": false,
+      "structure": {
+        "title": "AI/ML 增强量化交易系统 · 全球最佳实践知识库",
+        "firstH1": "量化交易全球最佳实践知识库AI/ML 增强交易系统 · XAUUSD M5 · Python 研究层 + MQL5 执行层",
+        "viewport": {
+          "w": 492,
+          "h": 705
+        },
+        "fullpage": {
+          "w": 492,
+          "h": 35847
+        },
+        "counts": {
+          "section": 8,
+          "h1": 1,
+          "h2": 8,
+          "img": 0,
+          "canvas": 4,
+          "svg": 1,
+          "links": 620,
+          "buttons": 37
+        }
+      },
+      "consoleErrors": [],
+      "consoleWarnings": [],
+      "horizontalOverflow": [],
+      "resourceErrors": [],
+      "reportSource": "cdp"
+    }
+  },
+  "engine": "chrome_cli",
+  "chromiumExec": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+  "engineDegraded": true,
+  "engineDegradedReason": "playwright 未装",
+  "elapsedSec": 16.23,
+  "schemaVersion": 2,
+  "status": "pass",
+  "engineInfo": {
+    "name": "chrome_cli",
+    "degraded": true,
+    "degradedReasons": [
+      "playwright 未装"
+    ]
+  },
+  "input": {
+    "original": "D:\\Trader\\docs\\量化交易全球最佳实践知识库.html",
+    "resolvedPath": "D:\\Trader\\docs\\量化交易全球最佳实践知识库.html",
+    "baseUrl": "file:///D:/Trader/docs/%E9%87%8F%E5%8C%96%E4%BA%A4%E6%98%93%E5%85%A8%E7%90%83%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5%E7%9F%A5%E8%AF%86%E5%BA%93.html",
+    "protocol": "file",
+    "cwd": "D:\\Trader",
+    "mediaMode": {
+      "reducedMotion": true
+    }
+  },
+  "artifacts": {
+    "screenshots": [
+      {
+        "viewport": "desktop",
+        "tiles": [
+          "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_desktop_p1of5.jpg",
+          "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_desktop_p2of5.jpg",
+          "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_desktop_p3of5.jpg",
+          "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_desktop_p4of5.jpg",
+          "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_desktop_p5of5.jpg"
+        ],
+        "visualCoverage": {
+          "complete": true,
+          "reason": null
+        }
+      },
+      {
+        "viewport": "mobile",
+        "tiles": [
+          "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_mobile_p1of12.jpg",
+          "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_mobile_p2of12.jpg",
+          "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_mobile_p3of12.jpg",
+          "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_mobile_p4of12.jpg",
+          "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_mobile_p5of12.jpg",
+          "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_mobile_p6of12.jpg",
+          "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_mobile_p7of12.jpg",
+          "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_mobile_p8of12.jpg",
+          "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_mobile_p9of12.jpg",
+          "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_mobile_p10of12.jpg",
+          "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_mobile_p11of12.jpg",
+          "D:\\Trader\\docs\\_shots\\量化交易全球最佳实践知识库_mobile_p12of12.jpg"
+        ],
+        "visualCoverage": {
+          "complete": true,
+          "reason": null
+        }
+      }
+    ]
+  },
+  "summary": {
+    "blocker": 0,
+    "error": 0,
+    "warning": 0,
+    "info": 0
+  },
+  "findings": [],
+  "prioritizedActions": [],
+  "reportPath": "D:\\Trader\\docs\\_shots\\report.json"
+}

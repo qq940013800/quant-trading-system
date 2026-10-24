@@ -1,0 +1,199 @@
+﻿# QuantDinger Docker Compose - One-Click Deployment
+# Usage:
+#   1. Copy env.example to .env and edit your settings
+#      cp backend_api_python/env.example backend_api_python/.env
+#   2. IMPORTANT: Generate and set a secure SECRET_KEY in backend_api_python/.env
+#      SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+#      Or edit backend_api_python/.env and replace SECRET_KEY value
+#   3. docker-compose up -d --build
+#   4. Open http://localhost:8888 (web) or http://localhost:8889 (mobile H5)
+#
+# Backend is built from local source. Frontend and mobile H5 are pulled from
+# GHCR. Override tags or image paths via FRONTEND_IMAGE / MOBILE_IMAGE /
+# IMAGE_TAG in a project-root `.env`.
+#
+# Note: The container will NOT start if SECRET_KEY is using the default value.
+#       This is a security measure to prevent insecure deployments.
+#
+# Docker image sources:
+#   Default uses official Docker Hub images.
+#   To switch source globally, set a single `IMAGE_PREFIX` in project-root `.env`.
+#   Examples: empty (official), `docker.m.daocloud.io/library/`,
+#   `docker.xuanyuan.me/library/`.
+# Backend Dockerfile uses official Debian/PyPI sources by default.
+# For mainland China builds, set BUILD_REGION=cn to use Aliyun mirrors with fallback.
+# The backend build defaults to a Docker Hub mirror for python:3.12 because
+# Docker Hub auth/base-image pulls are a common first-install failure. Set
+# PYTHON_BASE_IMAGE=python:3.12-slim-bookworm to force the official source.
+
+version: '3.8'
+
+# 内部专用网络，所有服务仅内部通信，禁止直接暴露公网
+networks:
+  quant_internal:
+    driver: bridge
+    internal: false  # 设为true则完全无法访问外网，交易所API需要外网，故设为false
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  pg_data:
+  ollama_models:
+  redis_data:
+
+services:
+  # =============================================================
+  # PostgreSQL 数据库：核心数据存储
+  # =============================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: quant_postgres
+    restart: unless-stopped
+    networks:
+      - quant_internal
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro  # 初始化SQL脚本
+    environment:
+      POSTGRES_DB: quant_db
+      POSTGRES_USER: quant_super
+      POSTGRES_PASSWORD: ${PG_SUPER_PASSWORD:?请设置数据库超级密码}
+      TZ: Asia/Shanghai
+    # 禁止映射端口到主机，仅内部网络访问
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quant_super -d quant_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+    security_opt:
+      - no-new-privileges:true
+
+  # =============================================================
+  # Redis：行情缓存 + 实时状态
+  # =============================================================
+  redis:
+    image: redis:7-alpine
+    container_name: quant_redis
+    restart: unless-stopped
+    networks:
+      - quant_internal
+    volumes:
+      - redis_data:/data
+    expose:
+      - "6379"
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # =============================================================
+  # QuantDinger 交易引擎
+  # =============================================================
+  quantdinger:
+    image: quantdinger:latest  # 本地构建或官方镜像
+    container_name: quantdinger_engine
+    restart: unless-stopped
+    networks:
+      - quant_internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./config:/app/config:ro
+      - ./strategies:/app/strategies
+      - ./logs:/app/logs
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: quant_trade_writer
+      DB_PASSWORD: ${DB_TRADE_PASSWORD}
+      DB_NAME: quant_db
+      REDIS_HOST: redis
+      TZ: Asia/Shanghai
+      LOG_LEVEL: info
+    # 仅映射管理端口到本机回环地址，禁止外网访问
+    ports:
+      - "127.0.0.1:8080:8080"
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+    security_opt:
+      - no-new-privileges:true
+
+  # =============================================================
+  # Ollama 本地大模型：策略开发 + 复盘分析
+  # =============================================================
+  ollama:
+    image: ollama/ollama:latest
+    container_name: quant_ollama
+    restart: unless-stopped
+    networks:
+      - quant_internal
+    volumes:
+      - ollama_models:/root/.ollama
+    environment:
+      OLLAMA_KEEP_ALIVE: "-1"  # 模型常驻内存
+      OLLAMA_NUM_PARALLEL: 1
+      TZ: Asia/Shanghai
+    expose:
+      - "11434"
+    # GPU加速（有N卡则取消注释）
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+    healthcheck:
+      test: ["CMD", "ollama", "ps"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # =============================================================
+  # Adminer：数据库管理（可选，仅本地访问）
+  # =============================================================
+  adminer:
+    image: adminer:latest
+    container_name: quant_adminer
+    restart: unless-stopped
+    networks:
+      - quant_internal
+    depends_on:
+      - postgres
+    ports:
+      - "127.0.0.1:8081:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DEFAULT_USER: quant_super
+      ADMINER_DEFAULT_DB: quant_db
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M

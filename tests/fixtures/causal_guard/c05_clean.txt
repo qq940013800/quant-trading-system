@@ -1,0 +1,12 @@
+def on_bar_close(state, bar):
+    if not bar.is_closed:
+        return state
+    if state.pos is None:
+        return state
+    pos = state.pos
+    if pos.atr0 is None:
+        pos.atr0 = state.clean_atr(bar.index - 1)  # frozen once at entry
+    candidate = bar.close - 2.0 * pos.atr0
+    pos.stop = max(pos.stop, candidate)  # long: stop only moves up
+    pos.peak = max(pos.peak, bar.high)  # peak only increases
+    return state

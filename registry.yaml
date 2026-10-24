@@ -1,0 +1,22 @@
+# Experiment ledger. Append-only: never edit or delete past entries, never lower trials_N.
+# decision_rule must be written and frozen BEFORE the experiment is run.
+
+schema_version: 1
+trials_N: 0            # cumulative number of trials run, including failed/aborted ones
+
+decision_rule:
+  frozen_at: null      # ISO date; set once, before the first trial
+  rule: null           # e.g. thresholds on OOS metric at cost x2, min trade count, multiple-testing correction
+  multiple_testing: null  # e.g. deflated_sharpe | bonferroni | fdr
+
+trials: []
+# - id: 1
+#   date: 2026-01-01
+#   hypothesis: ""
+#   command: ""
+#   params: {}
+#   data_range: {is: "", oos: ""}
+#   code_commit: ""
+#   seed: null
+#   report: reports/<file>.json
+#   outcome: pass | fail | aborted

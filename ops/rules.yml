@@ -1,0 +1,10 @@
+﻿groups:
+  - name: quantdinger_alerts
+    rules:
+      - alert: BackendDown
+        expr: up{job="quantdinger-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "QuantDinger后端服务宕机"

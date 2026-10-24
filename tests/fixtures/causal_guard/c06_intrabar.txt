@@ -1,0 +1,5 @@
+def on_tick(state, bars):
+    cur = bars.iloc[-1]  # still-forming bar
+    if cur["close"] > state.zone_high:
+        state.signal = "BUY"
+    return state

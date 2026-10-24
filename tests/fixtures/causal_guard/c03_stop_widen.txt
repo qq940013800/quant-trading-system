@@ -1,0 +1,5 @@
+def update_stop(pos, bar_close, atr0):
+    # long position: a lower stop moves toward loss
+    new_stop = bar_close - 2.0 * atr0
+    pos.stop = new_stop
+    return pos

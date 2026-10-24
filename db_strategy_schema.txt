@@ -1,0 +1,54 @@
+﻿                                             Table "public.qd_strategies_trading"
+       Column        |            Type             | Collation | Nullable |                      Default                      
+---------------------+-----------------------------+-----------+----------+---------------------------------------------------
+ id                  | integer                     |           | not null | nextval('qd_strategies_trading_id_seq'::regclass)
+ user_id             | integer                     |           | not null | 1
+ strategy_name       | character varying(255)      |           | not null | 
+ strategy_type       | character varying(50)       |           |          | 'StrategyV2'::character varying
+ market_category     | character varying(50)       |           |          | 'Crypto'::character varying
+ execution_mode      | character varying(20)       |           | not null | 'signal'::character varying
+ notification_config | jsonb                       |           | not null | '{}'::jsonb
+ status              | character varying(20)       |           |          | 'stopped'::character varying
+ symbol              | character varying(50)       |           |          | 
+ symbol_canonical    | character varying(50)       |           |          | ''::character varying
+ timeframe           | character varying(10)       |           |          | 
+ initial_capital     | numeric(20,8)               |           |          | 1000
+ leverage            | integer                     |           |          | 1
+ market_type         | character varying(20)       |           |          | 'swap'::character varying
+ exchange_config     | jsonb                       |           | not null | '{}'::jsonb
+ trading_config      | jsonb                       |           | not null | '{}'::jsonb
+ created_at          | timestamp without time zone |           |          | now()
+ updated_at          | timestamp without time zone |           |          | now()
+ source_version_id   | integer                     |           |          | 
+Indexes:
+    "qd_strategies_trading_pkey" PRIMARY KEY, btree (id)
+    "idx_strategies_source_version" btree (source_version_id)
+    "idx_strategies_status" btree (status)
+    "idx_strategies_user_id" btree (user_id)
+Foreign-key constraints:
+    "fk_strategy_source_version" FOREIGN KEY (source_version_id) REFERENCES qd_script_source_versions(id) ON DELETE RESTRICT
+    "qd_strategies_trading_user_id_fkey" FOREIGN KEY (user_id) REFERENCES qd_users(id) ON DELETE CASCADE
+Referenced by:
+    TABLE "pending_orders" CONSTRAINT "pending_orders_strategy_id_fkey" FOREIGN KEY (strategy_id) REFERENCES qd_strategies_trading(id) ON DELETE SET NULL
+    TABLE "qd_ai_strategy_decisions" CONSTRAINT "qd_ai_strategy_decisions_strategy_id_fkey" FOREIGN KEY (strategy_id) REFERENCES qd_strategies_trading(id) ON DELETE CASCADE
+    TABLE "qd_grid_actor_events" CONSTRAINT "qd_grid_actor_events_strategy_id_fkey" FOREIGN KEY (strategy_id) REFERENCES qd_strategies_trading(id) ON DELETE CASCADE
+    TABLE "qd_grid_actor_state" CONSTRAINT "qd_grid_actor_state_strategy_id_fkey" FOREIGN KEY (strategy_id) REFERENCES qd_strategies_trading(id) ON DELETE CASCADE
+    TABLE "qd_grid_cells" CONSTRAINT "qd_grid_cells_strategy_id_fkey" FOREIGN KEY (strategy_id) REFERENCES qd_strategies_trading(id) ON DELETE CASCADE
+    TABLE "qd_grid_resting_orders" CONSTRAINT "qd_grid_resting_orders_strategy_id_fkey" FOREIGN KEY (strategy_id) REFERENCES qd_strategies_trading(id) ON DELETE CASCADE
+    TABLE "qd_portfolio_rebalance_plans" CONSTRAINT "qd_portfolio_rebalance_plans_strategy_id_fkey" FOREIGN KEY (strategy_id) REFERENCES qd_strategies_trading(id) ON DELETE SET NULL
+    TABLE "qd_strategy_broker_activities" CONSTRAINT "qd_strategy_broker_activities_strategy_id_fkey" FOREIGN KEY (strategy_id) REFERENCES qd_strategies_trading(id) ON DELETE CASCADE
+    TABLE "qd_strategy_equity_snapshots" CONSTRAINT "qd_strategy_equity_snapshots_strategy_id_fkey" FOREIGN KEY (strategy_id) REFERENCES qd_strategies_trading(id) ON DELETE CASCADE
+    TABLE "qd_strategy_event_subscriptions" CONSTRAINT "qd_strategy_event_subscriptions_strategy_id_fkey" FOREIGN KEY (strategy_id) REFERENCES qd_strategies_trading(id) ON DELETE CASCADE
+    TABLE "qd_strategy_funding_fees" CONSTRAINT "qd_strategy_funding_fees_strategy_id_fkey" FOREIGN KEY (strategy_id) REFERENCES qd_strategies_trading(id) ON DELETE CASCADE
+    TABLE "qd_strategy_logs" CONSTRAINT "qd_strategy_logs_strategy_id_fkey" FOREIGN KEY (strategy_id) REFERENCES qd_strategies_trading(id) ON DELETE CASCADE
+    TABLE "qd_strategy_notifications" CONSTRAINT "qd_strategy_notifications_strategy_id_fkey" FOREIGN KEY (strategy_id) REFERENCES qd_strategies_trading(id) ON DELETE CASCADE
+    TABLE "qd_strategy_positions" CONSTRAINT "qd_strategy_positions_strategy_id_fkey" FOREIGN KEY (strategy_id) REFERENCES qd_strategies_trading(id) ON DELETE CASCADE
+    TABLE "qd_strategy_review_reports" CONSTRAINT "qd_strategy_review_reports_strategy_id_fkey" FOREIGN KEY (strategy_id) REFERENCES qd_strategies_trading(id) ON DELETE CASCADE
+    TABLE "qd_strategy_trades" CONSTRAINT "qd_strategy_trades_strategy_id_fkey" FOREIGN KEY (strategy_id) REFERENCES qd_strategies_trading(id) ON DELETE CASCADE
+    TABLE "qd_strategy_virtual_accounts" CONSTRAINT "qd_strategy_virtual_accounts_strategy_id_fkey" FOREIGN KEY (strategy_id) REFERENCES qd_strategies_trading(id) ON DELETE CASCADE
+    TABLE "qd_strategy_virtual_orders" CONSTRAINT "qd_strategy_virtual_orders_strategy_id_fkey" FOREIGN KEY (strategy_id) REFERENCES qd_strategies_trading(id) ON DELETE CASCADE
+    TABLE "qd_strategy_virtual_positions" CONSTRAINT "qd_strategy_virtual_positions_strategy_id_fkey" FOREIGN KEY (strategy_id) REFERENCES qd_strategies_trading(id) ON DELETE CASCADE
+    TABLE "qd_strategy_virtual_trades" CONSTRAINT "qd_strategy_virtual_trades_strategy_id_fkey" FOREIGN KEY (strategy_id) REFERENCES qd_strategies_trading(id) ON DELETE CASCADE
+Triggers:
+    trg_cleanup_deleted_strategy BEFORE DELETE ON qd_strategies_trading FOR EACH ROW EXECUTE FUNCTION qd_cleanup_deleted_strategy()
+

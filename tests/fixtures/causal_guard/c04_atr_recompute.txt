@@ -1,0 +1,8 @@
+def r_multiple(pos, bar, atr_series):
+    atr0 = atr_series[bar.index]  # recomputed every bar, not frozen at entry
+    return (bar.close - pos.entry) / (atr0 + 1e-9)
+
+
+def update_peak(pos, bar):
+    pos.peak = bar.close  # can decrease
+    return pos

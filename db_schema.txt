@@ -1,0 +1,7 @@
+﻿docker : Did not find any relation named "qd_strategies".
+At line:1 char:1
++ docker exec quantdinger-db psql -U quantdinger -d quantdinger -c "\d  ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Did not find an...qd_strategies".:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 

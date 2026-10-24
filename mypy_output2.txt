@@ -1,0 +1,40 @@
+﻿.\.venv\Scripts\python.exe : mypy.ini: While reading from 'mypy.ini' [line 19]: option 'warn_return_any' in section 
+'mypy' already exists
+At line:1 char:15
++ ...  D:\Trader; .\.venv\Scripts\python.exe -m mypy core/ > mypy_output2.t ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (mypy.ini: While... already exists:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+core\registry\strategy_registry.py:166: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+core\audit\lookahead_detector.py:44: note: By default the bodies of untyped functions are not checked, consider using --check-untyped-defs  [annotation-unchecked]
+core\models\ml_trend_strategy.py:159: error: Value of type variable "ArrayT" of "diff" cannot be "ndarray[tuple[int], dtype[Any]] | ExtensionArray"  [type-var]
+core\models\ml_trend_strategy.py:160: error: Value of type variable "ArrayT" of "diff" cannot be "ndarray[tuple[int], dtype[Any]] | ExtensionArray"  [type-var]
+core\models\ml_trend_strategy.py:161: error: Unsupported left operand type for > ("ExtensionArray")  [operator]
+core\models\ml_trend_strategy.py:161: note: Both left and right operands are unions
+core\models\ml_trend_strategy.py:161: error: Unsupported operand types for < ("int" and "ExtensionArray")  [operator]
+core\models\ml_trend_strategy.py:161: note: Left operand is of type "ndarray[tuple[int], dtype[Any]] | ExtensionArray"
+core\models\ml_trend_strategy.py:161: error: Argument 2 to "where" has incompatible type "ndarray[tuple[int], dtype[Any]] | ExtensionArray"; expected "Buffer | _SupportsArray[dtype[Any]] | _NestedSequence[_SupportsArray[dtype[Any]]] | complex | bytes | str | _NestedSequence[complex | bytes | str]"  [arg-type]
+core\models\ml_trend_strategy.py:162: error: Unsupported left operand type for > ("ExtensionArray")  [operator]
+core\models\ml_trend_strategy.py:162: note: Both left and right operands are unions
+core\models\ml_trend_strategy.py:162: error: Unsupported operand types for < ("int" and "ExtensionArray")  [operator]
+core\models\ml_trend_strategy.py:162: note: Left operand is of type "ndarray[tuple[int], dtype[Any]] | ExtensionArray"
+core\models\ml_trend_strategy.py:162: error: Argument 2 to "where" has incompatible type "ndarray[tuple[int], dtype[Any]] | ExtensionArray"; expected "Buffer | _SupportsArray[dtype[Any]] | _NestedSequence[_SupportsArray[dtype[Any]]] | complex | bytes | str | _NestedSequence[complex | bytes | str]"  [arg-type]
+core\models\ml_trend_strategy.py:163: error: Unsupported left operand type for - ("ExtensionArray")  [operator]
+core\models\ml_trend_strategy.py:163: note: Both left and right operands are unions
+core\models\ml_trend_strategy.py:178: error: Value of type variable "ArrayT" of "diff" cannot be "ndarray[tuple[int], dtype[Any]] | ExtensionArray"  [type-var]
+core\models\ml_trend_strategy.py:179: error: Unsupported operand types for < ("int" and "ExtensionArray")  [operator]
+core\models\ml_trend_strategy.py:179: note: Left operand is of type "ndarray[tuple[int], dtype[Any]] | ExtensionArray"
+core\models\ml_trend_strategy.py:179: error: Argument 2 to "where" has incompatible type "ndarray[tuple[int], dtype[Any]] | ExtensionArray"; expected "Buffer | _SupportsArray[dtype[Any]] | _NestedSequence[_SupportsArray[dtype[Any]]] | complex | bytes | str | _NestedSequence[complex | bytes | str]"  [arg-type]
+core\models\ml_trend_strategy.py:180: error: Unsupported operand types for > ("int" and "ExtensionArray")  [operator]
+core\models\ml_trend_strategy.py:180: note: Left operand is of type "ndarray[tuple[int], dtype[Any]] | ExtensionArray"
+core\models\ml_trend_strategy.py:180: error: Unsupported operand type for unary - ("ndarray[tuple[int], dtype[Any]] | ExtensionArray")  [operator]
+core\backtest\overfitting.py:193: error: No overload variant of "__getitem__" of "Series" matches argument type "Hashable"  [call-overload]
+core\backtest\overfitting.py:193: note: Possible overload variants:
+core\backtest\overfitting.py:193: note:     def __getitem__(self, int | signedinteger[_32Bit | _64Bit] | integer[Any] | unsignedinteger[Any] | signedinteger[Any] | signedinteger[_8Bit], /) -> float
+core\backtest\overfitting.py:193: note:     def __getitem__(self, Index[Any] | Series[Any] | slice[Any, Any, Any] | ndarray[tuple[Any, ...], dtype[integer[Any]]], /) -> Series[float]
+core\backtest\overfitting.py:193: note:     def __getitem__(self, str | bytes | date | datetime | timedelta | <12 more items>, /) -> float
+core\backtest\overfitting.py:193: note:     def __getitem__(self, Series[builtins.bool] | ndarray[tuple[Any, ...], dtype[numpy.bool[builtins.bool]]] | list[builtins.bool] | Index[Any] | Series[Any] | SequenceNotStr[float | str | Timestamp] | slice[Any, Any, Any] | tuple[IndexOpsMixin[Any, Any] | Series[builtins.bool] | ndarray[tuple[Any, ...], dtype[numpy.bool[builtins.bool]]] | list[builtins.bool] | str | bytes | date | datetime | timedelta | <7 more items> | complex | integer[Any] | floating[Any] | complexfloating[Any, Any] | Sequence[str | bytes | date | datetime | timedelta | <7 more items> | complex | integer[Any] | floating[Any] | complexfloating[Any, Any]] | slice[Any, Any, Any], ...] | Sequence[tuple[IndexOpsMixin[Any, Any] | Series[builtins.bool] | ndarray[tuple[Any, ...], dtype[numpy.bool[builtins.bool]]] | list[builtins.bool] | str | bytes | date | datetime | timedelta | <7 more items> | complex | integer[Any] | floating[Any] | complexfloating[Any, Any] | Sequence[str | bytes | date | datetime | timedelta | <7 more items> | complex | integer[Any] | floating[Any] | complexfloating[Any, Any]] | slice[Any, Any, Any], ...]] | Callable[..., Any], /) -> Series[float]
+core\integration\verification_middleware.py:382: error: Incompatible types in assignment (expression has type "float", variable has type "int")  [assignment]
+core\integration\verification_middleware.py:507: error: "PortfolioRiskManager" has no attribute "check_new_position"; maybe "can_open_new_position"?  [attr-defined]
+Found 17 errors in 3 files (checked 64 source files)

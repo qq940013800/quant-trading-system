@@ -1,0 +1,4 @@
+def build_features(df):
+    df["ret_fwd3"] = df["close"].shift(-3) / df["close"] - 1.0
+    df["feat_mom"] = df["ret_fwd3"].rolling(5).mean()
+    return df
