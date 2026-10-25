@@ -1,4 +1,5 @@
-﻿        #debug-panel {
+
+        #debug-panel {
             position: fixed;
             bottom: 40px;
             right: 12px;
@@ -54,10 +55,9 @@
             font-weight: bold;
             box-shadow: 0 2px 10px rgba(0,0,0,0.3);
         }
-    </style>
+    
 
 
-    <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
@@ -101,7 +101,7 @@
             height: 100vh;
         }
 
-        /* 椤堕儴瀵艰埅 */
+        /* 顶部导航 */
         .top-nav {
             background: var(--bg-secondary);
             border-bottom: 1px solid var(--border-color);
@@ -188,7 +188,7 @@
             50% { opacity: 0.5; }
         }
 
-        /* 涓诲唴瀹瑰尯 */
+        /* 主内容区 */
         .main-content {
             overflow: hidden;
             position: relative;
@@ -204,14 +204,14 @@
             display: block;
         }
 
-        /* 浠〃鐩橀〉闈?*/
+        /* 仪表盘页面 */
         .dashboard-grid {
             display: grid;
             grid-template-columns: 280px 1fr 320px;
             height: 100%;
         }
 
-        /* 宸︿晶杈规爮 */
+        /* 左侧边栏 */
         .left-sidebar {
             background: var(--bg-secondary);
             border-right: 1px solid var(--border-color);
@@ -304,7 +304,7 @@
             color: var(--text-secondary);
         }
 
-        /* 涓棿涓诲尯鍩?*/
+        /* 中间主区域 */
         .center-area {
             display: flex;
             flex-direction: column;
@@ -338,7 +338,7 @@
         .stat-value.up { color: var(--up-color); }
         .stat-value.down { color: var(--down-color); }
 
-        /* 鍥捐〃鍖哄煙 */
+        /* 图表区域 */
         .chart-area {
             flex: 1;
             padding: var(--spacing-md);
@@ -391,14 +391,14 @@
             position: relative;
         }
 
-        /* 鍙充晶杈规爮 */
+        /* 右侧边栏 */
         .right-sidebar {
             background: var(--bg-secondary);
             border-left: 1px solid var(--border-color);
             overflow-y: auto;
         }
 
-        /* 璁㈠崟绨?*/
+        /* 订单簿 */
         .orderbook {
             padding: var(--spacing-md);
             border-bottom: 1px solid var(--border-light);
@@ -462,7 +462,7 @@
             margin: 8px 0;
         }
 
-        /* 浜ゆ槗鍘嗗彶 */
+        /* 交易历史 */
         .trade-history {
             padding: var(--spacing-md);
         }
@@ -478,13 +478,13 @@
         .trade-row .price.buy { color: var(--up-color); }
         .trade-row .price.sell { color: var(--down-color); }
 
-        /* 鎴愪氦閲忓壇鍥?*/
+        /* 成交量副图 */
         .volume-chart-container {
             height: 80px;
             border-top: 1px solid var(--border-color);
         }
 
-        /* 缁╂晥鐑姏鍥?*/
+        /* 绩效热力图 */
         .monthly-heatmap {
             background: var(--bg-secondary);
             border-radius: 8px;
@@ -516,7 +516,7 @@
             font-weight: 600;
         }
 
-        /* 鍥炴挙鏇茬嚎 */
+        /* 回撤曲线 */
         .drawdown-chart-container {
             background: var(--bg-secondary);
             border-radius: 8px;
@@ -524,7 +524,7 @@
             margin-bottom: 24px;
         }
 
-        /* 绛栫暐瀵规瘮琛?*/
+        /* 策略对比表 */
         .strategy-comparison {
             background: var(--bg-secondary);
             border-radius: 8px;
@@ -559,7 +559,7 @@
             font-family: var(--font-sans);
         }
 
-        /* 绛栫暐璇︽儏寮圭獥 */
+        /* 策略详情弹窗 */
         .strategy-detail-tabs {
             display: flex;
             gap: 4px;
@@ -580,7 +580,7 @@
             border-bottom-color: var(--brand-primary);
         }
 
-        /* 涓嬪崟闈㈡澘 */
+        /* 下单面板 */
         .order-panel {
             padding: var(--spacing-md);
             border-bottom: 1px solid var(--border-light);
@@ -666,7 +666,7 @@
             color: white;
         }
 
-        /* 绛栫暐鍒楄〃 */
+        /* 策略列表 */
         .strategy-list {
             padding: var(--spacing-md);
         }
@@ -732,7 +732,7 @@
             color: var(--text-secondary);
         }
 
-        /* 绛栫暐涓績椤甸潰 */
+        /* 策略中心页面 */
         .strategy-center-page {
             padding: var(--spacing-lg);
         }
@@ -764,7 +764,7 @@
             gap: var(--spacing-md);
         }
 
-        /* 鍥炴祴椤甸潰 */
+        /* 回测页面 */
         .backtest-page {
             padding: var(--spacing-lg);
         }
@@ -825,7 +825,7 @@
             margin-bottom: 24px;
         }
 
-        /* 椋庢帶椤甸潰 */
+        /* 风控页面 */
         .risk-page {
             padding: var(--spacing-lg);
         }
@@ -865,7 +865,7 @@
             margin-top: var(--spacing-xs);
         }
 
-        /* 搴曢儴鐘舵€佹爮 */
+        /* 底部状态栏 */
         .status-bar {
             background: var(--bg-secondary);
             border-top: 1px solid var(--border-color);
@@ -883,7 +883,7 @@
             gap: 6px;
         }
 
-        /* 寮圭獥 */
+        /* 弹窗 */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -935,7 +935,7 @@
             padding: 24px;
         }
 
-        /* 绛栫暐璇︽儏寮圭獥鏍峰紡 */
+        /* 策略详情弹窗样式 */
         .detail-section {
             margin-bottom: 24px;
         }
@@ -1006,7 +1006,7 @@
             color: var(--text-secondary);
         }
 
-        /* 鍔犺浇鐘舵€?*/
+        /* 加载状态 */
         .loading {
             display: inline-block;
             width: 16px;
@@ -1034,7 +1034,7 @@
             z-index: 10;
         }
 
-        /* Toast 鎻愮ず */
+        /* Toast 提示 */
         .toast {
             position: fixed;
             top: 60px;
@@ -1052,3 +1052,4 @@
             from { transform: translateX(100px); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
         }
+    
