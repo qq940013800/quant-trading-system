@@ -2106,6 +2106,209 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- TCA交易成本分析面板 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="font-size: 16px; font-weight: 600;">💸 TCA 交易成本分析</h3>
+                        <span style="padding: 4px 10px; background: rgba(240, 185, 11, 0.1); color: #f0b90b; border-radius: 4px; font-size: 11px;">Jane Street标准</span>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px;">
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">佣金</div>
+                            <div style="font-size: 20px; font-weight: 700; color: #8b5cf6;" id="tca-commission">1.2%</div>
+                            <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">固定成本</div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">点差</div>
+                            <div style="font-size: 20px; font-weight: 700; color: #58a6ff;" id="tca-spread">2.0%</div>
+                            <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">买卖价差</div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">滑点</div>
+                            <div style="font-size: 20px; font-weight: 700; color: #f0b90b;" id="tca-slippage">3.5%</div>
+                            <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">平方根模型</div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">市场冲击</div>
+                            <div style="font-size: 20px; font-weight: 700; color: #f6465d;" id="tca-impact">1.8%</div>
+                            <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">大单冲击</div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">时机风险</div>
+                            <div style="font-size: 20px; font-weight: 700; color: #0ecb81;" id="tca-timing">0.5%</div>
+                            <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">等待成本</div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px; background: rgba(240, 185, 11, 0.05); border-radius: 8px; border-left: 3px solid #f0b90b;">
+                        <div>
+                            <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">单笔交易总成本</div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">回测vs实盘差距的80%来自成本被低估</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 28px; font-weight: 700; color: #f0b90b;" id="tca-total">8.2 bps</div>
+                            <div style="font-size: 11px; color: #0ecb81;">✅ 成本可控（<10bps）</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 数据治理体系面板 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="font-size: 16px; font-weight: 600;">📊 数据治理体系</h3>
+                        <span style="padding: 4px 10px; background: rgba(88, 166, 255, 0.1); color: #58a6ff; border-radius: 4px; font-size: 11px;">Two Sigma标准</span>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px;">
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">完整性</div>
+                            <div style="font-size: 24px; font-weight: 700; color: #0ecb81;" id="dq-completeness">98%</div>
+                            <div style="height: 4px; background: var(--bg-border); border-radius: 2px; margin-top: 8px;">
+                                <div style="height: 100%; width: 98%; background: #0ecb81; border-radius: 2px;"></div>
+                            </div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">准确性</div>
+                            <div style="font-size: 24px; font-weight: 700; color: #0ecb81;" id="dq-accuracy">96%</div>
+                            <div style="height: 4px; background: var(--bg-border); border-radius: 2px; margin-top: 8px;">
+                                <div style="height: 100%; width: 96%; background: #0ecb81; border-radius: 2px;"></div>
+                            </div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">一致性</div>
+                            <div style="font-size: 24px; font-weight: 700; color: #f0b90b;" id="dq-consistency">92%</div>
+                            <div style="height: 4px; background: var(--bg-border); border-radius: 2px; margin-top: 8px;">
+                                <div style="height: 100%; width: 92%; background: #f0b90b; border-radius: 2px;"></div>
+                            </div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">及时性</div>
+                            <div style="font-size: 24px; font-weight: 700; color: #0ecb81;" id="dq-timeliness">99%</div>
+                            <div style="height: 4px; background: var(--bg-border); border-radius: 2px; margin-top: 8px;">
+                                <div style="height: 100%; width: 99%; background: #0ecb81; border-radius: 2px;"></div>
+                            </div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">唯一性</div>
+                            <div style="font-size: 24px; font-weight: 700; color: #0ecb81;" id="dq-uniqueness">100%</div>
+                            <div style="height: 4px; background: var(--bg-border); border-radius: 2px; margin-top: 8px;">
+                                <div style="height: 100%; width: 100%; background: #0ecb81; border-radius: 2px;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="padding: 16px; background: rgba(14, 203, 129, 0.05); border-radius: 8px; border-left: 3px solid #0ecb81;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">综合质量评分：优秀</div>
+                                <div style="font-size: 12px; color: var(--text-secondary);">垃圾进垃圾出——数据质量是策略有效性的第一道门</div>
+                            </div>
+                            <div style="font-size: 32px; font-weight: 700; color: #0ecb81;">97</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 风控引擎面板 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="font-size: 16px; font-weight: 600;">🛡️ 风控引擎（强制执行）</h3>
+                        <span style="padding: 4px 10px; background: rgba(246, 70, 93, 0.1); color: #f6465d; border-radius: 4px; font-size: 11px;">Citadel标准</span>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;">
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 20px;">
+                            <div style="font-size: 13px; font-weight: 600; margin-bottom: 12px; color: #f6465d;">⛔ 止损强制执行</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.8;">
+                                ✅ 到价自动平仓，不等人工<br>
+                                ✅ 人会"再等等"，系统不会<br>
+                                ✅ R倍数用入场时冻结的ATR计算<br>
+                                ✅ 止损只允许向盈利方向移动
+                            </div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 20px;">
+                            <div style="font-size: 13px; font-weight: 600; margin-bottom: 12px; color: #f0b90b;">📈 追踪止损</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.8;">
+                                ✅ 浮盈达到1R → 启动追踪<br>
+                                ✅ 回撤0.5R → 自动止盈<br>
+                                ✅ 截断亏损，让利润奔跑<br>
+                                ✅ 永不向下移动止损位
+                            </div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 20px;">
+                            <div style="font-size: 13px; font-weight: 600; margin-bottom: 12px; color: #8b5cf6;">📉 组合回撤控制</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.8;">
+                                ✅ 单日回撤 > 3% → 减仓50%<br>
+                                ✅ 周回撤 > 6% → 全部暂停<br>
+                                ✅ 月回撤 > 10% → 强制清算<br>
+                                ✅ 负反馈机制：越亏越保守
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="padding: 16px; background: rgba(246, 70, 93, 0.05); border-radius: 8px; border-left: 3px solid #f6465d;">
+                        <div style="font-size: 13px; color: var(--text-secondary);">
+                            <span style="color: #f6465d; font-weight: 600;">核心原则：风控不依赖人的意志力</span><br>
+                            <span style="font-size: 12px;">所有止损和回撤控制都是系统强制执行，不需要人工确认。人在关键时刻一定会犹豫——"再等等看"就是爆仓的开始。</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 市场状态识别L1面板 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="font-size: 16px; font-weight: 600;">🌊 市场状态识别 L1 (Regime)</h3>
+                        <span style="padding: 4px 10px; background: rgba(139, 92, 246, 0.1); color: #8b5cf6; border-radius: 4px; font-size: 11px;">Renaissance HMM</span>
+                    </div>
+
+                    <div style="padding: 20px; background: rgba(14, 203, 129, 0.05); border-radius: 8px; border-left: 4px solid #0ecb81; margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">当前市场状态</div>
+                                <div style="font-size: 24px; font-weight: 700; color: #0ecb81;">🟢 弱上升趋势</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 12px; color: var(--text-secondary);">状态置信度</div>
+                                <div style="font-size: 24px; font-weight: 700; color: #0ecb81;">78%</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+                        <div style="padding: 12px; background: rgba(14, 203, 129, 0.1); border-radius: 6px; border: 1px solid #0ecb81;">
+                            <div style="font-size: 12px; font-weight: 600; color: #0ecb81; margin-bottom: 4px;">强上升</div>
+                            <div style="font-size: 18px; font-weight: 700; color: #0ecb81;">15%</div>
+                        </div>
+                        <div style="padding: 12px; background: rgba(14, 203, 129, 0.15); border-radius: 6px; border: 2px solid #0ecb81;">
+                            <div style="font-size: 12px; font-weight: 600; color: #0ecb81; margin-bottom: 4px;">弱上升 ← 当前</div>
+                            <div style="font-size: 18px; font-weight: 700; color: #0ecb81;">78%</div>
+                        </div>
+                        <div style="padding: 12px; background: rgba(240, 185, 11, 0.05); border-radius: 6px;">
+                            <div style="font-size: 12px; font-weight: 600; color: #f0b90b; margin-bottom: 4px;">震荡</div>
+                            <div style="font-size: 18px; font-weight: 700; color: #f0b90b;">5%</div>
+                        </div>
+                        <div style="padding: 12px; background: rgba(246, 70, 93, 0.05); border-radius: 6px;">
+                            <div style="font-size: 12px; font-weight: 600; color: #f6465d; margin-bottom: 4px;">弱下降</div>
+                            <div style="font-size: 18px; font-weight: 700; color: #f6465d;">1%</div>
+                        </div>
+                        <div style="padding: 12px; background: rgba(246, 70, 93, 0.05); border-radius: 6px;">
+                            <div style="font-size: 12px; font-weight: 600; color: #f6465d; margin-bottom: 4px;">强下降</div>
+                            <div style="font-size: 18px; font-weight: 700; color: #f6465d;">0.5%</div>
+                        </div>
+                        <div style="padding: 12px; background: rgba(246, 70, 93, 0.1); border-radius: 6px;">
+                            <div style="font-size: 12px; font-weight: 600; color: #f6465d; margin-bottom: 4px;">危机</div>
+                            <div style="font-size: 18px; font-weight: 700; color: #f6465d;">0.5%</div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 16px; padding: 12px; background: var(--bg-primary); border-radius: 6px; font-size: 12px; color: var(--text-secondary);">
+                        <strong style="color: #eaecef;">策略推荐：</strong>
+                        当前状态适合运行 <span style="color: #0ecb81;">趋势跟踪策略</span>，
+                        建议 <span style="color: #f0b90b;">暂停均值回归策略</span>，
+                        防抖动机制：状态切换需连续3根K线确认
+                    </div>
+                </div>
             </div>
 
             <!-- 日志中心页面 -->
