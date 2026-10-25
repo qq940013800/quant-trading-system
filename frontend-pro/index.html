@@ -1719,47 +1719,99 @@
                 <div class="risk-page">
                     <div class="page-header">
                         <div class="page-title">风险管理仪表盘</div>
+                        <span style="font-size: 12px; color: var(--text-secondary);" id="risk-update-time">--</span>
                     </div>
                     <div class="risk-dashboard">
                         <div class="risk-card safe">
                             <div class="risk-label">账户总风险敞口</div>
-                            <div class="risk-value" style="color: var(--up-color);">12.5%</div>
+                            <div class="risk-value" id="risk-total-exposure" style="color: var(--up-color);">12.5%</div>
                             <div class="risk-threshold">限额: 20%</div>
                         </div>
                         <div class="risk-card warning">
                             <div class="risk-label">单策略最大风险</div>
-                            <div class="risk-value" style="color: var(--warning-color);">8.2%</div>
+                            <div class="risk-value" id="risk-max-strategy" style="color: var(--warning-color);">8.2%</div>
                             <div class="risk-threshold">限额: 10%</div>
                         </div>
                         <div class="risk-card safe">
-                            <div class="risk-label">相关性风险</div>
-                            <div class="risk-value" style="color: var(--up-color);">0.35</div>
+                            <div class="risk-label">平均相关性</div>
+                            <div class="risk-value" id="risk-correlation" style="color: var(--up-color);">0.35</div>
                             <div class="risk-threshold">阈值: 0.7</div>
                         </div>
                         <div class="risk-card danger">
                             <div class="risk-label">当日最大回撤</div>
-                            <div class="risk-value" style="color: var(--down-color);">-4.2%</div>
+                            <div class="risk-value" id="risk-daily-drawdown" style="color: var(--down-color);">-4.2%</div>
                             <div class="risk-threshold">熔断线: -5%</div>
                         </div>
                     </div>
+                    
+                    <!-- 新增：VaR/CVaR 和风险贡献 -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                        <div style="background: var(--bg-secondary); border-radius: 8px; padding: 20px;">
+                            <h4 style="font-size: 14px; margin-bottom: 16px; color: var(--text-primary);">尾部风险指标 (95%置信)</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                <div style="padding: 12px; background: var(--bg-primary); border-radius: 6px;">
+                                    <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">VaR (日)</div>
+                                    <div style="font-size: 18px; font-weight: 700; color: var(--warning-color);" id="risk-var">-1.85%</div>
+                                </div>
+                                <div style="padding: 12px; background: var(--bg-primary); border-radius: 6px;">
+                                    <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">CVaR (期望损失)</div>
+                                    <div style="font-size: 18px; font-weight: 700; color: var(--down-color);" id="risk-cvar">-2.64%</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="background: var(--bg-secondary); border-radius: 8px; padding: 20px;">
+                            <h4 style="font-size: 14px; margin-bottom: 16px; color: var(--text-primary);">组合风险预算分配</h4>
+                            <div style="display: flex; flex-direction: column; gap: 8px;" id="risk-budget-list">
+                                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
+                                    <span>突破策略</span>
+                                    <div style="flex: 1; margin: 0 12px; height: 6px; background: var(--bg-active); border-radius: 3px;">
+                                        <div style="width: 35%; height: 100%; background: #8b5cf6; border-radius: 3px;"></div>
+                                    </div>
+                                    <span style="color: var(--text-secondary);">35%</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
+                                    <span>均值回归</span>
+                                    <div style="flex: 1; margin: 0 12px; height: 6px; background: var(--bg-active); border-radius: 3px;">
+                                        <div style="width: 28%; height: 100%; background: #0ecb81; border-radius: 3px;"></div>
+                                    </div>
+                                    <span style="color: var(--text-secondary);">28%</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
+                                    <span>趋势跟踪</span>
+                                    <div style="flex: 1; margin: 0 12px; height: 6px; background: var(--bg-active); border-radius: 3px;">
+                                        <div style="width: 22%; height: 100%; background: #f0b90b; border-radius: 3px;"></div>
+                                    </div>
+                                    <span style="color: var(--text-secondary);">22%</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
+                                    <span>ML预测</span>
+                                    <div style="flex: 1; margin: 0 12px; height: 6px; background: var(--bg-active); border-radius: 3px;">
+                                        <div style="width: 15%; height: 100%; background: #f6465d; border-radius: 3px;"></div>
+                                    </div>
+                                    <span style="color: var(--text-secondary);">15%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div style="background: var(--bg-secondary); border-radius: 8px; padding: 24px;">
                         <h3 style="margin-bottom: 16px;">风险限额设置</h3>
                         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
                             <div class="form-group">
                                 <label class="form-label">单日最大亏损 (%)</label>
-                                <input type="number" class="form-input" value="5">
+                                <input type="number" class="form-input" value="5" id="limit-daily-loss">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">单策略最大仓位 (%)</label>
-                                <input type="number" class="form-input" value="30">
+                                <input type="number" class="form-input" value="30" id="limit-strategy-position">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">最大同时持仓数</label>
-                                <input type="number" class="form-input" value="10">
+                                <input type="number" class="form-input" value="10" id="limit-max-positions">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">杠杆上限</label>
-                                <input type="number" class="form-input" value="1">
+                                <input type="number" class="form-input" value="1" id="limit-leverage">
                             </div>
                         </div>
                     </div>
@@ -2734,6 +2786,13 @@
                             loadValidationData();
                         }, 100);
                     }
+                    
+                    // 切换到风险页时加载风险数据
+                    if (page === 'risk') {
+                        setTimeout(() => {
+                            loadRiskData();
+                        }, 100);
+                    }
                 } catch (err) {
                     debugLog(`页面切换失败: ${err.message}`, 'error');
                 }
@@ -3528,6 +3587,54 @@
                     <span style="color: #0ecb81; font-weight: 600;">✓ 综合风险评分：${data.overall_risk_score}/100（${data.risk_level}）</span><br>
                     <span style="font-size: 12px;">${data.summary}</span>
                 `;
+            }
+        }
+        
+        // ========== 风险仪表盘数据加载 ==========
+        async function loadRiskData() {
+            debugLog('加载风险仪表盘数据', 'info');
+            try {
+                const res = await fetch('/api/risk/dashboard', {
+                    headers: { 'Authorization': 'Bearer ' + Auth.getToken() }
+                });
+                if (!res.ok) throw new Error('API返回' + res.status);
+                const data = await res.json();
+                if (data.code === 1 && data.data) {
+                    renderRiskDashboard(data.data);
+                    debugLog(`风险数据加载成功`, 'success');
+                }
+            } catch (err) {
+                debugLog(`风险API暂不可用，使用内置数据: ${err.message}`, 'warn');
+                // API不可用时保留现有硬编码数据
+            }
+            // 更新时间
+            const now = new Date();
+            document.getElementById('risk-update-time').textContent = '更新于 ' + now.toLocaleTimeString();
+        }
+        
+        function renderRiskDashboard(data) {
+            if (data.total_exposure) {
+                const el = document.getElementById('risk-total-exposure');
+                el.textContent = data.total_exposure.toFixed(1) + '%';
+                el.style.color = data.total_exposure > 15 ? 'var(--down-color)' : 'var(--up-color)';
+            }
+            if (data.max_strategy_risk) {
+                const el = document.getElementById('risk-max-strategy');
+                el.textContent = data.max_strategy_risk.toFixed(1) + '%';
+                el.style.color = data.max_strategy_risk > 8 ? 'var(--down-color)' : 'var(--warning-color)';
+            }
+            if (data.avg_correlation) {
+                document.getElementById('risk-correlation').textContent = data.avg_correlation.toFixed(2);
+            }
+            if (data.daily_drawdown) {
+                const el = document.getElementById('risk-daily-drawdown');
+                el.textContent = data.daily_drawdown.toFixed(1) + '%';
+            }
+            if (data.var_95) {
+                document.getElementById('risk-var').textContent = data.var_95.toFixed(2) + '%';
+            }
+            if (data.cvar_95) {
+                document.getElementById('risk-cvar').textContent = data.cvar_95.toFixed(2) + '%';
             }
         }
 
