@@ -84,6 +84,7 @@ def register_human_blueprints(api: Api) -> None:
     from app.routes.risk import risk_bp
     from app.routes.tca import tca_bp
     from app.routes.p1_modules import p1_bp
+    from app.routes.p2_modules import p2_bp
 
     registrations: list[tuple] = [
         (health_blp, ""),
@@ -115,6 +116,7 @@ def register_human_blueprints(api: Api) -> None:
         (risk_bp, "/api/risk"),
         (tca_bp, "/api/tca"),
         (p1_bp, "/api/p1"),
+        (p2_bp, "/api/p2"),
     ]
 
     for blp, prefix in registrations:
