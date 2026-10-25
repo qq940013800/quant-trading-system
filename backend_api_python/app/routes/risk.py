@@ -17,6 +17,7 @@ from app.openapi.blueprint import HumanBlueprint as Blueprint
 
 from app.services.risk_engine import get_risk_engine
 from app.services.market_regime import get_regime_detector
+from app.services.market_structure import get_structure_detector
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -189,6 +190,77 @@ def let_profit_run_demo():
             "❌ 追踪止损太近 - 被正常回调洗出去",
             "❌ 没有保本止损 - 从盈利变亏损最痛苦",
             "❌ 情绪化交易 - 该扛的时候扛，该砍的时候砍反了"
+        ]
+    }
+    return jsonify({"success": True, "data": demo_data})
+
+
+@risk_bp.route("/structure", methods=["GET"])
+def get_market_structure():
+    """
+    获取市场结构识别结果（L2）
+    
+    包含：
+    - 当前趋势方向
+    - 最近的摆动高低点
+    - 最近的结构事件（BOS/CHoCH）
+    - 关键支撑阻力位
+    """
+    try:
+        detector = get_structure_detector()
+        summary = detector.get_structure_summary()
+        return jsonify({"success": True, "data": summary})
+    except Exception as e:
+        logger.error(f"获取市场结构失败: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@risk_bp.route("/structure/demo", methods=["GET"])
+def market_structure_demo():
+    """市场结构识别演示数据"""
+    demo_data = {
+        "title": "市场结构识别（L2）— 第一性原理",
+        "principle": "价格不是随机走的，是沿着高低点结构前进的",
+        "core_concepts": [
+            {
+                "name": "摆动高低点 (Swing High/Low)",
+                "definition": "连续N根K线中的最高/最低点，是市场结构的基本积木",
+                "why": "高低点是多空双方博弈留下的痕迹，是市场情绪的可视化"
+            },
+            {
+                "name": "BOS (Break of Structure) 结构突破",
+                "definition": "趋势延续：突破前一个同向结构点，说明趋势还在继续",
+                "why": "聪明钱沿着结构方向加仓，突破确认趋势健康"
+            },
+            {
+                "name": "CHoCH (Change of Character) 特征变化",
+                "definition": "趋势反转：突破前一个反向结构点，说明趋势可能要变了",
+                "why": "是最早的反转信号，比技术指标早很多"
+            },
+            {
+                "name": "支撑阻力位 (Support/Resistance)",
+                "definition": "多次测试过的价格位，价格到这里容易反弹或回落",
+                "why": "这些位置聚集了大量订单，是机构的攻防阵地"
+            }
+        ],
+        "trend_phases": {
+            "accumulation": "积累阶段 — 横盘震荡，聪明钱悄悄建仓",
+            "markup": "上涨阶段 — 趋势明确，顺势做多",
+            "distribution": "分配阶段 — 高位震荡，聪明钱悄悄出货",
+            "markdown": "下跌阶段 — 趋势明确，顺势做空"
+        },
+        "top_firm_practice": [
+            "ICT (Inner Circle Trader)：Smart Money Concepts 核心框架",
+            "Wyckoff Method：积累/趋势/分配三阶段理论",
+            "机构交易员：不先看指标，先看结构位置",
+            "价格行为交易：结构是道，指标是术"
+        ],
+        "common_mistakes": [
+            "❌ 不看结构，只看指标 — 指标滞后于结构",
+            "❌ 把震荡当趋势 — 在区间中间追涨杀跌",
+            "❌ 错过CHoCH信号 — 反转了还在顺势交易",
+            "❌ 忽略支撑阻力 — 在关键位逆势开仓",
+            "❌ 结构识别太主观 — 同样的图两个人看出两个样"
         ]
     }
     return jsonify({"success": True, "data": demo_data})
