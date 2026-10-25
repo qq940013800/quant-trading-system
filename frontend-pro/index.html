@@ -1958,6 +1958,154 @@
                         </div>
                     </div>
                 </div>
+                
+                <!-- 过拟合防御详细面板 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="font-size: 16px; font-weight: 600;">过拟合防御三重验证</h3>
+                        <span style="padding: 4px 10px; background: rgba(139, 92, 246, 0.1); color: #8b5cf6; border-radius: 4px; font-size: 11px;">Renaissance标准</span>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;">
+                        <!-- PBO -->
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 20px;">
+                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 16px;">
+                                <div>
+                                    <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">PBO 概率回测过拟合</div>
+                                    <div style="font-size: 11px; color: var(--text-secondary);">Probability of Backtest Overfitting</div>
+                                </div>
+                                <span style="padding: 3px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">低风险</span>
+                            </div>
+                            <div style="font-size: 32px; font-weight: 700; color: #0ecb81; margin-bottom: 12px;" id="pbo-value">0.15</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">
+                                PBO < 0.2 = 低风险<br>
+                                PBO 0.2-0.4 = 中等风险<br>
+                                PBO > 0.4 = 高风险，禁止上线
+                            </div>
+                        </div>
+                        
+                        <!-- CPCV -->
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 20px;">
+                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 16px;">
+                                <div>
+                                    <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">CPCV 组合交叉验证</div>
+                                    <div style="font-size: 11px; color: var(--text-secondary);">Combinatorial Purged Cross-Validation</div>
+                                </div>
+                                <span style="padding: 3px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">通过</span>
+                            </div>
+                            <div style="font-size: 32px; font-weight: 700; color: #0ecb81; margin-bottom: 12px;" id="cpcv-value">8/10</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">
+                                样本外胜率 > 60% = 通过<br>
+                                10折组合交叉验证<br>
+                                训练集与测试集严格分离
+                            </div>
+                        </div>
+                        
+                        <!-- Deflated Sharpe -->
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 20px;">
+                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 16px;">
+                                <div>
+                                    <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">DSR 夏普比率衰减</div>
+                                    <div style="font-size: 11px; color: var(--text-secondary);">Deflated Sharpe Ratio</div>
+                                </div>
+                                <span style="padding: 3px 8px; background: rgba(240, 185, 11, 0.1); color: #f0b90b; border-radius: 4px; font-size: 11px;">中等</span>
+                            </div>
+                            <div style="font-size: 32px; font-weight: 700; color: #f0b90b; margin-bottom: 12px;" id="dsr-value">1.23</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">
+                                DSR > 1.5 = 优秀<br>
+                                DSR 1.0-1.5 = 合格<br>
+                                DSR < 1.0 = 过拟合嫌疑
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 验证通过条件 -->
+                    <div style="padding: 16px; background: rgba(139, 92, 246, 0.05); border-radius: 8px; border-left: 3px solid #8b5cf6;">
+                        <div style="font-size: 13px; color: var(--text-secondary);">
+                            <span style="color: #8b5cf6; font-weight: 600;">守门员规则：三项全部通过才允许策略上线</span><br>
+                            <span style="font-size: 12px;">
+                                1. PBO < 0.2（过拟合概率低）<br>
+                                2. CPCV样本外胜率 > 60%（泛化能力强）<br>
+                                3. DSR > 1.0（剔除运气因素后夏普仍为正）<br>
+                                <span style="color: #f6465d;">任意一项不通过 → 策略标记为「待验证」，禁止实盘运行</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 策略生命周期监控面板 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="font-size: 16px; font-weight: 600;">策略生命周期监控</h3>
+                        <span style="padding: 4px 10px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">实时监控中</span>
+                    </div>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 12px;" id="strategy-health-list">
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px; background: var(--bg-primary); border-radius: 8px; border-left: 4px solid #0ecb81;">
+                            <div style="flex: 2;">
+                                <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">ML增强趋势策略</div>
+                                <div style="font-size: 11px; color: var(--text-secondary);">运行 47 天 · 累计收益 +23.5%</div>
+                            </div>
+                            <div style="flex: 3; padding: 0 24px;">
+                                <div style="display: flex; gap: 16px; font-size: 11px;">
+                                    <span>夏普: <strong>1.85</strong></span>
+                                    <span>回撤: <strong>-3.2%</strong></span>
+                                    <span>胜率: <strong>65%</strong></span>
+                                    <span>近期表现: <strong style="color: #0ecb81;">稳定</strong></span>
+                                </div>
+                            </div>
+                            <span style="padding: 4px 12px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 12px; font-weight: 600;">🟢 健康</span>
+                        </div>
+                        
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px; background: var(--bg-primary); border-radius: 8px; border-left: 4px solid #f0b90b;">
+                            <div style="flex: 2;">
+                                <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">均值回归策略</div>
+                                <div style="font-size: 11px; color: var(--text-secondary);">运行 32 天 · 累计收益 +8.2%</div>
+                            </div>
+                            <div style="flex: 3; padding: 0 24px;">
+                                <div style="display: flex; gap: 16px; font-size: 11px;">
+                                    <span>夏普: <strong>1.42</strong></span>
+                                    <span>回撤: <strong>-4.8%</strong></span>
+                                    <span>胜率: <strong>58%</strong></span>
+                                    <span>近期表现: <strong style="color: #f0b90b;">衰减中</strong></span>
+                                </div>
+                            </div>
+                            <span style="padding: 4px 12px; background: rgba(240, 185, 11, 0.1); color: #f0b90b; border-radius: 4px; font-size: 12px; font-weight: 600;">🟡 观察</span>
+                        </div>
+                        
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px; background: var(--bg-primary); border-radius: 8px; border-left: 4px solid #f6465d;">
+                            <div style="flex: 2;">
+                                <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">突破策略</div>
+                                <div style="font-size: 11px; color: var(--text-secondary);">运行 21 天 · 累计收益 -2.1%</div>
+                            </div>
+                            <div style="flex: 3; padding: 0 24px;">
+                                <div style="display: flex; gap: 16px; font-size: 11px;">
+                                    <span>夏普: <strong>0.85</strong></span>
+                                    <span>回撤: <strong>-6.5%</strong></span>
+                                    <span>胜率: <strong>42%</strong></span>
+                                    <span>近期表现: <strong style="color: #f6465d;">持续亏损</strong></span>
+                                </div>
+                            </div>
+                            <span style="padding: 4px 12px; background: rgba(246, 70, 93, 0.1); color: #f6465d; border-radius: 4px; font-size: 12px; font-weight: 600;">🔴 警告</span>
+                        </div>
+                    </div>
+                    
+                    <!-- 三级状态说明 -->
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--bg-border);">
+                        <div style="padding: 12px; background: rgba(14, 203, 129, 0.05); border-radius: 6px;">
+                            <div style="font-size: 12px; font-weight: 600; color: #0ecb81; margin-bottom: 4px;">🟢 健康 (Active)</div>
+                            <div style="font-size: 11px; color: var(--text-secondary);">夏普>1.5，回撤<5%，正常分配资金</div>
+                        </div>
+                        <div style="padding: 12px; background: rgba(240, 185, 11, 0.05); border-radius: 6px;">
+                            <div style="font-size: 12px; font-weight: 600; color: #f0b90b; margin-bottom: 4px;">🟡 观察 (Watch)</div>
+                            <div style="font-size: 11px; color: var(--text-secondary);">夏普下降>30%或回撤扩大，减仓50%观察</div>
+                        </div>
+                        <div style="padding: 12px; background: rgba(246, 70, 93, 0.05); border-radius: 6px;">
+                            <div style="font-size: 12px; font-weight: 600; color: #f6465d; margin-bottom: 4px;">🔴 警告 (Suspended)</div>
+                            <div style="font-size: 11px; color: var(--text-secondary);">连续亏损或回撤超限，自动暂停运行</div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- 日志中心页面 -->
