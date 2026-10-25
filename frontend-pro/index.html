@@ -1176,6 +1176,7 @@
                 <div class="nav-item" data-page="strategies">策略中心</div>
                 <div class="nav-item" data-page="backtest">回测</div>
                 <div class="nav-item" data-page="risk">风险管理</div>
+                <div class="nav-item" data-page="engine">核心引擎</div>
                 <div class="nav-item" data-page="validation">AI验证层</div>
                 <div class="nav-item" data-page="logs">日志中心</div>
                 <div class="nav-item" data-page="about">系统简介</div>
@@ -2586,6 +2587,164 @@
                     </div>
                     <div id="log-list" style="max-height: 500px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 12px;">
                         <div style="padding: 8px 12px; color: var(--text-secondary); text-align: center;">暂无日志</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- P0核心引擎页面 -->
+            <div class="page-view" id="page-engine" style="padding: 24px; max-width: 1400px; margin: 0 auto;">
+                <!-- 页面标题 -->
+                <div style="margin-bottom: 24px;">
+                    <h1 style="font-size: 24px; font-weight: 700; margin-bottom: 8px; color: #eaecef;">P0 稳定盈利核心引擎</h1>
+                    <p style="color: var(--text-secondary); font-size: 14px;">基于第一性原理和全球顶级量化机构最佳实践构建的5大核心模块</p>
+                </div>
+
+                <!-- 完成度总览 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-bottom: 24px;">
+                    <h3 style="font-size: 16px; margin-bottom: 16px; color: #f0b90b;">📊 稳定盈利公式</h3>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+                        <div style="background: rgba(14, 203, 129, 0.05); border-radius: 8px; padding: 16px; border-left: 3px solid #0ecb81;">
+                            <div style="font-weight: 600; color: #0ecb81; margin-bottom: 8px;">正期望值</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">截断亏损 + 让利润奔跑<br>✅ 已完成</div>
+                        </div>
+                        <div style="background: rgba(240, 185, 11, 0.05); border-radius: 8px; padding: 16px; border-left: 3px solid #f0b90b;">
+                            <div style="font-weight: 600; color: #f0b90b; margin-bottom: 8px;">大数定律</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">策略匹配 + 多策略分散<br>✅ 已完成</div>
+                        </div>
+                        <div style="background: rgba(246, 70, 93, 0.05); border-radius: 8px; padding: 16px; border-left: 3px solid #f6465d;">
+                            <div style="font-weight: 600; color: #f6465d; margin-bottom: 8px;">不爆仓</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">风险预算 + 回撤控制<br>✅ 已完成</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5大模块卡片 -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 16px;">
+                    <!-- 模块1：截断亏损让利润奔跑 -->
+                    <div style="background: var(--bg-secondary); border-radius: 12px; padding: 20px;">
+                        <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                            <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(246, 70, 93, 0.1); display: flex; align-items: center; justify-content: center; margin-right: 12px; font-size: 18px;">🛡️</div>
+                            <div>
+                                <div style="font-weight: 600; color: #eaecef;">截断亏损让利润奔跑</div>
+                                <div style="font-size: 11px; color: #0ecb81;">✅ 已上线</div>
+                            </div>
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.8; margin-bottom: 12px;">
+                            <div>• 保本止损：达到0.5R后止损移到入场价</div>
+                            <div>• 分批止盈：到2R平50%，到3R再平25%</div>
+                            <div>• 吊灯止损：3ATR宽止损，给趋势呼吸空间</div>
+                            <div>• 利润回吐保护：峰值回撤30%就止盈</div>
+                        </div>
+                        <div style="font-size: 11px; color: var(--text-secondary); padding-top: 12px; border-top: 1px solid var(--border-color);">
+                            API: /api/risk/let-profit-run/demo
+                        </div>
+                    </div>
+
+                    <!-- 模块2：市场结构识别 -->
+                    <div style="background: var(--bg-secondary); border-radius: 12px; padding: 20px;">
+                        <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                            <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(240, 185, 11, 0.1); display: flex; align-items: center; justify-content: center; margin-right: 12px; font-size: 18px;">📊</div>
+                            <div>
+                                <div style="font-weight: 600; color: #eaecef;">市场结构识别L2</div>
+                                <div style="font-size: 11px; color: #0ecb81;">✅ 已上线</div>
+                            </div>
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.8; margin-bottom: 12px;">
+                            <div>• 摆动高低点识别：左右各N根确认</div>
+                            <div>• BOS结构突破：趋势延续信号</div>
+                            <div>• CHoCH特征变化：趋势反转信号</div>
+                            <div>• 支撑阻力位自动绘制：触碰次数越多越强</div>
+                        </div>
+                        <div style="font-size: 11px; color: var(--text-secondary); padding-top: 12px; border-top: 1px solid var(--border-color);">
+                            API: /api/risk/structure/demo
+                        </div>
+                    </div>
+
+                    <!-- 模块3：策略匹配引擎 -->
+                    <div style="background: var(--bg-secondary); border-radius: 12px; padding: 20px;">
+                        <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                            <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(14, 203, 129, 0.1); display: flex; align-items: center; justify-content: center; margin-right: 12px; font-size: 18px;">🎯</div>
+                            <div>
+                                <div style="font-weight: 600; color: #eaecef;">策略匹配规则引擎</div>
+                                <div style="font-size: 11px; color: #0ecb81;">✅ 已上线</div>
+                            </div>
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.8; margin-bottom: 12px;">
+                            <div>• Millennium模式动态资金分配</div>
+                            <div>• 根据市场状态自动选策略</div>
+                            <div>• 匹配度归一化分配资金比例</div>
+                            <div>• 冷却期60分钟，防止频繁切换</div>
+                        </div>
+                        <div style="font-size: 11px; color: var(--text-secondary); padding-top: 12px; border-top: 1px solid var(--border-color);">
+                            API: /api/p1/strategy-matcher/demo
+                        </div>
+                    </div>
+
+                    <!-- 模块4：仓位管理 -->
+                    <div style="background: var(--bg-secondary); border-radius: 12px; padding: 20px;">
+                        <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                            <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(246, 70, 93, 0.1); display: flex; align-items: center; justify-content: center; margin-right: 12px; font-size: 18px;">💰</div>
+                            <div>
+                                <div style="font-weight: 600; color: #eaecef;">仓位管理升级</div>
+                                <div style="font-size: 11px; color: #0ecb81;">✅ 已上线</div>
+                            </div>
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.8; margin-bottom: 12px;">
+                            <div>• 波动率目标法：波动大少做，波动小多做</div>
+                            <div>• 分数Kelly法：根据胜率盈亏比算最优仓位</div>
+                            <div>• 回撤自动调整：回撤大了自动减仓</div>
+                            <div>• 单笔风险≤1%，永远不爆仓</div>
+                        </div>
+                        <div style="font-size: 11px; color: var(--text-secondary); padding-top: 12px; border-top: 1px solid var(--border-color);">
+                            API: /api/p1/position-sizing/demo
+                        </div>
+                    </div>
+
+                    <!-- 模块5：WebSocket网关 -->
+                    <div style="background: var(--bg-secondary); border-radius: 12px; padding: 20px;">
+                        <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                            <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(240, 185, 11, 0.1); display: flex; align-items: center; justify-content: center; margin-right: 12px; font-size: 18px;">⚡</div>
+                            <div>
+                                <div style="font-weight: 600; color: #eaecef;">WebSocket实时网关</div>
+                                <div style="font-size: 11px; color: #0ecb81;">✅ 已上线</div>
+                            </div>
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.8; margin-bottom: 12px;">
+                            <div>• 私有数据实时推送：持仓/订单/策略状态</div>
+                            <div>• 频道订阅：按需订阅，不浪费带宽</div>
+                            <div>• 自动降级：WebSocket断了切轮询</div>
+                            <div>• 心跳检测：连接状态实时监控</div>
+                        </div>
+                        <div style="font-size: 11px; color: var(--text-secondary); padding-top: 12px; border-top: 1px solid var(--border-color);">
+                            API: /api/p2/websocket/demo
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 顶级机构对标 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
+                    <h3 style="font-size: 16px; margin-bottom: 16px; color: #f0b90b;">🏛️ 对标全球顶级量化机构</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 12px; text-align: center;">
+                            <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">Renaissance</div>
+                            <div style="font-size: 11px; color: var(--text-secondary);">海量弱信号叠加<br>严格防过拟合</div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 12px; text-align: center;">
+                            <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">Two Sigma</div>
+                            <div style="font-size: 11px; color: var(--text-secondary);">数据驱动<br>研究生产分离</div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 12px; text-align: center;">
+                            <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">Citadel</div>
+                            <div style="font-size: 11px; color: var(--text-secondary);">风控前置<br>订单发出前拦截</div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 12px; text-align: center;">
+                            <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">Millennium</div>
+                            <div style="font-size: 11px; color: var(--text-secondary);">PM动态资金分配<br>优胜劣汰</div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 12px; text-align: center;">
+                            <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">Jane Street</div>
+                            <div style="font-size: 11px; color: var(--text-secondary);">做市赚结构红利<br>信息密度优先</div>
+                        </div>
                     </div>
                 </div>
             </div>
