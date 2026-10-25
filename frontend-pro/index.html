@@ -2309,6 +2309,234 @@
                         防抖动机制：状态切换需连续3根K线确认
                     </div>
                 </div>
+
+                <!-- 高可用与灾备面板 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="font-size: 16px; font-weight: 600;">🔄 高可用与灾备体系</h3>
+                        <span style="padding: 4px 10px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">全部正常</span>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;">
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">API服务</div>
+                            <div style="font-size: 24px; font-weight: 700; color: #0ecb81;">✅</div>
+                            <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">响应 23ms</div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">数据库</div>
+                            <div style="font-size: 24px; font-weight: 700; color: #0ecb81;">✅</div>
+                            <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">连接池正常</div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">交易所连接</div>
+                            <div style="font-size: 24px; font-weight: 700; color: #0ecb81;">✅</div>
+                            <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">延迟 120ms</div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">消息队列</div>
+                            <div style="font-size: 24px; font-weight: 700; color: #0ecb81;">✅</div>
+                            <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">堆积 0</div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; padding: 16px; background: rgba(14, 203, 129, 0.05); border-radius: 8px; border-left: 3px solid #0ecb81;">
+                        <div style="font-size: 12px; color: var(--text-secondary);">
+                            <strong style="color: #eaecef;">RTO目标：</strong> 5分钟 · <strong style="color: #eaecef;">RPO目标：</strong> 1分钟<br>
+                            <span style="font-size: 11px;">全年可用性目标 99.99%（downtime < 53分钟）</span>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 20px; font-weight: 700; color: #0ecb81;">99.99%</div>
+                            <div style="font-size: 11px; color: #0ecb81;">达标</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 交易日志与绩效归因面板 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="font-size: 16px; font-weight: 600;">📝 交易日志与绩效归因</h3>
+                        <span style="padding: 4px 10px; background: rgba(139, 92, 246, 0.1); color: #8b5cf6; border-radius: 4px; font-size: 11px;">AQR标准</span>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;">
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">总交易数</div>
+                            <div style="font-size: 24px; font-weight: 700;">156</div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">胜率</div>
+                            <div style="font-size: 24px; font-weight: 700; color: #0ecb81;">62%</div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">盈利因子</div>
+                            <div style="font-size: 24px; font-weight: 700; color: #0ecb81;">1.85</div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">期望值</div>
+                            <div style="font-size: 24px; font-weight: 700; color: #0ecb81;">+0.32R</div>
+                        </div>
+                    </div>
+
+                    <div style="padding: 16px; background: rgba(240, 185, 11, 0.05); border-radius: 8px; border-left: 3px solid #f0b90b;">
+                        <div style="font-size: 13px; font-weight: 600; margin-bottom: 12px; color: #f0b90b;">⚠️ 行为偏差检测</div>
+                        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: var(--text-secondary);">
+                            <div>• <strong>处置效应：</strong> 平均盈利1.2R < 平均亏损1.5R —— 赚的太早跑了</div>
+                            <div>• <strong>计划外交易：</strong> 12/156笔（7.7%）未按计划执行</div>
+                            <div>• <strong>改进建议：</strong> 让利润奔跑，不要急着止盈</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 安全与合规面板 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="font-size: 16px; font-weight: 600;">🔐 安全与合规体系</h3>
+                        <span style="padding: 4px 10px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">状态良好</span>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;">
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">活跃会话</div>
+                            <div style="font-size: 24px; font-weight: 700;">2</div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">API密钥</div>
+                            <div style="font-size: 24px; font-weight: 700;">3</div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">审计日志</div>
+                            <div style="font-size: 24px; font-weight: 700;">1,247</div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">严重告警</div>
+                            <div style="font-size: 24px; font-weight: 700; color: #0ecb81;">0</div>
+                        </div>
+                    </div>
+
+                    <div style="padding: 16px; background: rgba(14, 203, 129, 0.05); border-radius: 8px; border-left: 3px solid #0ecb81;">
+                        <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.8;">
+                            <strong style="color: #eaecef;">安全原则：</strong> 最小权限 · API密钥只允许读和交易，不允许提现 · 所有操作可审计追溯
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 策略拥挤度监控面板 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="font-size: 16px; font-weight: 600;">👥 策略拥挤度监控</h3>
+                        <span style="padding: 4px 10px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">整体健康</span>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px; background: var(--bg-primary); border-radius: 8px; border-left: 4px solid #0ecb81;">
+                            <div style="flex: 2;">
+                                <div style="font-size: 13px; font-weight: 600; margin-bottom: 4px;">ML增强趋势策略</div>
+                                <div style="font-size: 11px; color: var(--text-secondary);">信号相关性 0.32 · Alpha衰减 8%</div>
+                            </div>
+                            <div style="flex: 2; text-align: center;">
+                                <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">拥挤度评分</div>
+                                <div style="font-size: 20px; font-weight: 700; color: #0ecb81;">28/100</div>
+                            </div>
+                            <span style="padding: 4px 12px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">低拥挤 · 正常</span>
+                        </div>
+
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px; background: var(--bg-primary); border-radius: 8px; border-left: 4px solid #f0b90b;">
+                            <div style="flex: 2;">
+                                <div style="font-size: 13px; font-weight: 600; margin-bottom: 4px;">均值回归策略</div>
+                                <div style="font-size: 11px; color: var(--text-secondary);">信号相关性 0.58 · Alpha衰减 25%</div>
+                            </div>
+                            <div style="flex: 2; text-align: center;">
+                                <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">拥挤度评分</div>
+                                <div style="font-size: 20px; font-weight: 700; color: #f0b90b;">52/100</div>
+                            </div>
+                            <span style="padding: 4px 12px; background: rgba(240, 185, 11, 0.1); color: #f0b90b; border-radius: 4px; font-size: 11px;">中拥挤 · 预警</span>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 16px; padding: 12px; background: rgba(240, 185, 11, 0.05); border-radius: 6px; font-size: 12px; color: var(--text-secondary);">
+                        <strong style="color: #f0b90b;">建议：</strong> 均值回归策略拥挤度上升，建议减仓30%，准备寻找新Alpha
+                    </div>
+                </div>
+
+                <!-- 可观测性与监控告警面板 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="font-size: 16px; font-weight: 600;">📡 可观测性与监控告警</h3>
+                        <span style="padding: 4px 10px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">系统健康</span>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;">
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px;">
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">延迟 P95</div>
+                            <div style="font-size: 20px; font-weight: 700; color: #0ecb81;">120ms</div>
+                            <div style="height: 4px; background: var(--bg-border); border-radius: 2px; margin-top: 8px;">
+                                <div style="height: 100%; width: 24%; background: #0ecb81; border-radius: 2px;"></div>
+                            </div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px;">
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">错误率</div>
+                            <div style="font-size: 20px; font-weight: 700; color: #0ecb81;">0.3%</div>
+                            <div style="height: 4px; background: var(--bg-border); border-radius: 2px; margin-top: 8px;">
+                                <div style="height: 100%; width: 6%; background: #0ecb81; border-radius: 2px;"></div>
+                            </div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px;">
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">CPU使用率</div>
+                            <div style="font-size: 20px; font-weight: 700; color: #0ecb81;">35%</div>
+                            <div style="height: 4px; background: var(--bg-border); border-radius: 2px; margin-top: 8px;">
+                                <div style="height: 100%; width: 35%; background: #0ecb81; border-radius: 2px;"></div>
+                            </div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px;">
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">内存使用率</div>
+                            <div style="font-size: 20px; font-weight: 700; color: #f0b90b;">62%</div>
+                            <div style="height: 4px; background: var(--bg-border); border-radius: 2px; margin-top: 8px;">
+                                <div style="height: 100%; width: 62%; background: #f0b90b; border-radius: 2px;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="padding: 12px; background: var(--bg-primary); border-radius: 6px; font-size: 12px; color: var(--text-secondary);">
+                        <strong style="color: #eaecef;">黄金四指标：</strong> 延迟 · 流量 · 错误 · 饱和度 —— 系统出问题比客户先知道
+                    </div>
+                </div>
+
+                <!-- CI/CD与部署运维面板 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="font-size: 16px; font-weight: 600;">🚀 CI/CD 与部署运维</h3>
+                        <span style="padding: 4px 10px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">v1.0.0 运行中</span>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--bg-primary); border-radius: 6px;">
+                            <div>
+                                <div style="font-size: 13px; font-weight: 600;">v1.0.0</div>
+                                <div style="font-size: 11px; color: var(--text-secondary);">P0/P1/P2核心模块上线</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <span style="padding: 3px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">运行中</span>
+                                <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">2小时前</div>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--bg-primary); border-radius: 6px; opacity: 0.7;">
+                            <div>
+                                <div style="font-size: 13px; font-weight: 600;">v0.9.5</div>
+                                <div style="font-size: 11px; color: var(--text-secondary);">前端可视化面板更新</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <span style="padding: 3px 8px; background: rgba(139, 92, 246, 0.1); color: #8b5cf6; border-radius: 4px; font-size: 11px;">已回滚</span>
+                                <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">昨天</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 16px; padding: 12px; background: rgba(139, 92, 246, 0.05); border-radius: 6px; font-size: 12px; color: var(--text-secondary);">
+                        <strong style="color: #8b5cf6;">原则：</strong> 手动部署迟早出事故 —— 自动化 = 可重复 + 可审计 + 可回滚
+                    </div>
+                </div>
             </div>
 
             <!-- 日志中心页面 -->
