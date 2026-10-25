@@ -3,7 +3,8 @@ P2模块 API路由：拥挤度监控 + 可观测性 + CI/CD
 """
 from __future__ import annotations
 
-from flask import Blueprint, jsonify, request
+from flask import jsonify, request
+from app.openapi.blueprint import HumanBlueprint as Blueprint
 
 from app.services.crowding_monitor import get_crowding_monitor
 from app.services.observability import get_observability
@@ -12,7 +13,7 @@ from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-p2_bp = Blueprint("p2_modules", __name__, url_prefix="/api/p2")
+p2_bp = Blueprint("p2_modules", __name__)
 
 
 # ========== 策略拥挤度监控 ==========

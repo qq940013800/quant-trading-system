@@ -3,7 +3,8 @@
 """
 from __future__ import annotations
 
-from flask import Blueprint, jsonify, request
+from flask import jsonify, request
+from app.openapi.blueprint import HumanBlueprint as Blueprint
 
 from app.services.business_continuity import get_business_continuity, HealthStatus
 from app.services.trade_journal import get_trade_journal
@@ -12,7 +13,7 @@ from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-p1_bp = Blueprint("p1_modules", __name__, url_prefix="/api/p1")
+p1_bp = Blueprint("p1_modules", __name__)
 
 
 # ========== 高可用与灾备 ==========

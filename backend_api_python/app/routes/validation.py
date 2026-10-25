@@ -1,9 +1,10 @@
 """AI验证层API路由"""
-from flask import Blueprint, jsonify, request
+from flask import jsonify, request
+from app.openapi.blueprint import HumanBlueprint as Blueprint
 from datetime import datetime, timedelta
 import random
 
-validation_bp = Blueprint('validation', __name__, url_prefix='/api/validation')
+validation_bp = Blueprint('validation', __name__)
 
 
 @validation_bp.route('/status', methods=['GET'])

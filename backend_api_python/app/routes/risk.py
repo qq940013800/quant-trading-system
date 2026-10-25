@@ -12,7 +12,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
-from flask import Blueprint, jsonify, request
+from flask import jsonify, request
+from app.openapi.blueprint import HumanBlueprint as Blueprint
 
 from app.services.risk_engine import get_risk_engine
 from app.services.market_regime import get_regime_detector
@@ -20,7 +21,7 @@ from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-risk_bp = Blueprint("risk", __name__, url_prefix="/api/risk")
+risk_bp = Blueprint("risk", __name__)
 
 
 @risk_bp.route("/positions", methods=["GET"])

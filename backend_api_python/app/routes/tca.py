@@ -8,7 +8,8 @@
 """
 from __future__ import annotations
 
-from flask import Blueprint, jsonify, request
+from flask import jsonify, request
+from app.openapi.blueprint import HumanBlueprint as Blueprint
 
 from app.services.trading_cost_analysis import get_tca_analyzer, OrderType
 from app.services.data_governance import get_data_governance
@@ -16,7 +17,7 @@ from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-tca_bp = Blueprint("tca", __name__, url_prefix="/api/tca")
+tca_bp = Blueprint("tca", __name__)
 
 
 @tca_bp.route("/estimate-cost", methods=["POST"])
