@@ -63,11 +63,29 @@ class Position:
     trailing_activation_r: float = 1.0  # 达到1R后激活追踪止损
     trailing_distance_atr: float = 2.0  # 追踪距离（ATR倍数）
 
+    # 让利润奔跑：保本止损配置
+    breakeven_activated: bool = False
+    breakeven_activation_r: float = 0.5  # 达到0.5R后激活保本止损
+    breakeven_buffer: float = 0.0002  # 保本缓冲（覆盖手续费+滑点）
+
+    # 让利润奔跑：分批止盈配置
+    scale_out_levels: List[float] = field(default_factory=lambda: [2.0, 3.0])  # 到2R/3R分批止盈
+    scale_out_ratios: List[float] = field(default_factory=lambda: [0.5, 0.25])  # 每次平50%/25%
+    scale_out_done: List[bool] = field(default_factory=lambda: [False, False])
+
+    # 让利润奔跑：吊灯止损配置
+    chandelier_atr_mult: float = 3.0  # 吊灯止损：从最高点回撤3ATR
+
+    # 让利润奔跑：利润回吐保护
+    profit_retracement_pct: float = 0.30  # 从峰值利润回撤30%就止盈
+
     # 当前状态
     current_price: float = 0.0
     unrealized_pnl: float = 0.0
     r_multiple: float = 0.0
     peak_price: float = 0.0  # 持仓期间最高/最低价（用于追踪止损）
+    peak_unrealized_pnl: float = 0.0  # 峰值未实现盈亏（利润回吐用）
+    remaining_ratio: float = 1.0  # 剩余仓位比例（分批止盈后）
 
     # 风控状态
     risk_level: RiskLevel = RiskLevel.GREEN
@@ -224,8 +242,24 @@ class RiskEngine:
             if pos.current_price < pos.peak_price:
                 pos.peak_price = pos.current_price
 
-        # 更新追踪止损
+        # 更新峰值利润（利润回吐保护用）
+        if pos.unrealized_pnl > pos.peak_unrealized_pnl:
+            pos.peak_unrealized_pnl = pos.unrealized_pnl
+
+        # 1. 保本止损：达到0.5R后，止损移到入场价+缓冲（保证不亏）
+        self._update_breakeven_stop(pos)
+
+        # 2. 追踪止损：达到1R后激活，随价格移动
         self._update_trailing_stop(pos)
+
+        # 3. 吊灯止损：从最高点回撤3ATR就全部止盈
+        self._update_chandelier_exit(pos)
+
+        # 4. 分批止盈：到2R平一半，到3R再平25%
+        self._check_scale_out(pos)
+
+        # 5. 利润回吐保护：从峰值利润回撤30%就止盈剩余仓位
+        self._check_profit_retracement(pos)
 
         # 检查止损是否触发
         self._check_stop_loss_trigger(pos)
@@ -270,6 +304,166 @@ class RiskEngine:
                 old_stop = pos.stop_loss_price
                 pos.stop_loss_price = new_stop
                 logger.info(f"追踪止损下移: {pos.symbol} {old_stop:.2f} → {new_stop:.2f}")
+
+    def _update_breakeven_stop(self, pos: Position):
+        """保本止损：达到0.5R后，止损移到入场价+缓冲，保证不亏钱
+        
+        第一性原理：
+        - 人最大的痛苦不是亏钱，是"本来赚钱最后变亏钱"
+        - 保本止损消除了"从盈利变亏损"的心理压力
+        - 即使判断错了，最多亏手续费，不会亏本金
+        """
+        if pos.breakeven_activated:
+            return
+
+        if pos.r_multiple >= pos.breakeven_activation_r:
+            pos.breakeven_activated = True
+
+            # 计算保本价（入场价+手续费缓冲）
+            if pos.side == "long":
+                breakeven_price = pos.entry_price * (1 + pos.breakeven_buffer)
+            else:
+                breakeven_price = pos.entry_price * (1 - pos.breakeven_buffer)
+
+            # 保本价必须比当前止损价更优（向盈利方向移动）
+            if pos.side == "long" and breakeven_price > pos.stop_loss_price:
+                old_stop = pos.stop_loss_price
+                pos.stop_loss_price = breakeven_price
+                self._create_alert(
+                    level=RiskLevel.YELLOW,
+                    alert_type="breakeven_stop",
+                    message=f"保本止损激活: {pos.symbol} 止损移至入场价 {breakeven_price:.4f}",
+                    position_id=pos.position_id,
+                    symbol=pos.symbol,
+                    action_required="monitor"
+                )
+                logger.info(f"保本止损: {pos.symbol} {old_stop:.4f} → {breakeven_price:.4f}")
+            elif pos.side == "short" and breakeven_price < pos.stop_loss_price:
+                old_stop = pos.stop_loss_price
+                pos.stop_loss_price = breakeven_price
+                self._create_alert(
+                    level=RiskLevel.YELLOW,
+                    alert_type="breakeven_stop",
+                    message=f"保本止损激活: {pos.symbol} 止损移至入场价 {breakeven_price:.4f}",
+                    position_id=pos.position_id,
+                    symbol=pos.symbol,
+                    action_required="monitor"
+                )
+                logger.info(f"保本止损: {pos.symbol} {old_stop:.4f} → {breakeven_price:.4f}")
+
+    def _update_chandelier_exit(self, pos: Position):
+        """吊灯止损（Chandelier Exit）：从最高点回撤3ATR就全部止盈
+        
+        全球顶级机构实践：
+        - 吊灯止损是趋势跟踪策略的标准配置
+        - 比普通追踪止损更宽，给价格更多呼吸空间
+        - 不会被正常回调洗出去
+        - 但趋势真的反转了会及时离场
+        """
+        if not pos.trailing_activated:  # 追踪止损激活后才启用吊灯
+            return
+
+        chandelier_dist = pos.atr_at_entry * pos.chandelier_atr_mult
+
+        if pos.side == "long":
+            chandelier_stop = pos.peak_price - chandelier_dist
+            # 吊灯止损必须比当前止损价更优（向盈利方向）
+            if chandelier_stop > pos.stop_loss_price:
+                pos.stop_loss_price = chandelier_stop
+                logger.info(f"吊灯止损上移: {pos.symbol} → {chandelier_stop:.2f}")
+        else:
+            chandelier_stop = pos.peak_price + chandelier_dist
+            if chandelier_stop < pos.stop_loss_price:
+                pos.stop_loss_price = chandelier_stop
+                logger.info(f"吊灯止损下移: {pos.symbol} → {chandelier_stop:.2f}")
+
+    def _check_scale_out(self, pos: Position):
+        """分批止盈（Scale Out）：到2R平一半，到3R再平25%，剩余25%用追踪止损
+        
+        第一性原理：
+        - 人总是怕利润回吐，所以太早全部止盈
+        - 分批止盈解决了这个心理问题：
+          - 先落袋一部分，心理上有安全感
+          - 剩余仓位继续奔跑，享受趋势的全部收益
+        - 顶级趋势跟踪基金都是这么做的
+        """
+        if pos.stop_loss_hit:
+            return
+
+        for i, (level_r, ratio) in enumerate(zip(pos.scale_out_levels, pos.scale_out_ratios)):
+            if pos.scale_out_done[i]:
+                continue
+
+            if pos.r_multiple >= level_r:
+                pos.scale_out_done[i] = True
+                remaining_before = pos.remaining_ratio
+                pos.remaining_ratio *= (1 - ratio)
+
+                self._create_alert(
+                    level=RiskLevel.GREEN,
+                    alert_type="scale_out",
+                    message=f"分批止盈: {pos.symbol} 达到{level_r}R，平掉{ratio*100:.0f}%仓位（剩余{pos.remaining_ratio*100:.0f}%）",
+                    position_id=pos.position_id,
+                    symbol=pos.symbol,
+                    action_required="reduce_position"
+                )
+
+                # 调用减仓回调
+                if self._reduce_position_callback:
+                    success = self._reduce_position_callback(
+                        pos.position_id,
+                        ratio,
+                        f"scale_out: hit {level_r}R, reduce {ratio*100:.0f}%"
+                    )
+                    if success:
+                        logger.info(f"分批止盈成功: {pos.symbol} level={level_r}R ratio={ratio}")
+                    else:
+                        logger.error(f"分批止盈失败: {pos.symbol}")
+
+    def _check_profit_retracement(self, pos: Position):
+        """利润回吐保护：从峰值利润回撤30%就止盈剩余仓位
+        
+        逆向思维：
+        - 最痛苦的交易不是亏钱，是"赚了1万最后只赚了1千"
+        - 利润回吐保护防止"坐过山车"
+        - 30%的回吐容忍度，既不会被小波动洗出去，也不会让利润大幅缩水
+        """
+        if pos.stop_loss_hit:
+            return
+
+        # 只有盈利超过1R才启用利润回吐保护
+        if pos.r_multiple < 1.0:
+            return
+
+        if pos.peak_unrealized_pnl <= 0:
+            return
+
+        # 计算利润回吐比例
+        current_profit = pos.unrealized_pnl
+        peak_profit = pos.peak_unrealized_pnl
+        retracement = (peak_profit - current_profit) / peak_profit if peak_profit > 0 else 0
+
+        if retracement >= pos.profit_retracement_pct and current_profit > 0:
+            # 利润回吐超过30%，止盈剩余仓位
+            self._create_alert(
+                level=RiskLevel.YELLOW,
+                alert_type="profit_retracement",
+                message=f"利润回吐保护: {pos.symbol} 利润从{peak_profit:.2f}回撤{retracement*100:.0f}%，止盈剩余仓位",
+                position_id=pos.position_id,
+                symbol=pos.symbol,
+                action_required="close_position"
+            )
+
+            if self._close_position_callback:
+                success = self._close_position_callback(
+                    pos.position_id,
+                    f"profit_retracement: gave back {retracement*100:.0f}% of peak profit",
+                    pos.current_price
+                )
+                if success:
+                    logger.info(f"利润回吐止盈成功: {pos.symbol}")
+                else:
+                    logger.error(f"利润回吐止盈失败: {pos.symbol}")
 
     def _check_stop_loss_trigger(self, pos: Position):
         """检查止损是否触发（硬规则）"""
@@ -409,12 +603,34 @@ class RiskEngine:
                     "current_price": p.current_price,
                     "unrealized_pnl": p.unrealized_pnl,
                     "r_multiple": p.r_multiple,
+                    "peak_price": p.peak_price,
+                    "peak_unrealized_pnl": p.peak_unrealized_pnl,
+                    "remaining_ratio": p.remaining_ratio,
                     "stop_loss_price": p.stop_loss_price,
                     "risk_level": p.risk_level.value,
                     "trailing_activated": p.trailing_activated,
+                    "breakeven_activated": p.breakeven_activated,
+                    "scale_out_done": p.scale_out_done,
+                    "let_profit_run_stage": self._get_let_profit_run_stage(p),
                 }
                 for p in self.positions.values()
             ]
+
+    def _get_let_profit_run_stage(self, pos: Position) -> str:
+        """获取'让利润奔跑'的当前阶段"""
+        if pos.stop_loss_hit:
+            return "stopped"
+        if pos.r_multiple >= 3.0 and all(pos.scale_out_done):
+            return "max_profit"
+        if pos.r_multiple >= 2.0 and pos.scale_out_done[0]:
+            return "scaling_out"
+        if pos.trailing_activated:
+            return "trailing"
+        if pos.breakeven_activated:
+            return "breakeven"
+        if pos.r_multiple > 0:
+            return "in_profit"
+        return "in_loss"
 
     def get_portfolio_risk_summary(self) -> Dict[str, Any]:
         """获取组合风险摘要"""
