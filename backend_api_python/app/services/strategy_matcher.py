@@ -242,4 +242,51 @@ def get_strategy_matcher() -> StrategyMatcher:
     global _matcher
     if _matcher is None:
         _matcher = StrategyMatcher()
+        # 自动注册演示策略（第一次启动时）
+        _register_demo_strategies(_matcher)
     return _matcher
+
+
+def _register_demo_strategies(matcher: StrategyMatcher):
+    """注册演示策略（3个经典策略）"""
+    # 1. 突破策略 — 擅长趋势启动和区间突破
+    matcher.register_strategy(Strategy(
+        strategy_id="breakout_v1",
+        name="区间突破策略",
+        strategy_type="breakout",
+        risk_budget=1.0,
+        performance_score=0.72,
+        preferred_regimes=[
+            MarketRegimeType.STRONG_TREND_UP,
+            MarketRegimeType.STRONG_TREND_DOWN,
+            MarketRegimeType.WEAK_TREND_UP,
+            MarketRegimeType.WEAK_TREND_DOWN,
+        ]
+    ))
+    
+    # 2. 均值回归策略 — 擅长震荡市
+    matcher.register_strategy(Strategy(
+        strategy_id="mean_reversion_v1",
+        name="均值回归策略",
+        strategy_type="mean_reversion",
+        risk_budget=0.8,
+        performance_score=0.68,
+        preferred_regimes=[
+            MarketRegimeType.RANGE,
+        ]
+    ))
+    
+    # 3. 趋势跟踪策略 — 擅长强趋势
+    matcher.register_strategy(Strategy(
+        strategy_id="trend_following_v1",
+        name="趋势跟踪策略",
+        strategy_type="trend_following",
+        risk_budget=1.2,
+        performance_score=0.78,
+        preferred_regimes=[
+            MarketRegimeType.STRONG_TREND_UP,
+            MarketRegimeType.STRONG_TREND_DOWN,
+        ]
+    ))
+    
+    logger.info(f"已注册3个演示策略，当前策略池大小: {len(matcher.strategies)}")

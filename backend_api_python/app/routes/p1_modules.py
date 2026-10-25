@@ -342,3 +342,55 @@ def position_sizing_demo():
         ]
     }
     return jsonify({"success": True, "data": demo_data})
+
+
+# ========== 数据桥接：L1+L2综合市场分析 ==========
+
+@p1_bp.route("/market-analysis/demo", methods=["GET"])
+def market_analysis_demo():
+    """
+    市场综合分析演示（用模拟数据跑通L1+L2流程）
+    
+    第一性原理：
+    - L1市场状态 + L2市场结构 = 完整的市场判断
+    - 没有数据的时候先用演示数据跑通流程
+    - 等接入真实K线数据后，直接替换数据源
+    """
+    try:
+        from app.services.data_bridge import get_data_bridge
+        bridge = get_data_bridge()
+        
+        symbol = request.args.get("symbol", "BTCUSDT")
+        result = bridge.analyze_with_demo_data(symbol)
+        
+        return jsonify({
+            "success": True,
+            "data": {
+                "symbol": result.symbol,
+                "current_price": round(result.current_price, 2),
+                "timestamp": result.timestamp.isoformat(),
+                
+                # L1 市场状态
+                "regime": result.regime,
+                "regime_confidence": round(result.regime_confidence, 3),
+                "regime_features": {k: round(v, 4) for k, v in result.regime_features.items()},
+                
+                # L2 市场结构
+                "structure_bias": result.structure_bias,
+                "support_levels": [round(s, 2) for s in result.support_levels],
+                "resistance_levels": [round(r, 2) for r in result.resistance_levels],
+                "recent_swing_high": round(result.recent_swing_high, 2) if result.recent_swing_high else None,
+                "recent_swing_low": round(result.recent_swing_low, 2) if result.recent_swing_low else None,
+                
+                # 技术指标
+                "atr": round(result.atr, 2),
+                "volatility": round(result.volatility, 4),
+                "trend_strength": round(result.trend_strength, 4),
+                
+                # 说明
+                "note": "演示数据，接入真实K线后自动切换"
+            }
+        })
+    except Exception as e:
+        logger.error(f"市场分析演示失败: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
