@@ -9,6 +9,7 @@ from app.openapi.blueprint import HumanBlueprint as Blueprint
 from app.services.crowding_monitor import get_crowding_monitor
 from app.services.observability import get_observability
 from app.services.cicd import get_cicd_service
+from app.services.websocket_gateway import get_websocket_gateway
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -135,3 +136,90 @@ def get_deployment_history():
     except Exception as e:
         logger.error(f"获取部署历史失败: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ========== WebSocket实时网关 ==========
+
+@p2_bp.route("/websocket/status", methods=["GET"])
+def get_websocket_status():
+    """获取WebSocket网关状态"""
+    try:
+        gateway = get_websocket_gateway()
+        status = gateway.get_gateway_status()
+        return jsonify({"success": True, "data": status})
+    except Exception as e:
+        logger.error(f"获取WebSocket状态失败: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@p2_bp.route("/websocket/degradation", methods=["GET"])
+def get_degradation_info():
+    """获取降级策略信息"""
+    try:
+        gateway = get_websocket_gateway()
+        info = gateway.get_degradation_info()
+        return jsonify({"success": True, "data": info})
+    except Exception as e:
+        logger.error(f"获取降级策略失败: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@p2_bp.route("/websocket/demo", methods=["GET"])
+def websocket_gateway_demo():
+    """WebSocket实时网关演示"""
+    demo_data = {
+        "title": "私有数据WebSocket实时网关",
+        "principle": "持仓、订单、策略状态是私有数据，不能靠轮询（太慢、太浪费）",
+        "core_idea": "事件驱动：有变化才推，没变化不推",
+        "channels": [
+            {
+                "name": "positions",
+                "display_name": "持仓更新",
+                "what_pushes": "持仓盈亏变化、仓位变动、止损触发",
+                "frequency": "实时（毫秒级）",
+                "why_needed": "风控要实时响应，不能等5秒轮询"
+            },
+            {
+                "name": "orders",
+                "display_name": "订单状态变更",
+                "what_pushes": "订单提交、部分成交、全部成交、撤单",
+                "frequency": "实时",
+                "why_needed": "用户要知道订单有没有成交，不能刷新页面"
+            },
+            {
+                "name": "strategy",
+                "display_name": "策略运行状态",
+                "what_pushes": "策略启动、停止、信号触发、异常告警",
+                "frequency": "实时",
+                "why_needed": "策略出问题要第一时间知道"
+            },
+            {
+                "name": "risk_alerts",
+                "display_name": "风控告警",
+                "what_pushes": "止损触发、回撤预警、持仓超限",
+                "frequency": "实时（最高优先级）",
+                "why_needed": "风控是生死线，必须秒级响应"
+            }
+        ],
+        "degradation_strategy": {
+            "primary": "WebSocket实时推送",
+            "fallback": "轮询（5秒间隔）",
+            "auto_switch": True,
+            "reconnect": "自动重连3次，间隔3秒",
+            "grace_period": "断开后3秒内不切轮询，可能只是网络抖动"
+        },
+        "institutions": [
+            "Jane Street：毫秒级实时行情推送，延迟敏感",
+            "Citadel：私有数据实时推送，风控实时响应",
+            "Two Sigma：Pub/Sub架构，数据变更自动广播",
+            "Binance/OKX：标准WebSocket API，行业标准"
+        ],
+        "common_mistakes": [
+            "❌ 所有数据都用WebSocket —— 浪费资源，低频数据用轮询就行",
+            "❌ 没有降级方案 —— WebSocket断了页面就死了",
+            "❌ 没有心跳检测 —— 连接断了不知道，假死状态",
+            "❌ 没有鉴权 —— 私有数据谁都能看，安全漏洞",
+            "❌ 推送太频繁 —— 客户端处理不过来，反而更慢"
+        ]
+    }
+    return jsonify({"success": True, "data": demo_data})
