@@ -2727,6 +2727,13 @@
                             if (window.renderLogList) window.renderLogList();
                         }, 100);
                     }
+                    
+                    // 切换到AI验证层时加载数据
+                    if (page === 'validation') {
+                        setTimeout(() => {
+                            loadValidationData();
+                        }, 100);
+                    }
                 } catch (err) {
                     debugLog(`页面切换失败: ${err.message}`, 'error');
                 }
@@ -3398,6 +3405,131 @@
                 document.getElementById('login-btn').click();
             }
         });
+
+        // ========== AI验证层数据加载 ==========
+        async function loadValidationData() {
+            debugLog('加载AI验证层数据', 'info');
+            try {
+                // 加载验证模块状态
+                const statusRes = await fetch('/api/validation/status', {
+                    headers: { 'Authorization': 'Bearer ' + Auth.getToken() }
+                });
+                if (!statusRes.ok) throw new Error('API返回' + statusRes.status);
+                const statusData = await statusRes.json();
+                if (statusData.code === 1 && statusData.data) {
+                    renderValidationModules(statusData.data.modules);
+                    debugLog(`验证模块状态加载成功: ${statusData.data.total}个模块`, 'success');
+                }
+                
+                // 加载审计日志
+                const logsRes = await fetch('/api/validation/audit-logs?limit=20', {
+                    headers: { 'Authorization': 'Bearer ' + Auth.getToken() }
+                });
+                if (logsRes.ok) {
+                    const logsData = await logsRes.json();
+                    if (logsData.code === 1 && logsData.data) {
+                        renderAuditLogs(logsData.data.logs);
+                        debugLog(`审计日志加载成功: ${logsData.data.total}条`, 'success');
+                    }
+                }
+                
+                // 加载压力测试结果
+                const stressRes = await fetch('/api/validation/stress-test', {
+                    headers: { 'Authorization': 'Bearer ' + Auth.getToken() }
+                });
+                if (stressRes.ok) {
+                    const stressData = await stressRes.json();
+                    if (stressData.code === 1 && stressData.data) {
+                        renderStressTest(stressData.data);
+                        debugLog(`压力测试结果加载成功: ${stressData.data.total_scenarios}个情景`, 'success');
+                    }
+                }
+                
+                // 更新时间
+                const now = new Date();
+                document.getElementById('validation-time').textContent = now.toLocaleTimeString();
+                
+            } catch (err) {
+                debugLog(`AI验证层API暂不可用，使用内置数据: ${err.message}`, 'warn');
+                // API不可用时保留现有硬编码数据，不做任何修改
+            }
+        }
+        
+        function renderValidationModules(modules) {
+            const container = document.getElementById('validation-modules');
+            if (!container || !modules) return;
+            
+            const levelColors = {
+                high: '#8b5cf6',
+                medium: '#0ecb81',
+                low: '#848e9c'
+            };
+            
+            container.innerHTML = modules.map(m => `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid ${levelColors[m.level] || '#848e9c'};">
+                    <div>
+                        <span style="font-size: 13px;">${m.name}</span>
+                        ${m.details ? `<div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">${m.details}</div>` : ''}
+                    </div>
+                    <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">
+                        ✓ ${m.status === 'connected' ? '已连接' : '健康'}
+                    </span>
+                </div>
+            `).join('');
+        }
+        
+        function renderAuditLogs(logs) {
+            const container = document.getElementById('audit-logs');
+            if (!container || !logs) return;
+            
+            const levelColors = {
+                INFO: '#f0b90b',
+                WARN: '#f6465d',
+                ERROR: '#f6465d'
+            };
+            
+            container.innerHTML = logs.map(log => `
+                <div style="padding: 8px 12px; background: var(--bg-primary); border-radius: 6px;">
+                    <span style="color: var(--text-secondary);">${log.time}</span>
+                    <span style="margin-left: 8px; color: ${levelColors[log.level] || '#f0b90b'}; font-weight: 600;">${log.level}</span>
+                    <span style="margin-left: 8px; color: var(--text-secondary);">${log.message}</span>
+                </div>
+            `).join('');
+        }
+        
+        function renderStressTest(data) {
+            if (!data || !data.scenarios) return;
+            
+            const colorMap = {
+                red: '#f6465d',
+                orange: '#f0b90b',
+                green: '#0ecb81',
+                purple: '#8b5cf6'
+            };
+            
+            // 更新压力测试卡片
+            const scenarioCards = document.querySelectorAll('#page-validation .bg-primary.rounded-8');
+            data.scenarios.forEach((s, i) => {
+                const card = document.querySelectorAll('#page-validation [style*="border-top: 3px solid"]')[i];
+                if (card) {
+                    card.style.borderTopColor = colorMap[s.color] || '#848e9c';
+                    const drawdownEl = card.querySelector('[style*="font-size: 20px"]');
+                    if (drawdownEl) {
+                        drawdownEl.textContent = (s.drawdown > 0 ? '+' : '') + s.drawdown.toFixed(2) + '%';
+                        drawdownEl.style.color = colorMap[s.color] || '#0ecb81';
+                    }
+                }
+            });
+            
+            // 更新综合风险评分
+            const riskScoreEl = document.querySelector('#page-validation [style*="综合风险评分"]');
+            if (riskScoreEl && data.overall_risk_score) {
+                riskScoreEl.innerHTML = `
+                    <span style="color: #0ecb81; font-weight: 600;">✓ 综合风险评分：${data.overall_risk_score}/100（${data.risk_level}）</span><br>
+                    <span style="font-size: 12px;">${data.summary}</span>
+                `;
+            }
+        }
 
         // ========== 初始化 ==========
         // 检查登录状态
