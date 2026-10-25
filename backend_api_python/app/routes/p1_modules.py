@@ -10,6 +10,7 @@ from app.services.business_continuity import get_business_continuity, HealthStat
 from app.services.trade_journal import get_trade_journal
 from app.services.security import get_security_service
 from app.services.strategy_matcher import get_strategy_matcher
+from app.services.position_sizing import get_sizing_engine, TradeSetup, SizingMethod
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -233,6 +234,111 @@ def strategy_matcher_demo():
             "❌ 频繁切换策略 —— 一天换8次，手续费都亏死",
             "❌ 平均分配资金 —— 好策略和差策略拿一样多的钱",
             "❌ 不看绩效 —— 差策略一直在亏钱还在给它钱"
+        ]
+    }
+    return jsonify({"success": True, "data": demo_data})
+
+
+# ========== 仓位管理引擎 ==========
+
+@p1_bp.route("/position-sizing/summary", methods=["GET"])
+def get_position_sizing_summary():
+    """获取仓位配置摘要"""
+    try:
+        engine = get_sizing_engine()
+        summary = engine.get_sizing_summary()
+        return jsonify({"success": True, "data": summary})
+    except Exception as e:
+        logger.error(f"获取仓位配置失败: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@p1_bp.route("/position-sizing/calculate", methods=["POST"])
+def calculate_position_size():
+    """计算建议仓位大小"""
+    try:
+        data = request.get_json() or {}
+        
+        setup = TradeSetup(
+            symbol=data.get("symbol", "BTCUSDT"),
+            side=data.get("side", "long"),
+            entry_price=float(data.get("entry_price", 100000)),
+            stop_loss_price=float(data.get("stop_loss_price", 99000)),
+            atr=float(data.get("atr", 500)),
+            historical_volatility=float(data.get("volatility", 30)),
+            win_rate=float(data.get("win_rate", 0.4)),
+            avg_win_loss_ratio=float(data.get("win_loss_ratio", 2.0))
+        )
+        
+        engine = get_sizing_engine()
+        result = engine.calculate_position_size(setup)
+        
+        return jsonify({
+            "success": True,
+            "data": {
+                "position_size": result.position_size,
+                "position_value": result.position_value,
+                "position_pct": result.position_pct,
+                "risk_amount": result.risk_amount,
+                "risk_pct": result.risk_pct,
+                "method_used": result.method_used
+            }
+        })
+    except Exception as e:
+        logger.error(f"仓位计算失败: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@p1_bp.route("/position-sizing/demo", methods=["GET"])
+def position_sizing_demo():
+    """仓位管理引擎演示"""
+    demo_data = {
+        "title": "仓位管理引擎 — 第一性原理",
+        "principle": "仓位管理比选股重要100倍，再好的策略，仓位不对也白搭",
+        "core_idea": "截断亏损靠止损，让利润奔跑靠仓位",
+        "methods": [
+            {
+                "name": "固定风险法",
+                "how": "每笔交易只冒总资金1%的风险，止损亏完就走",
+                "best_for": "新手默认，最简单最安全",
+                "pros": "简单、可预测、不会一次大亏",
+                "cons": "不考虑波动率，波动大的时候风险其实更大"
+            },
+            {
+                "name": "波动率目标法",
+                "how": "波动大的少做，波动小的多做，保持风险恒定",
+                "best_for": "多策略组合，想要稳定风险敞口",
+                "pros": "风险恒定，不会因为波动突然变大而爆仓",
+                "cons": "需要准确的波动率估计"
+            },
+            {
+                "name": "分数Kelly法",
+                "how": "根据胜率和盈亏比计算最优仓位，用1/4 Kelly更安全",
+                "best_for": "有历史数据，知道策略的胜率和盈亏比",
+                "pros": "理论最优，长期收益最大化",
+                "cons": "对参数敏感，估计错了就会过度下注"
+            }
+        ],
+        "golden_rules": [
+            "1. 单笔风险永远不超过总资金的1%——一次亏1%，要亏100次才爆仓",
+            "2. 用分数Kelly（1/4），不用全Kelly——全凯利会心理崩溃",
+            "3. 回撤大了自动减仓——回撤10%仓位打9折，回撤20%打8折",
+            "4. 永远不要加仓摊平亏损——亏了就是错了，错了就认",
+            "5. 仓位是按风险算的，不是按资金算的——止损距离远的少做"
+        ],
+        "institutions": [
+            "Renaissance：每个策略的风险贡献独立计算，严格控制",
+            "Two Sigma：风险平价分配，不是等权分配",
+            "Citadel：实时仓位调整，根据波动率变化动态调整",
+            "Millennium：PM对自己的仓位负责，公司层面风控兜底"
+        ],
+        "common_mistakes": [
+            "❌ 满仓梭哈 —— 一次判断错了就没了",
+            "❌ 亏损加仓摊平 —— 越亏越加，越加越亏",
+            "❌ 不设止损 —— 小亏变大亏，一次回到解放前",
+            "❌ 仓位随机 —— 看心情开仓，想做多少做多少",
+            "❌ 用全Kelly —— 理论最优但实战会亏到怀疑人生",
+            "❌ 回撤了不减仓 —— 越亏越做，越做越亏"
         ]
     }
     return jsonify({"success": True, "data": demo_data})
