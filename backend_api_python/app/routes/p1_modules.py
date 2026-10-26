@@ -394,3 +394,153 @@ def market_analysis_demo():
     except Exception as e:
         logger.error(f"市场分析演示失败: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ========== L3/L4/L5 五层市场识别 ==========
+
+@p1_bp.route("/market-layers/summary", methods=["GET"])
+def market_layers_summary():
+    """五层市场识别架构总览"""
+    layers = [
+        {"level": "L1", "name": "市场状态识别", "module": "market_regime.py",
+         "status": "✅ 已完成", "desc": "趋势市/震荡市/危机市，决定用什么策略"},
+        {"level": "L2", "name": "市场结构识别", "module": "market_structure.py",
+         "status": "✅ 已完成", "desc": "支撑阻力/高低点/结构突破，决定在哪里入场止损"},
+        {"level": "L3", "name": "市场趋势识别", "module": "market_trend.py",
+         "status": "✅ 已完成", "desc": "趋势方向/强度/阶段，决定方向和仓位"},
+        {"level": "L4", "name": "价格行为识别", "module": "price_action.py",
+         "status": "✅ 已完成", "desc": "吞没/针形线/内包线，决定精确入场时机"},
+        {"level": "L5", "name": "K线形态识别", "module": "candlestick_patterns.py",
+         "status": "✅ 已完成", "desc": "早晨之星/黄昏之星/三只乌鸦，决定最终入场信号"},
+    ]
+    return jsonify({"success": True, "data": {
+        "layers": layers, "total": len(layers),
+        "core_principle": "从上到下过滤，多层共振才入场"
+    }})
+
+
+@p1_bp.route("/market-layers/demo", methods=["GET"])
+def market_layers_demo():
+    """五层市场识别演示（综合分析器）"""
+    try:
+        from app.services.comprehensive_market_analyzer import ComprehensiveMarketAnalyzer
+        import random
+        
+        analyzer = ComprehensiveMarketAnalyzer()
+        
+        # 生成演示K线数据
+        demo_klines = []
+        base_price = 80000.0
+        for i in range(100):
+            change = random.uniform(-0.015, 0.015)
+            o = base_price
+            c = base_price * (1 + change)
+            h = max(o, c) * 1.003
+            l = min(o, c) * 0.997
+            v = random.uniform(500, 2000)
+            demo_klines.append({"open": o, "high": h, "low": l, "close": c, "volume": v})
+            base_price = c
+        
+        result = analyzer.analyze(demo_klines)
+        summary = analyzer.get_summary(result)
+        return jsonify({"success": True, "data": summary})
+    except Exception as e:
+        logger.error(f"五层市场识别演示失败: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ========== 策略优化引擎 ==========
+
+@p1_bp.route("/optimizer/status", methods=["GET"])
+def optimizer_status():
+    """策略优化引擎状态"""
+    try:
+        from app.services.strategy_optimizer import StrategyOptimizationEngine
+        engine = StrategyOptimizationEngine()
+        status = engine.get_engine_status()
+        return jsonify({"success": True, "data": status})
+    except Exception as e:
+        logger.error(f"优化引擎状态失败: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@p1_bp.route("/optimizer/factors", methods=["GET"])
+def optimizer_factors():
+    """因子库列表"""
+    try:
+        from app.services.factor_library import FactorLibrary
+        lib = FactorLibrary()
+        factors = lib.get_factor_summary()
+        return jsonify({"success": True, "data": {
+            "factors": factors,
+            "total": len(factors),
+            "categories": list(set(f["category"] for f in factors))
+        }})
+    except Exception as e:
+        logger.error(f"因子库列表失败: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@p1_bp.route("/optimizer/history", methods=["GET"])
+def optimizer_history():
+    """优化历史"""
+    try:
+        from app.services.strategy_optimizer import StrategyOptimizationEngine
+        engine = StrategyOptimizationEngine()
+        history = engine.get_optimization_history()
+        return jsonify({"success": True, "data": {"history": history, "total": len(history)}})
+    except Exception as e:
+        logger.error(f"优化历史失败: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ========== 过拟合防御 ==========
+
+@p1_bp.route("/overfitting/status", methods=["GET"])
+def overfitting_status():
+    """过拟合防御状态"""
+    try:
+        from app.services.overfitting_defense import get_overfitting_defense
+        defense = get_overfitting_defense()
+        status = defense.get_defense_summary()
+        return jsonify({"success": True, "data": status})
+    except Exception as e:
+        logger.error(f"过拟合防御状态失败: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ========== 策略健康度 ==========
+
+@p1_bp.route("/strategy-health/summary", methods=["GET"])
+def strategy_health_summary():
+    """策略健康度摘要"""
+    try:
+        from app.services.strategy_health import health_monitor, StrategyHealth
+        demo_strategies = [
+            StrategyHealth(
+                strategy_id="1", strategy_name="趋势跟踪策略",
+                status="active", health_score=85.0,
+                recent_sharpe=1.8, recent_drawdown=8.0, win_rate=45.0, trade_count=120,
+                sharpe_decay=0.1, performance_trend="stable",
+                recommendation="继续运行", next_review="2026-11-01"
+            ),
+            StrategyHealth(
+                strategy_id="2", strategy_name="均值回归策略",
+                status="watch", health_score=55.0,
+                recent_sharpe=0.9, recent_drawdown=15.0, win_rate=52.0, trade_count=200,
+                sharpe_decay=0.35, performance_trend="declining",
+                recommendation="减少仓位，观察", next_review="2026-10-28"
+            ),
+            StrategyHealth(
+                strategy_id="3", strategy_name="突破交易策略",
+                status="active", health_score=90.0,
+                recent_sharpe=2.1, recent_drawdown=6.0, win_rate=38.0, trade_count=80,
+                sharpe_decay=0.05, performance_trend="improving",
+                recommendation="可加仓", next_review="2026-11-05"
+            ),
+        ]
+        summary = health_monitor.get_portfolio_overview(demo_strategies)
+        return jsonify({"success": True, "data": summary})
+    except Exception as e:
+        logger.error(f"策略健康度失败: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
