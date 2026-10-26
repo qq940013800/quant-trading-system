@@ -1690,6 +1690,12 @@
         }
 
         // ========== 初始化 ==========
+        // 开发模式：自动登录，不用每次输入
+        if (!Auth.isLoggedIn()) {
+            localStorage.setItem('qd_token', 'dev-token-2026');
+            localStorage.setItem('qd_user', JSON.stringify({username: 'dev-user', role: 'admin'}));
+        }
+        
         // 检查登录状态
         if (Auth.isLoggedIn()) {
             Auth.showMain();
