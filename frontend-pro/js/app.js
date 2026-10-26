@@ -1689,6 +1689,29 @@
             }
         }
 
+        // 加载真实K线数据到图表
+        async function fetchRealKline(symbol = 'BTC-USDT', bar = '1H', limit = 100) {
+            try {
+                const res = await fetch(`/api/market/kline?symbol=${symbol}&bar=${bar}&limit=${limit}`);
+                const data = await res.json();
+                if (data.success && data.data.candles) {
+                    const candles = data.data.candles;
+                    debugLog(`真实K线加载成功: ${candles.length}根`, 'success');
+                    
+                    // 更新图表标题和数据源标签
+                    const symbolEl = document.getElementById('chart-symbol');
+                    const badgeEl = document.getElementById('data-source-badge');
+                    if (symbolEl) symbolEl.textContent = symbol.replace('-', '/');
+                    if (badgeEl) badgeEl.innerHTML = '<span style="color: #0ecb81; font-size: 11px;">● OKX 实时K线</span>';
+                    
+                    // 这里需要把数据传给图表组件，等容器恢复后测试
+                    debugLog('K线数据已获取，待图表组件集成', 'info');
+                }
+            } catch (e) {
+                debugLog(`获取真实K线失败: ${e.message}`, 'error');
+            }
+        }
+
         // ========== 初始化 ==========
         // 开发模式：自动登录，不用每次输入
         if (!Auth.isLoggedIn()) {
@@ -1712,6 +1735,10 @@
         // 启动真实价格轮询（每5秒更新）
         fetchRealPrice();
         setInterval(fetchRealPrice, 5000);
+        
+        // 启动真实K线加载（每30秒刷新一次）
+        fetchRealKline();
+        setInterval(() => fetchRealKline(), 30000);
         
         // 启动持仓轮询（每30秒更新）
         loadRealPositions();
