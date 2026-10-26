@@ -1637,6 +1637,58 @@
             if (btn) btn.addEventListener('click', openApiAccountModal);
         });
 
+        // ========== 真实行情数据（OKX） ==========
+        async function fetchRealPrice() {
+            try {
+                const res = await fetch('/api/market/ticker?symbol=BTC-USDT');
+                const data = await res.json();
+                if (data.success) {
+                    const price = data.data.last;
+                    const priceEl = document.getElementById('chart-price');
+                    const badgeEl = document.getElementById('data-source-badge');
+                    if (priceEl) priceEl.textContent = '$' + price.toLocaleString();
+                    if (badgeEl) badgeEl.innerHTML = '<span style="color: #0ecb81; font-size: 11px;">● LIVE 实时数据</span>';
+                    debugLog(`真实价格更新: $${price}`, 'info');
+                }
+            } catch (e) {
+                debugLog(`获取真实价格失败: ${e.message}`, 'error');
+            }
+        }
+
+        // 加载真实持仓
+        async function loadRealPositions() {
+            try {
+                const res = await fetch('/api/account/positions');
+                const data = await res.json();
+                if (data.success && data.data.positions) {
+                    const positions = data.data.positions;
+                    const totalEq = data.data.total_equity || '$0';
+                    
+                    // 更新总权益显示
+                    const totalEqEl = document.getElementById('total-equity');
+                    if (totalEqEl) totalEqEl.textContent = totalEq.replace('$', '');
+                    
+                    // 更新持仓列表
+                    const positionsEl = document.getElementById('positions-list');
+                    if (positionsEl) {
+                        if (positions.length > 0) {
+                            positionsEl.innerHTML = positions.map(p => `
+                                <div style="padding: 6px 8px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; font-size: 12px;">
+                                    <span style="color: var(--text-primary);">${p.symbol}</span>
+                                    <span style="color: var(--text-secondary); font-family: var(--font-mono);">${p.amount} ≈ $${p.value_usd.toLocaleString()}</span>
+                                </div>
+                            `).join('');
+                        } else {
+                            positionsEl.innerHTML = '<div style="padding: 8px; color: var(--text-tertiary); font-size: 12px;">暂无持仓</div>';
+                        }
+                    }
+                    debugLog(`持仓更新成功: ${positions.length}个品种`, 'success');
+                }
+            } catch (e) {
+                debugLog(`获取持仓失败: ${e.message}`, 'error');
+            }
+        }
+
         // ========== 初始化 ==========
         // 检查登录状态
         if (Auth.isLoggedIn()) {
@@ -1650,6 +1702,14 @@
         if (Auth.isLoggedIn()) {
             loadAllData();
         }
+        
+        // 启动真实价格轮询（每5秒更新）
+        fetchRealPrice();
+        setInterval(fetchRealPrice, 5000);
+        
+        // 启动持仓轮询（每30秒更新）
+        loadRealPositions();
+        setInterval(loadRealPositions, 30000);
 
         // 每30秒刷新一次数据
         setInterval(() => {
