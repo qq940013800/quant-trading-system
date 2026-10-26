@@ -157,3 +157,132 @@ def auto_stop_live_strategy(
         logger.debug("auto_stop: executor stop_strategy(%s): %s", sid, e)
 
     return True
+
+
+# ============================================================
+# 绩效衰减健康度评估（策略生命周期管理）
+# 基于第一性原理：Alpha会衰减，必须自动发现、自动预警、自动减仓
+# ============================================================
+
+from dataclasses import dataclass
+from enum import Enum
+from typing import List, Optional, Dict
+from datetime import datetime
+
+
+class HealthStatus(Enum):
+    """三级健康度状态"""
+    GREEN = "green"    # 健康运行
+    YELLOW = "yellow"  # 预警，减仓
+    RED = "red"        # 失效，退役
+
+
+@dataclass
+class StrategyPerformance:
+    """策略绩效数据快照"""
+    strategy_id: int
+    strategy_name: str
+    total_return: float          # 总收益率
+    sharpe_ratio: float          # 夏普比率
+    max_drawdown: float           # 历史最大回撤
+    win_rate: float               # 胜率
+    profit_factor: float          # 盈亏比
+    trades_count: int             # 交易次数
+    current_drawdown: float       # 当前回撤
+    loss_streak: int              # 连续亏损次数
+
+
+@dataclass
+class HealthDecision:
+    """健康度评估结果"""
+    strategy_id: int
+    strategy_name: str
+    status: HealthStatus
+    confidence: float             # 置信度 0-1
+    reasons: List[str]            # 触发原因列表
+    suggested_action: str         # 建议动作
+    position_adjustment: float    # 仓位调整系数（1=满仓，0=清仓）
+    timestamp: datetime
+
+
+# 阈值配置（提前冻结，不允许根据结果调整）
+HEALTH_THRESHOLDS = {
+    'drawdown_yellow': 0.10,           # 回撤10%预警
+    'drawdown_red': 0.20,              # 回撤20%退役
+    'loss_streak_yellow': 5,           # 连续亏损5次预警
+    'loss_streak_red': 10,             # 连续亏损10次退役
+    'sharpe_decay_yellow': 0.4,        # 夏普衰减40%预警
+    'min_trades_significant': 20,      # 统计显著性最小样本数
+}
+
+
+def evaluate_strategy_health(
+    perf: StrategyPerformance,
+    baseline_perf: Optional[StrategyPerformance] = None,
+) -> HealthDecision:
+    """
+    评估策略健康状态
+    多重指标交叉验证，每个指标独立判断，最后综合评分
+    """
+    reasons = []
+    yellow_score = 0
+    red_score = 0
+
+    # 1. 回撤检查（最硬的指标）
+    if perf.current_drawdown >= HEALTH_THRESHOLDS['drawdown_red']:
+        red_score += 3
+        reasons.append(f"当前回撤{perf.current_drawdown:.1%}超过20%红线")
+    elif perf.current_drawdown >= HEALTH_THRESHOLDS['drawdown_yellow']:
+        yellow_score += 2
+        reasons.append(f"当前回撤{perf.current_drawdown:.1%}超过10%预警线")
+
+    # 2. 连续亏损检查
+    if perf.loss_streak >= HEALTH_THRESHOLDS['loss_streak_red']:
+        red_score += 2
+        reasons.append(f"连续亏损{perf.loss_streak}次，超过10次红线")
+    elif perf.loss_streak >= HEALTH_THRESHOLDS['loss_streak_yellow']:
+        yellow_score += 1
+        reasons.append(f"连续亏损{perf.loss_streak}次，超过5次预警线")
+
+    # 3. 夏普衰减检查（对比上线基线）
+    if baseline_perf and baseline_perf.sharpe_ratio > 0:
+        sharpe_drop = 1 - (perf.sharpe_ratio / baseline_perf.sharpe_ratio)
+        if sharpe_drop >= HEALTH_THRESHOLDS['sharpe_decay_yellow']:
+            yellow_score += 2
+            reasons.append(
+                f"夏普比率衰减{sharpe_drop:.1%}，"
+                f"从{baseline_perf.sharpe_ratio:.2f}降到{perf.sharpe_ratio:.2f}"
+            )
+
+    # 4. 样本量检查（统计显著性）
+    if perf.trades_count < HEALTH_THRESHOLDS['min_trades_significant']:
+        yellow_score += 1
+        reasons.append(f"交易样本只有{perf.trades_count}次，统计显著性不足")
+
+    # 综合判断状态
+    if red_score >= 3:
+        status = HealthStatus.RED
+        suggested_action = "立即清仓，停止开新仓，启动复盘"
+        position_adjustment = 0.0
+        confidence = min(red_score / 5, 1.0)
+    elif red_score >= 1 or yellow_score >= 3:
+        status = HealthStatus.YELLOW
+        suggested_action = "减仓50%，加强监控，准备备选策略"
+        position_adjustment = 0.5
+        confidence = min((red_score + yellow_score) / 6, 1.0)
+    else:
+        status = HealthStatus.GREEN
+        suggested_action = "正常运行"
+        position_adjustment = 1.0
+        confidence = 0.8
+
+    return HealthDecision(
+        strategy_id=perf.strategy_id,
+        strategy_name=perf.strategy_name,
+        status=status,
+        confidence=confidence,
+        reasons=reasons,
+        suggested_action=suggested_action,
+        position_adjustment=position_adjustment,
+        timestamp=datetime.now(),
+    )
