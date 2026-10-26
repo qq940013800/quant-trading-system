@@ -129,6 +129,8 @@
 | 2026-10-27 | 随便删除正在运行的Docker容器 | 禁止stop+rm生产容器，重启前先记录所有环境变量和网络配置 | 后端连不上数据库，花了半小时恢复 |
 | 2026-10-27 | 新容器没加入docker网络 | docker network connect加入原有网络 | 容器之间无法通信，502错误 |
 | 2026-10-27 | 后端代码环境变量名和数据库不匹配 | 先Read代码确认用的环境变量名（不是POSTGRES_PASSWORD） | 密码认证失败 |
+| 2026-10-27 | 手动stop+rm生产容器 | 禁止手动删容器，必须用 `docker compose up -d <service>` 恢复 | 后端服务瘫痪，花了半小时还没恢复 |
+| 2026-10-27 | 新容器没加入docker网络 | 用compose启动会自动加入网络，手动run要docker network connect | 502 Bad Gateway |
 
 ---
 
