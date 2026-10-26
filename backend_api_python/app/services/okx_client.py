@@ -120,6 +120,79 @@ class OKXClient:
                 
         except Exception as e:
             return False, f"查询异常: {str(e)}", None
+    
+    def place_order(self, symbol: str, side: str, size: float, price: float = None,
+                    ord_type: str = None, tgt_ccy: str = None) -> Tuple[bool, str, Optional[Dict]]:
+        """
+        下单
+        symbol: 交易对，如 BTC-USDT
+        side: buy/sell
+        size: 数量
+        price: 价格（限价单需要）
+        ord_type: limit/market，默认自动判断
+        tgt_ccy: 市价单买入时指定计价货币（USDT），如 'quote_ccy'
+        """
+        try:
+            request_path = '/api/v5/trade/order'
+            
+            # 自动判断订单类型
+            if ord_type is None:
+                ord_type = 'limit' if price else 'market'
+            
+            body = {
+                'instId': symbol,
+                'tdMode': 'cash',  # 现货交易
+                'side': side,
+                'ordType': ord_type,
+                'sz': str(size)
+            }
+            
+            if price and ord_type == 'limit':
+                body['px'] = str(price)
+            
+            # 市价买入时，支持用USDT金额下单
+            if ord_type == 'market' and side == 'buy' and tgt_ccy:
+                body['tgtCcy'] = tgt_ccy
+            
+            # 加client order id方便排查
+            import time
+            body['clOrdId'] = f"qd{int(time.time()*1000)}"
+            
+            import json
+            body_str = json.dumps(body)
+            headers = self._get_headers('POST', request_path, body_str)
+            
+            response = self.session.post(
+                self.BASE_URL + request_path,
+                headers=headers,
+                data=body_str,
+                timeout=10
+            )
+            
+            data = response.json()
+            
+            if data.get('code') == '0':
+                order_data = data.get('data', [{}])[0]
+                sCode = order_data.get('sCode', '0')
+                sMsg = order_data.get('sMsg', '')
+                if sCode == '0':
+                    order_id = order_data.get('ordId', '未知')
+                    return True, f"下单成功！订单号: {order_id}", order_data
+                else:
+                    return False, f"下单失败（交易所返回）: {sMsg}", order_data
+            else:
+                error_msg = data.get('msg', '未知错误')
+                # 常见错误提示
+                if '51001' in str(data):
+                    error_msg = '余额不足，请先充值或检查最小下单金额'
+                elif '51002' in str(data):
+                    error_msg = '交易对不存在或未开通交易权限'
+                elif '51008' in str(data):
+                    error_msg = '模拟盘模式下该交易对不可用，请检查账户设置'
+                return False, f"下单失败: {error_msg} (code={data.get('code')})", None
+                
+        except Exception as e:
+            return False, f"下单异常: {str(e)}", None
 
 
 # 全局账户配置存储（临时，后续存数据库）
