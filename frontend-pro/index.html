@@ -98,7 +98,10 @@
                         </div>
 
                         <div class="sidebar-section">
-                            <div class="sidebar-title">我的账户</div>
+                            <div class="sidebar-title" style="display: flex; justify-content: space-between; align-items: center;">
+                                <span>我的账户</span>
+                                <button id="btn-add-account" style="background: rgba(240,185,11,0.1); border: 1px solid rgba(240,185,11,0.3); color: #f0b90b; border-radius: 4px; width: 20px; height: 20px; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center;">+</button>
+                            </div>
                             <div id="accounts-list">
                                 <div style="color: var(--text-tertiary); font-size: 12px;">
                                     <div class="loading"></div>
@@ -1975,6 +1978,65 @@
         </div>
     </div>
 
+    <!-- API账户设置弹窗 -->
+    <div class="modal-overlay" id="apiAccountModal" style="display: none;">
+        <div class="modal-content" style="max-width: 480px;">
+            <h3 style="margin-bottom: 20px; color: #f0b90b;">🔗 绑定交易所API账户</h3>
+            
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label class="form-label">备注名称</label>
+                <input type="text" id="api-account-name" class="form-input" placeholder="例如：OKX-DEMO、OKX-实盘" value="DEMO" style="width: 100%; padding: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary);">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label class="form-label">交易所</label>
+                <select id="api-exchange" style="width: 100%; padding: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary);">
+                    <option value="okx">OKX</option>
+                    <option value="binance">Binance</option>
+                    <option value="bybit">Bybit</option>
+                </select>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label class="form-label">API Key</label>
+                <input type="text" id="api-key" class="form-input" placeholder="输入API Key" style="width: 100%; padding: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-family: monospace;">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label class="form-label">API Secret</label>
+                <input type="password" id="api-secret" class="form-input" placeholder="输入API Secret" style="width: 100%; padding: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-family: monospace;">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label class="form-label">Passphrase</label>
+                <input type="password" id="api-passphrase" class="form-input" placeholder="输入API密码（OKX必填）" style="width: 100%; padding: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-family: monospace;">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label class="form-label">权限</label>
+                <div style="display: flex; gap: 16px; font-size: 13px;">
+                    <label style="display: flex; align-items: center; gap: 6px;">
+                        <input type="checkbox" id="api-perm-read" checked> 读取
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px;">
+                        <input type="checkbox" id="api-perm-trade" checked> 交易
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 6px; opacity: 0.5;">
+                        <input type="checkbox" disabled> 提现（不建议开启）
+                    </label>
+                </div>
+            </div>
+
+            <div style="padding: 12px; background: rgba(246,70,93,0.1); border-radius: 8px; margin-bottom: 20px; font-size: 12px; color: #f6465d;">
+                ⚠️ 安全提示：API密钥仅保存在本地服务器，不要开启提现权限。建议先使用DEMO账户测试。
+            </div>
+
+            <div style="display: flex; gap: 12px;">
+                <button class="btn-secondary" style="flex: 1;" onclick="closeApiAccountModal()">取消</button>
+                <button class="btn-primary" style="flex: 1; background: #0ecb81; color: #0b0e11;" onclick="saveApiAccount()">测试连接并保存</button>
+            </div>
+        </div>
+    </div>
     
     <script src="js/app.js"></script>
 </body>
