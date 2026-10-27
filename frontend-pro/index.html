@@ -1601,36 +1601,101 @@
                 <!-- P1/P2 模块状态 -->
                 <div style="margin-top: 24px;">
                     <h3 style="font-size: 16px; margin-bottom: 16px; color: #f0b90b;">📦 P1/P2 企业级模块状态</h3>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
-                        <div style="background: var(--bg-secondary); border-radius: 8px; padding: 16px; border-left: 3px solid #0ecb81;">
-                            <div style="font-weight: 600; font-size: 13px; margin-bottom: 6px;">🛡️ 高可用与灾备</div>
-                            <div style="font-size: 11px; color: var(--text-secondary);">RTO/RPO监控 · 故障自动切换</div>
-                            <div style="font-size: 11px; color: #0ecb81; margin-top: 4px;">✅ API正常</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px;">
+                        <!-- 卡片1：高可用与灾备 -->
+                        <div id="p2-card-ha" style="background: var(--bg-secondary); border-radius: 8px; padding: 16px; border-left: 3px solid #848e9c;">
+                            <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                                <span id="p2-dot-ha" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#848e9c;box-shadow:0 0 6px #848e9c;margin-right:8px;"></span>
+                                <div style="font-weight: 600; font-size: 13px;">🛡️ 高可用与灾备</div>
+                                <div id="p2-state-ha" style="margin-left:auto; font-size: 10px; color: var(--text-secondary); font-family: var(--font-mono);">--</div>
+                            </div>
+                            <div id="p2-metrics-ha" style="font-size: 11px; color: var(--text-secondary);">
+                                <div>数据加载中...</div>
+                            </div>
+                            <div style="font-size: 10px; color: var(--text-secondary); padding-top: 8px; margin-top: 8px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between;">
+                                <span>API: /api/p1/health</span>
+                                <span id="p2-updated-ha">--:--:--</span>
+                            </div>
                         </div>
-                        <div style="background: var(--bg-secondary); border-radius: 8px; padding: 16px; border-left: 3px solid #0ecb81;">
-                            <div style="font-weight: 600; font-size: 13px; margin-bottom: 6px;">📝 交易日志与归因</div>
-                            <div style="font-size: 11px; color: var(--text-secondary);">绩效归因五维模型 · 复盘自动化</div>
-                            <div style="font-size: 11px; color: #0ecb81; margin-top: 4px;">✅ API正常</div>
+
+                        <!-- 卡片2：交易日志与归因 -->
+                        <div id="p2-card-journal" style="background: var(--bg-secondary); border-radius: 8px; padding: 16px; border-left: 3px solid #848e9c;">
+                            <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                                <span id="p2-dot-journal" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#848e9c;box-shadow:0 0 6px #848e9c;margin-right:8px;"></span>
+                                <div style="font-weight: 600; font-size: 13px;">📝 交易日志与归因</div>
+                                <div id="p2-state-journal" style="margin-left:auto; font-size: 10px; color: var(--text-secondary); font-family: var(--font-mono);">--</div>
+                            </div>
+                            <div id="p2-metrics-journal" style="font-size: 11px; color: var(--text-secondary);">
+                                <div>数据加载中...</div>
+                            </div>
+                            <div style="font-size: 10px; color: var(--text-secondary); padding-top: 8px; margin-top: 8px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between;">
+                                <span>API: /api/p1/journal/analyze</span>
+                                <span id="p2-updated-journal">--:--:--</span>
+                            </div>
                         </div>
-                        <div style="background: var(--bg-secondary); border-radius: 8px; padding: 16px; border-left: 3px solid #0ecb81;">
-                            <div style="font-weight: 600; font-size: 13px; margin-bottom: 6px;">🔒 安全与合规</div>
-                            <div style="font-size: 11px; color: var(--text-secondary);">API密钥安全 · 审计日志 · 权限控制</div>
-                            <div style="font-size: 11px; color: #0ecb81; margin-top: 4px;">✅ API正常</div>
+
+                        <!-- 卡片3：安全与合规 -->
+                        <div id="p2-card-security" style="background: var(--bg-secondary); border-radius: 8px; padding: 16px; border-left: 3px solid #848e9c;">
+                            <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                                <span id="p2-dot-security" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#848e9c;box-shadow:0 0 6px #848e9c;margin-right:8px;"></span>
+                                <div style="font-weight: 600; font-size: 13px;">🔒 安全与合规</div>
+                                <div id="p2-state-security" style="margin-left:auto; font-size: 10px; color: var(--text-secondary); font-family: var(--font-mono);">--</div>
+                            </div>
+                            <div id="p2-metrics-security" style="font-size: 11px; color: var(--text-secondary);">
+                                <div>数据加载中...</div>
+                            </div>
+                            <div style="font-size: 10px; color: var(--text-secondary); padding-top: 8px; margin-top: 8px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between;">
+                                <span>API: /api/p1/security/summary</span>
+                                <span id="p2-updated-security">--:--:--</span>
+                            </div>
                         </div>
-                        <div style="background: var(--bg-secondary); border-radius: 8px; padding: 16px; border-left: 3px solid #0ecb81;">
-                            <div style="font-weight: 600; font-size: 13px; margin-bottom: 6px;">👥 策略拥挤度监控</div>
-                            <div style="font-size: 11px; color: var(--text-secondary);">持仓集中度 · 换手率 · 拥挤告警</div>
-                            <div style="font-size: 11px; color: #0ecb81; margin-top: 4px;">✅ API正常</div>
+
+                        <!-- 卡片4：策略拥挤度监控 -->
+                        <div id="p2-card-crowding" style="background: var(--bg-secondary); border-radius: 8px; padding: 16px; border-left: 3px solid #848e9c;">
+                            <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                                <span id="p2-dot-crowding" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#848e9c;box-shadow:0 0 6px #848e9c;margin-right:8px;"></span>
+                                <div style="font-weight: 600; font-size: 13px;">👥 策略拥挤度监控</div>
+                                <div id="p2-state-crowding" style="margin-left:auto; font-size: 10px; color: var(--text-secondary); font-family: var(--font-mono);">--</div>
+                            </div>
+                            <div id="p2-metrics-crowding" style="font-size: 11px; color: var(--text-secondary);">
+                                <div>数据加载中...</div>
+                            </div>
+                            <div style="font-size: 10px; color: var(--text-secondary); padding-top: 8px; margin-top: 8px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between;">
+                                <span>API: /api/p2/crowding/summary</span>
+                                <span id="p2-updated-crowding">--:--:--</span>
+                            </div>
                         </div>
-                        <div style="background: var(--bg-secondary); border-radius: 8px; padding: 16px; border-left: 3px solid #d29922;">
-                            <div style="font-weight: 600; font-size: 13px; margin-bottom: 6px;">📊 可观测性与告警</div>
-                            <div style="font-size: 11px; color: var(--text-secondary);">黄金四指标 · 链路追踪 · 告警规则</div>
-                            <div style="font-size: 11px; color: #d29922; margin-top: 4px;">🔲 待部署</div>
+
+                        <!-- 卡片5：可观测性与告警 -->
+                        <div id="p2-card-obs" style="background: var(--bg-secondary); border-radius: 8px; padding: 16px; border-left: 3px solid #848e9c;">
+                            <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                                <span id="p2-dot-obs" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#848e9c;box-shadow:0 0 6px #848e9c;margin-right:8px;"></span>
+                                <div style="font-weight: 600; font-size: 13px;">📊 可观测性与告警</div>
+                                <div id="p2-state-obs" style="margin-left:auto; font-size: 10px; color: var(--text-secondary); font-family: var(--font-mono);">--</div>
+                            </div>
+                            <div id="p2-metrics-obs" style="font-size: 11px; color: var(--text-secondary);">
+                                <div>数据加载中...</div>
+                            </div>
+                            <div style="font-size: 10px; color: var(--text-secondary); padding-top: 8px; margin-top: 8px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between;">
+                                <span>API: /api/p2/observability/summary</span>
+                                <span id="p2-updated-obs">--:--:--</span>
+                            </div>
                         </div>
-                        <div style="background: var(--bg-secondary); border-radius: 8px; padding: 16px; border-left: 3px solid #d29922;">
-                            <div style="font-weight: 600; font-size: 13px; margin-bottom: 6px;">🚀 CI/CD与部署</div>
-                            <div style="font-size: 11px; color: var(--text-secondary);">自动化部署 · 数据备份 · 故障预案</div>
-                            <div style="font-size: 11px; color: #d29922; margin-top: 4px;">🔲 待部署</div>
+
+                        <!-- 卡片6：CI/CD与部署 -->
+                        <div id="p2-card-cicd" style="background: var(--bg-secondary); border-radius: 8px; padding: 16px; border-left: 3px solid #848e9c;">
+                            <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                                <span id="p2-dot-cicd" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#848e9c;box-shadow:0 0 6px #848e9c;margin-right:8px;"></span>
+                                <div style="font-weight: 600; font-size: 13px;">🚀 CI/CD与部署</div>
+                                <div id="p2-state-cicd" style="margin-left:auto; font-size: 10px; color: var(--text-secondary); font-family: var(--font-mono);">--</div>
+                            </div>
+                            <div id="p2-metrics-cicd" style="font-size: 11px; color: var(--text-secondary);">
+                                <div>数据加载中...</div>
+                            </div>
+                            <div style="font-size: 10px; color: var(--text-secondary); padding-top: 8px; margin-top: 8px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between;">
+                                <span>API: /api/p2/cicd/status</span>
+                                <span id="p2-updated-cicd">--:--:--</span>
+                            </div>
                         </div>
                     </div>
                 </div>

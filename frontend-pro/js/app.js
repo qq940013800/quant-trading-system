@@ -1555,6 +1555,188 @@
             } catch (e) {
                 debugLog(`综合市场分析加载失败: ${e.message}`, 'error');
             }
+
+            // 6. P1/P2 企业级模块卡片实时数据
+            loadP2ModuleCards();
+        }
+
+        // ========== P1/P2 企业级模块卡片实时轮询 ==========
+        const P2_LAMP = {
+            green: '#0ecb81',
+            yellow: '#f0b90b',
+            red: '#f6465d',
+            gray: '#848e9c'
+        };
+
+        function p2PaintLamp(key, level) {
+            const color = P2_LAMP[level] || P2_LAMP.gray;
+            const dot = document.getElementById(`p2-dot-${key}`);
+            const card = document.getElementById(`p2-card-${key}`);
+            if (dot) {
+                dot.style.background = color;
+                dot.style.boxShadow = `0 0 6px ${color}`;
+            }
+            if (card) card.style.borderLeftColor = color;
+        }
+
+        function p2SetState(key, text, color) {
+            const el = document.getElementById(`p2-state-${key}`);
+            if (el) {
+                el.textContent = text;
+                el.style.color = color || 'var(--text-secondary)';
+            }
+        }
+
+        function p2SetMetrics(key, html) {
+            const el = document.getElementById(`p2-metrics-${key}`);
+            if (el) el.innerHTML = html;
+        }
+
+        function p2Stamp(key) {
+            const el = document.getElementById(`p2-updated-${key}`);
+            if (el) el.textContent = '更新于 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false });
+        }
+
+        function p2Metric(label, value, color) {
+            return `<div style="display:flex;justify-content:space-between;line-height:1.9;">
+                <span style="color: var(--text-secondary);">${label}</span>
+                <span style="font-weight:600; color:${color || '#eaecef'};">${value}</span>
+            </div>`;
+        }
+
+        async function p2FetchJson(path) {
+            // 8秒客户端超时：后端不可达时降级为"数据不可用"，避免卡片卡在"加载中"
+            const timeout = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('timeout')), 8000)
+            );
+            const res = await Promise.race([fetch(path), timeout]);
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return await res.json();
+        }
+
+        // 失败统一降级：显示"数据不可用"，不抛错到控制台外
+        function p2Fail(key, msg) {
+            p2PaintLamp(key, 'gray');
+            p2SetState(key, 'OFFLINE', P2_LAMP.gray);
+            p2SetMetrics(key, `<div style="color: var(--text-secondary);">${msg || '数据不可用'}</div>`);
+        }
+
+        async function loadP2ModuleCards() {
+            // 1. 高可用与灾备  GET /api/p1/health
+            try {
+                const r = await p2FetchJson('/api/p1/health');
+                if (!r.success) throw new Error(r.error || 'success=false');
+                const d = r.data || {};
+                const st = d.overall_status || 'unknown';
+                const level = st === 'healthy' ? 'green' : st === 'degraded' ? 'yellow' : st === 'unhealthy' ? 'red' : 'gray';
+                p2PaintLamp('ha', level);
+                p2SetState('ha', st.toUpperCase(), P2_LAMP[level]);
+                p2SetMetrics('ha',
+                    p2Metric('可用率', (d.availability_pct || 0).toFixed(1) + '%', P2_LAMP[level]) +
+                    p2Metric('健康服务', `${d.healthy ?? 0}/${d.total_services ?? 0}`) +
+                    p2Metric('累计故障', String(d.total_failures ?? 0), (d.total_failures ?? 0) > 0 ? P2_LAMP.yellow : '#eaecef') +
+                    p2Metric('故障切换', String(d.total_failovers ?? 0))
+                );
+                p2Stamp('ha');
+            } catch (e) { p2Fail('ha', '数据不可用'); debugLog(`P2[高可用]加载失败: ${e.message}`, 'error'); }
+
+            // 2. 交易日志与归因  GET /api/p1/journal/analyze?days=30
+            try {
+                const r = await p2FetchJson('/api/p1/journal/analyze?days=30');
+                if (!r.success) throw new Error(r.error || 'success=false');
+                const d = r.data || {};
+                const trades = d.total_trades ?? 0;
+                const level = trades > 0 ? 'green' : 'gray';
+                p2PaintLamp('journal', level);
+                p2SetState('journal', trades > 0 ? 'ANALYZED' : 'NO DATA', P2_LAMP[level]);
+                p2SetMetrics('journal',
+                    p2Metric('周期', d.period || '-') +
+                    p2Metric('总交易', String(trades), P2_LAMP.green) +
+                    p2Metric('胜率', ((d.win_rate || 0) * 100).toFixed(1) + '%') +
+                    p2Metric('净利', (d.total_pnl || 0).toFixed(2)) +
+                    p2Metric('盈亏比', (d.profit_factor || 0).toFixed(2))
+                );
+                p2Stamp('journal');
+            } catch (e) { p2Fail('journal', '数据不可用'); debugLog(`P2[交易归因]加载失败: ${e.message}`, 'error'); }
+
+            // 3. 安全与合规  GET /api/p1/security/summary
+            try {
+                const r = await p2FetchJson('/api/p1/security/summary');
+                if (!r.success) throw new Error(r.error || 'success=false');
+                const d = r.data || {};
+                const lv = d.security_level || 'good';
+                const level = lv === 'good' ? 'green' : lv === 'warning' ? 'yellow' : 'red';
+                p2PaintLamp('security', level);
+                p2SetState('security', lv.toUpperCase(), P2_LAMP[level]);
+                p2SetMetrics('security',
+                    p2Metric('活跃会话', String(d.active_sessions ?? 0)) +
+                    p2Metric('活跃API密钥', String(d.active_api_keys ?? 0)) +
+                    p2Metric('审计日志', String(d.total_audit_logs ?? 0)) +
+                    p2Metric('严重告警', String(d.critical_alerts ?? 0), (d.critical_alerts ?? 0) > 0 ? P2_LAMP.red : P2_LAMP.green)
+                );
+                p2Stamp('security');
+            } catch (e) { p2Fail('security', '数据不可用'); debugLog(`P2[安全合规]加载失败: ${e.message}`, 'error'); }
+
+            // 4. 策略拥挤度监控  GET /api/p2/crowding/summary
+            try {
+                const r = await p2FetchJson('/api/p2/crowding/summary');
+                if (!r.success) throw new Error(r.error || 'success=false');
+                const d = r.data || {};
+                if (d.status === 'no_strategies' || !d.total_strategies) {
+                    p2PaintLamp('crowding', 'gray');
+                    p2SetState('crowding', 'NO DATA', P2_LAMP.gray);
+                    p2SetMetrics('crowding', '<div style="color: var(--text-secondary);">暂无策略注册到拥挤度监控</div>');
+                } else {
+                    const dist = d.distribution || {};
+                    const hi = (dist.high || 0) + (dist.extreme || 0);
+                    const level = (dist.extreme || 0) > 0 ? 'red' : hi > 0 ? 'yellow' : 'green';
+                    p2PaintLamp('crowding', level);
+                    p2SetState('crowding', level === 'green' ? 'NORMAL' : 'WATCH', P2_LAMP[level]);
+                    p2SetMetrics('crowding',
+                        p2Metric('监控策略', String(d.total_strategies ?? 0), P2_LAMP.green) +
+                        p2Metric('平均拥挤分', (d.avg_crowding_score || 0).toFixed(1) + '/100', (d.avg_crowding_score || 0) >= 50 ? P2_LAMP.yellow : P2_LAMP.green) +
+                        p2Metric('高/极高拥挤', String(hi), hi > 0 ? P2_LAMP.red : P2_LAMP.green) +
+                        `<div style="margin-top:4px; color: var(--text-secondary);">⚠️ ${d.warning || '-'}</div>`
+                    );
+                }
+                p2Stamp('crowding');
+            } catch (e) { p2Fail('crowding', '数据不可用'); debugLog(`P2[拥挤度]加载失败: ${e.message}`, 'error'); }
+
+            // 5. 可观测性与告警  GET /api/p2/observability/summary
+            try {
+                const r = await p2FetchJson('/api/p2/observability/summary');
+                if (!r.success) throw new Error(r.error || 'success=false');
+                const d = r.data || {};
+                const st = d.status || 'healthy';
+                const level = st === 'healthy' ? 'green' : st === 'warning' ? 'yellow' : 'red';
+                p2PaintLamp('obs', level);
+                p2SetState('obs', st.toUpperCase(), P2_LAMP[level]);
+                p2SetMetrics('obs',
+                    p2Metric('活跃告警', String(d.active_alerts ?? 0), (d.active_alerts ?? 0) > 0 ? P2_LAMP.yellow : P2_LAMP.green) +
+                    p2Metric('严重告警', String(d.critical_alerts ?? 0), (d.critical_alerts ?? 0) > 0 ? P2_LAMP.red : P2_LAMP.green) +
+                    p2Metric('累计告警', String(d.total_alerts ?? 0))
+                );
+                p2Stamp('obs');
+            } catch (e) { p2Fail('obs', '数据不可用'); debugLog(`P2[可观测性]加载失败: ${e.message}`, 'error'); }
+
+            // 6. CI/CD与部署  GET /api/p2/cicd/status
+            try {
+                const r = await p2FetchJson('/api/p2/cicd/status');
+                if (!r.success) throw new Error(r.error || 'success=false');
+                const d = r.data || {};
+                const latest = d.latest_deployment;
+                const st = latest ? latest.status : 'idle';
+                const level = !latest ? 'gray' : st === 'success' ? 'green' : (st === 'failed' || st === 'rolled_back') ? 'red' : 'yellow';
+                p2PaintLamp('cicd', level);
+                p2SetState('cicd', String(st).toUpperCase(), P2_LAMP[level]);
+                p2SetMetrics('cicd',
+                    p2Metric('当前版本', 'v' + (d.current_version || '-'), P2_LAMP.green) +
+                    p2Metric('累计部署', String(d.total_deployments ?? 0)) +
+                    p2Metric('最新部署', latest ? `${latest.version} (${latest.status})` : '无记录', level === 'red' ? P2_LAMP.red : '#eaecef') +
+                    p2Metric('自动部署', d.auto_deploy ? '开启' : '人工确认', P2_LAMP.yellow)
+                );
+                p2Stamp('cicd');
+            } catch (e) { p2Fail('cicd', '数据不可用'); debugLog(`P2[CI/CD]加载失败: ${e.message}`, 'error'); }
         }
 
         // ========== API账户管理 ==========
@@ -1748,4 +1930,12 @@
         setInterval(() => {
             if (Auth.isLoggedIn()) loadAllData();
         }, 30000);
+
+        // 每15秒刷新P1/P2模块卡片（仅在核心引擎页可见时请求，避免空跑）
+        setInterval(() => {
+            const enginePage = document.getElementById('page-engine');
+            if (enginePage && enginePage.classList.contains('active') && Auth.isLoggedIn()) {
+                loadP2ModuleCards();
+            }
+        }, 15000);
     
