@@ -77,6 +77,12 @@
 - ✅ **必须**：修改后docker cp进去，然后docker restart
 - ❌ **禁止**：PowerShell处理UTF-8中文（会乱码）
 - ✅ **必须**：用Python脚本处理中文文件读写
+- ❌ **禁止**：手动stop+rm生产容器，用新镜像启动
+- ✅ **必须**：用docker compose up -d恢复，不要手动run
+- ❌ **禁止**：猜环境变量名（POSTGRES_PASSWORD vs DATABASE_URL）
+- ✅ **必须**：先Read后端代码确认环境变量名再传
+- ❌ **禁止**：docker cp零散文件进去导致依赖缺失崩溃
+- ✅ **必须**：要么完整build新镜像，要么用官方镜像跑稳定版本
 
 ### 4.2 前端调试
 - ❌ **禁止**：用固定行号拆分HTML/CSS/JS
