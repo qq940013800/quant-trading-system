@@ -178,3 +178,54 @@
 - 🔄 进行中
 - ✅ 已完成
 - ⚠️ 临时方案
+
+---
+
+## 2026-10-28 重排：P0/P1/P2
+
+> 基于本轮 4 份联调/策略文档（frontend-bug-list / frontend-debug-experience / p2-panel-completion / strategy-registration）对原有 TODO 重新归类。
+> 原 TODO 内容保留不动，本节为重排视图。每条标注【真实状态】+【下一步动作】。
+
+### P0（阻塞实盘 / 本周必须完成）
+
+| # | 事项 | 真实状态 | 下一步动作 |
+|---|------|----------|-----------|
+| P0-1 | **nginx upstream 502 修复**：前端容器 nginx 配 `backend:5000`，但 docker 网络里后端 DNS 别名只有 `quantdinger-backend`，导致 `/api/*` 全 502，登录/核心引擎/K线全部不可用 | 🔄 进行中（根因已定位，未修复） | 二选一：① docker-compose 后端 service 加 network alias `backend`；② 改 nginx 配置指向 `quantdinger-backend:5000` 并 `nginx -s reload`。修完跑 `docker exec quantdinger-frontend getent hosts backend` |
+| P0-2 | **OKX 下单失败排查**：`"All operations failed"`，疑似 tdMode / 现货参数 / clientOrderId 问题 | 🔄 进行中 | 用最小手数（10 USDT）在 DEMO 账户复现，打 OKX 官方错误码文档对照；先 `POST /api/okx/account/balance` 确认账户模式（cash / single/margin） |
+| P0-3 | **API 认证 token 401**：开发环境下 `/api/dashboard/summary` 等已鉴权接口返回 401，导致前端持仓面板即使 API 通了也没数据 | 🔄 进行中 | 在后端 auth middleware 加 `if settings.ENV == "dev": bypass_token_check()` 或前端 dev 模式自动注入测试 token；不要硬编码绕过生产鉴权 |
+| P0-4 | **前端容器实环境验证 P2 六卡片 + 真实 K 线接入**：本地源码已改（p2-panel-completion），但通过 `:8888` 代理请求 6 个 P1/P2 端点在本机全部 5s 超时 | 🚫 被 P0-1 阻塞 | 等 P0-1 修好后，重启前端容器 `docker restart quantdinger-frontend`，强刷浏览器，逐卡片看状态灯是否点亮（健康服务 / 拥挤度 / 可观测性 / CI-CD） |
+| P0-5 | **本地直连 OKX API 被墙**：curl 退出码 7，`www.okx.com` 连不通，"联通"结论假阳性 | 🚫 被阻塞（网络） | 方案：① 后端容器部署到能直连 OKX 的海外区域；② 配置 HTTPS_PROXY 走代理。未解决前不要下"OKX 链路已通"的结论 |
+| P0-6 | **GitHub 推送修复**：Gitee 已同步，GitHub curl 28 连接重置 | 🔄 进行中（网络） | 网络恢复后重试；或给 git 配置 HTTP/HTTPS 代理。不阻塞开发，只阻塞备份 |
+
+### P1（重要但不阻塞）
+
+| # | 事项 | 真实状态 | 下一步动作 |
+|---|------|----------|-----------|
+| P1-1 | **策略生命周期后端自动退役逻辑**：前端三级健康度面板已做，后端触发阈值自动停策略+通知+记录原因未实现 | ❌ 未开始 | 在 `core/registry/strategy_registry.py` 加 `retire_if_health_below(threshold)`，阈值由 CLEAN 分布校准，禁止按 PnL 网格搜索 |
+| P1-2 | **五层市场识别接入真实 K 线**：L1-L5 规则版完成但喂的是演示数据 | ❌ 未开始 | 接 OKX kline API → 特征化 → 喂 regime.py / structure.py / price_action.py；先接 BTCUSD M15 一个品种跑通 |
+| P1-3 | **`demo_mean_reversion` 策略类补实现**：路由表已登记（`implementation_ref=(未实现)`），但代码库无对应策略类 | ❌ 未开始 | 在 `core/strategies/` 新建 `mean_reversion.py`，按 RSI(14) + 布林带(20,2σ) 反向开仓；写单测覆盖 |
+| P1-4 | **路由权重表分布校准**：当前 4×3 权重表是定性配置，未经 CLEAN 分布驱动 | ❌ 未开始 | 跑 `python scripts/calibrate_regime.py --mode distribution`，用输出分位替换 `strategy_router.py` 里硬编码权重；改前 ADR 留档 |
+| P1-5 | **StrategyMatcher × StrategyWeightRouter 集成**：两层目前独立（一个打分排序、一个出资金权重） | ❌ 未开始 | 让 Matcher 输出 top-N 排名 → WeightRouter 对 top-N 输出归一化权重；其他策略权重归零 |
+| P1-6 | **前端 axios 响应拦截器容错**：502 时把 nginx HTML 原文塞给用户（P1-1 bug） | ❌ 未开始 | 拦截器里判断 `Content-Type`，非 JSON 时统一提示"服务暂时不可用 (HTTP 5xx)"，不暴露 HTML |
+| P1-7 | **登录错误 state 在路由切换后未清空**（P2-1 bug）：跳注册页被守卫弹回，旧 502 错误还挂着 | ❌ 未开始 | 登录页 `onMounted` 或 `watch(route.query.redirect)` 时清空 `errorMessage` + 表单字段 |
+| P1-8 | **`quantdinger-scheduler-worker` / `trading-worker` 容器 unhealthy**：基础设施告警 | ❌ 未开始 | `docker logs quantdinger-scheduler-worker --tail 50` 看根因；不影响前端联调，但要排 |
+| P1-9 | **连续 regime 线性插值**：当前用离散 trend/range/volatile/quiet 4 类，未接 regime.py 的连续 `w_trend/w_mr/w_range` | ❌ 未开始 | 在 `StrategyWeightRouter.route()` 加可选连续模式，用连续权重做线性插值；保留离散模式做回退 |
+
+### P2（优化项 / 可延后）
+
+| # | 事项 | 真实状态 | 下一步动作 |
+|---|------|----------|-----------|
+| P2-1 | **P2 六卡片真实数据在容器内复测**：本轮本地改完未在容器环境验证 | 🚫 被 P0-1 阻塞 | P0-1 修好后逐卡片人工核对：高可用 / 交易归因 / 安全合规 / 拥挤度 / 可观测性 / CI-CD |
+| P2-2 | **因子库从 10 扩展到 20+**（文艺复兴式海量弱信号叠加） | ❌ 未开始 | 每加一个因子必须配套：单测 + 前视守卫测试 + 在 CLEAN 集上做 IC 衰减检验 |
+| P2-3 | **五层市场识别 ML 增强版**（提高 L1-L5 识别准确率） | ❌ 未开始 | 先用规则版攒够标注数据，再训练；禁止拿测试集做特征选择 |
+| P2-4 | **PBO / CPCV / Deflated Sharpe 三重验证算法落地**（框架已建） | ❌ 未开始 | 按 López de Prado 教材实现；每个策略上线前必须三指标全过 |
+| P2-5 | **PostgreSQL 历史 K 线数据导入**（当前库里没历史数据） | ❌ 未开始 | 写 `scripts/import_kline.py`，按 symbol/timeframe 批量灌；灌完跑 `core/gap_normalizer.py` 清洗缺口 |
+| P2-6 | **飞书云文档 / Notion / Gitee 多端知识库同步**（当前只在本地 + Gitee） | ❌ 未开始 | 先打通 Gitee → Notion 单向 webhook；本地 RULES.md / TODO.md 为主源 |
+| P2-7 | **密码输入框加 `autocomplete="current-password"`**（antd 控制台警告） | ❌ 未开始 | 一行属性修复，下次顺手改 |
+| P2-8 | **P2 卡片"更新时间"改用服务端时间戳**（当前用浏览器本地时间） | ❌ 未开始 | 后端 summary 接口统一加 `server_ts` 字段；前端渲染该字段 |
+| P2-9 | **开发模式自动登录（T1）清理**：代码已写，浏览器缓存没生效 | ⚠️ 临时方案 | P0-3 修完后此条一并关闭，不要长期保留自动登录后门 |
+
+---
+
+**2026-10-28 重排统计：P0 = 6 条，P1 = 9 条，P2 = 9 条**
+**下一步重点：先清 P0-1（nginx upstream 502），它是 P0-4 / P2-1 的前置阻塞项。**
