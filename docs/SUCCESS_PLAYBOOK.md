@@ -90,18 +90,18 @@
 
 ## 5. 知识地图（问题 → 文件路由表）
 
-> 诚实声明：本仓库**尚不存在 ERROR_LOG 文件**（本轮全仓 grep `E003`~`E007` 0 命中）。原计划路由到 ERROR_LOG 的条目，已改路由到真实存在的替代品：`RULES.md §六 踩坑经验清单`、`RULES.md 2026-10-28 本轮新踩坑`、`docker-okx-debug-2026-10.md`、`TODO.md` P0 表。建立正式 ERROR_LOG 是第 7 节待办之一。
+> 正式事故档案已建立：`docs/ERROR_LOG.md`（E001~E007，含 Docker 崩溃/环境变量/nginx 502/前端部署/OKX 下单/GitHub 推送/OKX 被墙）。下表中涉及事故类问题的条目已优先路由到 ERROR_LOG 对应编号，原参考文档作为旁证保留。
 
 | # | 你遇到什么问题 | 第一步查哪个文件 | 关键词 Grep 什么 |
 |---|---|---|---|
 | 1 | 回测夏普虚高、曲线漂亮得不正常（疑似前视） | `docs/ANTI_FRAGILE.md` 死法 1 + `docs/RULES.md` §1.1/§3.1 | `shift(-`、`iloc[i+1]`、`future` |
 | 2 | 静默集被偷看 / 验证集混入 | `docs/ANTI_FRAGILE.md` 死法 2 + `docs/data_splits.md` | `静默`、`CLEAN`、`KNOWN` |
-| 3 | Docker 502 / 404 / nginx Host not found | `skills/.../docker-okx-debug-2026-10.md` + `docs/RULES.md`「nginx upstream / 502 排查清单」 | `getent hosts`、`proxy_pass`、`aliases` |
+| 3 | Docker 502 / 404 / nginx Host not found | `docs/ERROR_LOG.md` E001/E003 + `skills/.../docker-okx-debug-2026-10.md` | `getent hosts`、`proxy_pass`、`aliases` |
 | 4 | 新容器起来了但服务间不通信 | `docs/RULES.md`「Docker 容器崩溃排查清单」 | `network connect`、`trader_quantdinger-network` |
-| 5 | OKX 下单失败 "All operations failed" | `docs/TODO.md` P0-2 + `backend_api_python/app/.../okx_client.py` | `tdMode`、`clientOrderId`、`All operations failed` |
+| 5 | OKX 下单失败 "All operations failed" | `docs/ERROR_LOG.md` E005 + `backend_api_python/app/services/okx_client.py:124-170` | `tdMode`、`clOrdId`、`sz` |
 | 6 | 时区错位 / 信号在错的 bar 触发 | `docs/ANTI_FRAGILE.md` 死法 3 + `core/data/timezone.py` | `--tz`、`timezone`、`EET` |
 | 7 | 前端改了不生效 / 浏览器还是旧行为 | `docs/RULES.md` §4.2 +「前端组件化拆分调试经验」 | `docker cp`、`ignoreCache`、`node --check` |
-| 8 | 本地网络访问 OKX 被拒（curl 退出码 7） | `docs/TODO.md` 第 36 行 | `curl`、`退出码 7`、`连接被拒绝` |
+| 8 | 本地网络访问 OKX 被拒（curl 退出码 7） | `docs/ERROR_LOG.md` E007 + `skills/.../docker-okx-debug-2026-10.md` §3 | `curl`、`退出码 7`、`HTTPS_PROXY` |
 | 9 | 策略想上线 | `docs/WIKI.md` 五层架构 + `docs/RULES.md` §1.3/§5.1 + `docs/ANTI_FRAGILE.md` 死法 20 | `dryrun`、`影子模式`、`样本外` |
 | 10 | 仓位怎么定 / 单笔风险多少 | `docs/RULES.md` §2.1 + `skills/.../position-sizing.md` + `core/risk/sizing.py` | `Kelly`、`波动率目标`、`2%` |
 | 11 | 数据缺口 / 周末跳空被 ffill 填成假行情 | `core/gap_normalizer.py` + `docs/ANTI_FRAGILE.md` 死法 4 | `gap`、`ffill`、`缺口` |
@@ -113,7 +113,7 @@
 | 17 | 连亏后手数越下越大（报复性交易） | `docs/ANTI_FRAGILE.md` 死法 17 + `core/risk/circuit.py` | `熔断`、`手数`、`连亏` |
 | 18 | registry.yaml 被手改 / trials_N 对不上 | `docs/ANTI_FRAGILE.md` 死法 18 + `AGENTS.md` 硬规则 11 | `trials_N`、`registry.yaml` |
 | 19 | 已鉴权接口返回 401（开发环境） | `docs/TODO.md` P0-3 | `401`、`token`、`bypass` |
-| 20 | 环境变量名前后端对不上（密码认证失败） | `docs/RULES.md`「环境变量前后端名一致性检查清单」 | `os.getenv`、`POSTGRES_PASSWORD`、`DATABASE_URL` |
+| 20 | 环境变量名前后端对不上（密码认证失败） | `docs/ERROR_LOG.md` E002（实查：`D:\Trader\.env` 与 `backend_api_python\.env` 变量名不一致，`backend.env` 竟是目录） | `POSTGRES_PASSWORD`、`DATABASE_URL`、`backend.env` |
 
 ---
 
@@ -128,7 +128,7 @@
    踩坑/事故  ──►  MEMORY（这次发生了什么，现象+时间戳）
               │  判定：能否稳定复现？
               ▼
-   ERROR_LOG（根因+修复+验证命令；本仓库尚未建立，见第7节）
+   ERROR_LOG（根因+修复+验证命令；已建立 → docs/ERROR_LOG.md，E001~E007）
               │  判定：同类问题还会不会再犯？
               ▼
    RULES（禁令/铁律：不许再这么干）──► SUCCESS_PLAYBOOK（这么干有效）
@@ -165,7 +165,7 @@
 | 5 | 路由权重表是定性配置，未经 CLEAN 分布校准 | 跑 `scripts/calibrate_regime.py --mode distribution`，输出分位驱动权重并对比 | 1 个迭代 |
 | 6 | WebSocket 断连重连 / stale 检测未实战验证 | 影子模式跑 1 个月，统计自然断连时长分布（ANTI_FRAGILE H1） | 1 个月 |
 | 7 | PBO / CPCV / Deflated Sharpe 算法未实现（WIKI 标 ⏳） | 算法落地 + 历史策略回算 PBO 分布（ANTI_FRAGILE H9） | 1 个迭代 |
-| 8 | 正式 ERROR_LOG 文档未建立（E001~ 事故编号制） | 把 RULES.md §六 + 本轮踩坑整理成编号事故册 | 本周可做 |
+| 8 | ~~正式 ERROR_LOG 文档未建立~~ ✅ 已建立 docs/ERROR_LOG.md（E001~E007），其中 E002/E005/E006/E003 修复仍标【待验证】 | 把待验证条目逐条在实环境复跑、翻牌成【已修复并验证】 | 2 周内 |
 | 9 | 实盘冒烟 / 经纪商差异未验证（AGENTS.md 要求显式标注） | 小资金 ≥1% 仓位跑 1 个月，真实滑点回填回测引擎 | 1 个月+ |
 | 10 | 五层市场识别 ML 增强版未做（规则版已完成） | ML 管线落地，识别准确率对比规则版 | 下季度 |
 
