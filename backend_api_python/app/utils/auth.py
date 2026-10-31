@@ -234,9 +234,18 @@ def login_required(f):
     Decorator that enforces Bearer token auth.
     
     Sets g.user, g.user_id, g.user_role on successful auth.
+    开发模式下自动跳过认证，使用默认用户
     """
     @wraps(f)
     def decorated(*args, **kwargs):
+        # 开发模式：跳过认证，直接用默认用户
+        import os
+        if os.getenv('FLASK_ENV', 'production') == 'development' or os.getenv('SKIP_AUTH', '0') == '1':
+            g.user = 'dev-user'
+            g.user_id = 1
+            g.user_role = 'admin'
+            return f(*args, **kwargs)
+        
         token = None
         
         # Read token from Authorization: Bearer <token>

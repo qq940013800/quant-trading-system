@@ -21,6 +21,7 @@
 | E006 | 2026-10-28 | 网络 | `git push origin` GitHub 超时 `curl 28 (Operation timed out)`，Gitee 正常 | P2 | ✅ 已修复（2026-10-31：merge 远程占位初始提交后 861dc24，GitHub+Gitee 双端一致） |
 | E007 | 2026-10-28 | 网络 | 本地 `curl https://www.okx.com` 退出码 7 `CURLE_COULDNT_CONNECT`，不走代理直连被墙 | P0 | ✅ 已解除（2026-10-31：直连恢复 200；容器内经 Docker NAT 亦通） |
 | E008 | 2026-10-31 | 网络 / 部署 | GitHub 远端存在无关 `Initial commit`（bd662ff）导致 `push rejected (fetch first)`；系统代理（127.0.0.1:7890）已启用但环境变量未设，使 curl/docker 误判"被墙" | P2 | ✅ 已修复（`--allow-unrelated-histories -X ours` merge 后双端一致；代理经 CONNECT 验证可转发 wss） |
+| E009 | 2026-10-31 | 代码契约 / 认知偏差 | 自建后端 :5001 的 `/api/market/ticker`、`/market/kline` 404；前端 dev-token 假登录导致全部业务请求 401 → 自动登出，页面永远停登录页 | P1 | ✅ 已修复（容器 docker cp 全量同步本地 app 代码；前端改真实自动登录 + risk 路径改向） |
 
 ---
 
@@ -421,6 +422,43 @@ $env:HTTPS_PROXY="http://127.0.0.1:7890"; $env:HTTP_PROXY="http://127.0.0.1:7890
 - Docker 容器不继承 Windows 系统代理，需要显式传 `PROXY_URL=http://host.docker.internal:7890`（E007 关联 `.env` 第 288 行）。
 
 **证据等级**：【已修复】—— merge 提交 `861dc24` 已推送成功，`HEAD == github/main == gitee/main`；代理 CONNECT 转发 wss 已验证 200 OK。
+
+---
+
+### E009 ｜ 自建后端 ticker/kline 404 误判为"前端路径错"；dev-token 假登录导致 401 循环登出
+
+**现象（报错原文）**
+```text
+GET /api/market/ticker?symbol=BTC-USDT  → 404（此前曾据此要改前端路径）
+GET /api/market/kline?...               → 404
+控制台 20 条 401/404 + 4 条「未登录或Token过期」，页面永远停在登录页
+```
+- 用官方镜像起的后端 :5000 上 `market/ticker`、`market/kline` 404；本地源码 `app/routes/account.py` 明明有这两个路由（第 100 行 kline、第 126 行 ticker），bp 注册前缀为 `/api`（register.py 第 121 行 `(account_bp, "/api")`）。
+
+**根因**
+1. **镜像代码旧，不是前端路径错**：镜像里缺 `app/routes/account.py` 及 services 26 个新文件 → 404 根因是后端缺路由。前端路径本就正确，若当时"按 404 改前端"就改错了方向。
+2. **dev-token 假登录 + 真实鉴权后端 = 401 死循环**：前端初始化写入假 token `dev-token-2026`，自建后端 `utils/auth.py` 未开 `SKIP_AUTH`（`FLASK_ENV` 非 development）→ 全局 fetch 拦截器自动带 Bearer 假 token → 首个业务请求 401 → 拦截器触发 `Auth.logout()` 清 token 回登录页 → 页面永远停在登录页。
+
+**修复步骤**
+```powershell
+# 1. 后端：本地 app 全量 docker cp 进容器并重启（消灭镜像旧代码）
+docker cp D:\Trader\backend_api_python\app\{routes,routers,openapi,services,utils} qdpro-backend:/app/app/
+docker restart qdpro-backend
+# 2. 前端：初始化改真实自动登录（admin/admin123，开发模式），登录成功后才启动轮询
+#    app.js 1897-1927：dev-token 假登录 → async IIFE 真实 Auth.login
+# 3. 前端：risk 路径改向 /api/risk/dashboard → /api/risk/portfolio（后端无 dashboard 路由，真实结构 success:true）
+# 4. 前端：credentials/list 返回 {code:1,data:{items:[...]}} → 取 data.items（data 是对象非数组）
+# 5. 前端：favicon 404 用 <link rel="icon" href="data:,"> 抑制
+# 6. 反代：scripts/serve_frontend_pro.py BACKEND :8888 → :5001，重启 serve
+```
+
+**预防措施（30 秒识别）**
+- 404/401 先分层定位：`docker exec qdpro-backend grep -n route /app/app/routes/*.py` 确认容器内代码版本，再决定改前端还是改后端——**容器代码 ≠ 本地代码**（docker cp 后才一致）。
+- 前端假 token 与后端真实鉴权必然冲突：开发模式要么后端开 `SKIP_AUTH=1`，要么前端真实登录，禁止写死假 token。
+- 前端判据与后端结构逐接口核对：`success:true` vs `code:1`；`data` 是数组 vs `data.items`——先 curl 实测再写前端。
+- 改动后端后必须 `docker restart` 且浏览器 `Ctrl+Shift+R` 强制刷新（静态资源缓存，E004）。
+
+**证据等级**：【已修复】——自建后端 qdpro-backend（:5001）login/ticker/kline/p1/validation/risk/account/dashboard/credentials/strategies 全 200；:8899 自建前端 Chrome 复测控制台 **0 错误**，主界面真实行情 K 线、策略列表、账户资产全部渲染。
 
 ---
 

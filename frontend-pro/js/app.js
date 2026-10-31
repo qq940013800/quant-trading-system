@@ -978,7 +978,10 @@
                     return;
                 }
 
-                updateAccountsList(credentialsRes.data || [], !credentialsRes._error && credentialsRes.code === 1);
+                // 自建后端 credentials/list 返回 {code:1,data:{items:[...]}}，需取 items
+                const credData = credentialsRes.data || [];
+                const credList = Array.isArray(credData) ? credData : (Array.isArray(credData.items) ? credData.items : []);
+                updateAccountsList(credList, !credentialsRes._error && credentialsRes.code === 1);
                 updateDashboardStats(summaryRes.data || {}, !summaryRes._error && summaryRes.code === 1);
                 updateStrategiesList(strategiesRes.data || [], !strategiesRes._error && strategiesRes.code === 1);
                 updatePositionsList(positionsRes.data || [], !positionsRes._error && positionsRes.code === 1);
@@ -1418,12 +1421,13 @@
         async function loadRiskData() {
             debugLog('加载风险仪表盘数据', 'info');
             try {
-                const res = await fetch('/api/risk/dashboard', {
+                // 自建后端真实路由：/api/risk/portfolio（无 /dashboard）
+                const res = await fetch('/api/risk/portfolio', {
                     headers: { 'Authorization': 'Bearer ' + Auth.getToken() }
                 });
                 if (!res.ok) throw new Error('API返回' + res.status);
                 const data = await res.json();
-                if (data.code === 1 && data.data) {
+                if (data.success && data.data) {
                     renderRiskDashboard(data.data);
                     debugLog(`风险数据加载成功`, 'success');
                 }
@@ -1437,6 +1441,13 @@
         }
         
         function renderRiskDashboard(data) {
+            // 自建后端 /api/risk/portfolio 真实字段映射
+            if (data.current_drawdown_pct !== undefined && data.current_drawdown_pct !== null) {
+                data.daily_drawdown = data.current_drawdown_pct;
+            }
+            if (data.risk_level) {
+                debugLog(`账户风险等级: ${data.risk_level}`, 'info');
+            }
             if (data.total_exposure) {
                 const el = document.getElementById('risk-total-exposure');
                 el.textContent = data.total_exposure.toFixed(1) + '%';
@@ -1895,36 +1906,32 @@
         }
 
         // ========== 初始化 ==========
-        // 开发模式：自动登录，不用每次输入
-        if (!Auth.isLoggedIn()) {
-            localStorage.setItem('qd_token', 'dev-token-2026');
-            localStorage.setItem('qd_user', JSON.stringify({username: 'dev-user', role: 'admin'}));
-        }
-        
-        // 检查登录状态
-        if (Auth.isLoggedIn()) {
-            Auth.showMain();
-        } else {
-            Auth.showLogin();
-        }
-        
-        initMainChart();
-        initLogCenter();
-        if (Auth.isLoggedIn()) {
-            loadAllData();
-        }
-        
-        // 启动真实价格轮询（每5秒更新）
-        fetchRealPrice();
-        setInterval(fetchRealPrice, 5000);
-        
-        // 启动真实K线加载（每30秒刷新一次）
-        fetchRealKline();
-        setInterval(() => fetchRealKline(), 30000);
-        
-        // 启动持仓轮询（每30秒更新）
-        loadRealPositions();
-        setInterval(loadRealPositions, 30000);
+        // 开发模式：自动真实登录自建后端（admin/admin123），不再使用假 dev-token
+        (async () => {
+            let authed = Auth.isLoggedIn();
+            if (!authed) {
+                debugLog('自动登录自建后端...', 'info');
+                const ok = await Auth.login('admin', 'admin123');
+                authed = ok;
+            }
+            if (authed) {
+                Auth.showMain();
+                initMainChart();
+                initLogCenter();
+                loadAllData();
+                // 启动真实价格轮询（每5秒更新）
+                fetchRealPrice();
+                setInterval(fetchRealPrice, 5000);
+                // 启动真实K线加载（每30秒刷新一次）
+                fetchRealKline();
+                setInterval(() => fetchRealKline(), 30000);
+                // 启动持仓轮询（每30秒更新）
+                loadRealPositions();
+                setInterval(loadRealPositions, 30000);
+            } else {
+                Auth.showLogin();
+            }
+        })();
 
         // 每30秒刷新一次数据
         setInterval(() => {
