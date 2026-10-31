@@ -219,8 +219,9 @@
         }
 
         // 修复：真实API加载K线，失败才用模拟数据并明确标注
-        async function loadKlineData() {
-            showKlineLoading(true);
+        // silent=true 用于 30s 轮询静默刷新（不闪 loading 遮罩）
+        async function loadKlineData(silent = false) {
+            if (!silent) showKlineLoading(true);
             
             try {
                 const res = await ApiService.getKline(currentSymbol, currentTimeframe, 300);
@@ -1125,10 +1126,16 @@
             `).join('');
         }
 
-        function updatePositionsList(positions) {
+        function updatePositionsList(positions, isReal = false) {
             const el = document.getElementById('positions-list');
+            if (!el) return;
             if (!positions || positions.length === 0) {
-                // 使用示例数据
+                // 真实数据模式：空持仓就是空，禁止编造示例数字（E001/E003 教训：模拟数据=对接失败）
+                if (isReal) {
+                    el.innerHTML = '<div style="padding: 8px; color: var(--text-tertiary); font-size: 12px;">暂无持仓</div>';
+                    return;
+                }
+                // 演示模式：使用示例数据
                 positions = [
                     { symbol: 'BTC/USDT', amount: 0.5, entry_price: 42000, pnl: 234.56 },
                     { symbol: 'ETH/USDT', amount: 2.0, entry_price: 2300, pnl: -45.67 }
@@ -1853,13 +1860,16 @@
             try {
                 const res = await fetch('/api/account/positions');
                 const data = await res.json();
-                if (data.success && data.data.positions) {
-                    const positions = data.data.positions;
-                    const totalEq = data.data.total_equity || '$0';
+                // 自建后端 account/positions 返回 {code:1,data:{positions:[],items:[]}}（无 success 字段）
+                if ((data.success || data.code === 1) && data.data) {
+                    const positions = data.data.positions || data.data.items || [];
+                    const totalEq = data.data.total_equity || (data.data.equity ? '$' + data.data.equity : null);
                     
-                    // 更新总权益显示
-                    const totalEqEl = document.getElementById('total-equity');
-                    if (totalEqEl) totalEqEl.textContent = totalEq.replace('$', '');
+                    // 更新总权益显示（仅当有真实值时才覆盖，避免把演示 5,000 顶掉）
+                    if (totalEq) {
+                        const totalEqEl = document.getElementById('total-equity');
+                        if (totalEqEl) totalEqEl.textContent = totalEq.replace('$', '');
+                    }
                     
                     // 更新持仓列表
                     const positionsEl = document.getElementById('positions-list');
@@ -1883,26 +1893,11 @@
         }
 
         // 加载真实K线数据到图表
+        // 统一入口：复用 loadKlineData（真实 /api/indicator/kline + 渲染 + 模拟兜底）
+        // 历史教训（E009）：此前双调用点并存（indicator/kline 渲染 + market/kline 空拉），
+        // 后者每30s拉100根K线却只改badge不画图，属冗余流量；现统一为静默刷新真实图表。
         async function fetchRealKline(symbol = 'BTC-USDT', bar = '1H', limit = 100) {
-            try {
-                const res = await fetch(`/api/market/kline?symbol=${symbol}&bar=${bar}&limit=${limit}`);
-                const data = await res.json();
-                if (data.success && data.data.candles) {
-                    const candles = data.data.candles;
-                    debugLog(`真实K线加载成功: ${candles.length}根`, 'success');
-                    
-                    // 更新图表标题和数据源标签
-                    const symbolEl = document.getElementById('chart-symbol');
-                    const badgeEl = document.getElementById('data-source-badge');
-                    if (symbolEl) symbolEl.textContent = symbol.replace('-', '/');
-                    if (badgeEl) badgeEl.innerHTML = '<span style="color: #0ecb81; font-size: 11px;">● OKX 实时K线</span>';
-                    
-                    // 这里需要把数据传给图表组件，等容器恢复后测试
-                    debugLog('K线数据已获取，待图表组件集成', 'info');
-                }
-            } catch (e) {
-                debugLog(`获取真实K线失败: ${e.message}`, 'error');
-            }
+            return loadKlineData(true);
         }
 
         // ========== 初始化 ==========

@@ -22,6 +22,7 @@
 | E007 | 2026-10-28 | 网络 | 本地 `curl https://www.okx.com` 退出码 7 `CURLE_COULDNT_CONNECT`，不走代理直连被墙 | P0 | ✅ 已解除（2026-10-31：直连恢复 200；容器内经 Docker NAT 亦通） |
 | E008 | 2026-10-31 | 网络 / 部署 | GitHub 远端存在无关 `Initial commit`（bd662ff）导致 `push rejected (fetch first)`；系统代理（127.0.0.1:7890）已启用但环境变量未设，使 curl/docker 误判"被墙" | P2 | ✅ 已修复（`--allow-unrelated-histories -X ours` merge 后双端一致；代理经 CONNECT 验证可转发 wss） |
 | E009 | 2026-10-31 | 代码契约 / 认知偏差 | 自建后端 :5001 的 `/api/market/ticker`、`/market/kline` 404；前端 dev-token 假登录导致全部业务请求 401 → 自动登出，页面永远停登录页 | P1 | ✅ 已修复（容器 docker cp 全量同步本地 app 代码；前端改真实自动登录 + risk 路径改向） |
+| E010 | 2026-10-31 | 代码契约 / 认知偏差 | 前端持仓区一直显示假的 `0.5 BTC/$42,000 +234.56` 示例持仓：`loadRealPositions` 判据用 `data.success` 而自建后端返回 `code:1`（永不命中）；`updatePositionsList` 空数组强制塞示例数据，掩盖真实"暂无持仓"；另 30s 轮询 `fetchRealKline` 每轮空拉 100 根 K 线却只改 badge 不画图（冗余 API 流量） | P1 | ✅ 已修复（判据兼容 `code:1` + `positions||items`；真实模式空持仓显示"暂无持仓"；K 线轮询统一并入 `loadKlineData(silent)`） |
 
 ---
 
@@ -459,6 +460,44 @@ docker restart qdpro-backend
 - 改动后端后必须 `docker restart` 且浏览器 `Ctrl+Shift+R` 强制刷新（静态资源缓存，E004）。
 
 **证据等级**：【已修复】——自建后端 qdpro-backend（:5001）login/ticker/kline/p1/validation/risk/account/dashboard/credentials/strategies 全 200；:8899 自建前端 Chrome 复测控制台 **0 错误**，主界面真实行情 K 线、策略列表、账户资产全部渲染。
+
+---
+
+### E010 ｜ 前端持仓区假数据兜底 + K 线双调用点冗余空拉（自建体系真实数据链路）
+
+**现象（可观测）**
+```text
+:8899 主界面持仓区永远显示 0.5 BTC / $42,000 / +234.56、2 ETH / $2,300 / -45.67
+（$42,000 明显是旧模拟价，真实 BTC ≈ $77,600）
+总权益 5,000.00 USDT 也非真实（OKX-DEMO 余额实为 $98,340.28）
+Network 面板同时存在两条 K 线请求：/api/indicator/kline（渲染）与 /api/market/kline（30s 空拉）
+```
+
+**根因（5 Why）**
+1. **判据与后端结构不匹配**：`loadRealPositions` 写 `data.success && data.data.positions`，但自建后端 `/api/account/positions` 返回 `{"code":1,"data":{"positions":[],"items":[]}}`——**没有 success 字段** → 判据永不命中 → 真实持仓链路完全没生效（与 E009 同族：前端判据必须逐接口 curl 实测）。
+2. **兜底掩盖真实**：`updatePositionsList(positions)` 未接收 isReal 标志，空数组时无条件塞示例数据 → 即使真实接口返回"无持仓"，界面也显示假的 0.5 BTC（假数据把"对接成功但无持仓"伪装成"有持仓"）。
+3. **K 线双调用点**：早期修 indicator/kline 渲染后又加了 market/kline 30s 轮询（fetchRealKline），后者只改 badge + debugLog、**不画图**（注释"待图表组件集成"），每 30s 白拉 100 根 K 线。
+
+**修复步骤**
+```text
+# frontend-pro/js/app.js
+1. loadRealPositions：判据 (data.success || data.code === 1) && data.data；
+   positions = data.data.positions || data.data.items || []；
+   totalEq 有真值才覆盖 #total-equity（避免顶掉演示 5,000）
+2. updatePositionsList(positions, isReal)：真实模式空数组渲染"暂无持仓"；
+   仅演示模式（isReal=false）才用示例数据
+3. loadKlineData(silent=false)：silent 时不闪 kline-loading 遮罩
+4. fetchRealKline 函数体 → return loadKlineData(true)：30s 轮询真正刷新图表，
+   删除 /api/market/kline 空拉（Network 中该请求已消失）
+```
+
+**预防措施（30 秒识别）**
+- **前端判据一律先 curl 实测后端返回结构**再写：`success:true` vs `code:1`、`data` 数组 vs `data.positions/items`、有无 `total_equity` 字段（E009 预防 SOP 第 3 条的延伸）。
+- **兜底函数必须显式带 isReal/isDemo 标志**：真实链路空结果要展示"暂无"，不许用示例数据冒充真实（量化终端假数据 = 错误决策源）。
+- **同一数据通道只保留一个真实渲染源**：新加轮询前先 grep 既有调用点；轮询要刷新"用户看到的图"，不要拉数据只改角标。
+- 演示数据与真实数据同屏时必须有"演示"标注，且演示值不得与现实价格明显矛盾（$42,000 vs $77,600 一眼假）。
+
+**证据等级**：【已修复】——Chrome 强刷 :8899：console **0 error / 0 warn**；持仓区显示"暂无持仓"（真实空持仓）；K 线 LIVE $77,621（1H 真实数据）；Network 中 `market/kline` 消失、`account/positions` 200 命中；16 端点 p1/p2/validation/risk Bearer 实测全 200。
 
 ---
 

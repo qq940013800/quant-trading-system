@@ -237,3 +237,12 @@
 
 **2026-10-31 状态：P0 完成 4/6（P0-1 ✅、P0-3 ✅、P0-5 ✅、P0-6 ✅），P0-2 / P0-4 后台子任务推进中；P1-1 / P1-2 / P1-3 后台子任务推进中（5 个子任务并行执行中）。**
 **下一步重点：等后台子任务收口（OKX 下单根因、策略退役、真实K线接入、均值回归策略、P2 六卡片验证），收口后统一验证并沉淀。**
+
+---
+
+**2026-10-31 晚 更新（#99 自建前端真实数据链路收口 ✅）**：
+- **持仓真实性**（#64 部分推进）：`loadRealPositions` 判据兼容 `code:1` + `data.positions/items`；`updatePositionsList` 真实模式空持仓显示"暂无持仓"，不再塞示例 0.5 BTC；假数据 $42,000 已从界面清除（Chrome 截图取证）。**剩余缺口**：总权益仍显示演示 5,000.00——`/api/account/positions` 后端未返回 `total_equity/equity` 字段，需后端 account 模块补（查 OKX balance），属 #97/#64 后续。
+- **K 线冗余调用消除**：30s 轮询 `fetchRealKline`（/api/market/kline 空拉不画图）→ 统一为 `loadKlineData(true)`（真实 /api/indicator/kline 渲染 + 静默刷新），Network 中 market/kline 请求消失。
+- **p1/p2/validation 全链路实测**：16 端点 Bearer 全 200（health/journal/security/market-layers/optimizer/strategy-health/crowding/observability/cicd/websocket/validation×3/risk×3），无 404。
+- 验证：Chrome 强刷 :8899 console **0 error/0 warn**，持仓区"暂无持仓"、K 线 LIVE $77,621、5 策略运行中。
+- 沉淀：ERROR_LOG E010 已登记；git 提交后 HEAD/github/gitee 三方一致。
