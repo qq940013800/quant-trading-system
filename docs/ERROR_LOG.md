@@ -1,6 +1,6 @@
 # 量化交易系统 · 错误日志（ERROR_LOG）
 
-> 最后更新：2026-10-29 ｜ 状态：滚动登记
+> 最后更新：2026-10-31 ｜ 状态：滚动登记
 >
 > 日志格式：`时间 | 错误类型 | 现象 | 根因 | 修复方案 | 预防措施 | 状态 | 证据链接`
 >
@@ -18,8 +18,9 @@
 | E003 | 2026-10-27 | 部署 / 配置 | 前端 nginx 反代 `backend:5000`，但容器网络里没有 `backend` DNS 别名，`/api/*` 全 502 | P0 | 临时绕过（根因已定位，compose 未改） |
 | E004 | 2026-10-28 | 认知偏差 | 本地改了 `frontend-pro/index.html`，浏览器 :8888 看到的还是旧代码（前端容器静态镜像、没挂 volume） | P1 | 临时绕过（靠 `docker cp` + Ctrl+Shift+R） |
 | E005 | 2026-10-28 | 代码契约 / 外部 API | OKX 下单返回 `"All operations failed"`，疑似 `tdMode` 硬编码 cash / 最小下单量 / clOrdId 问题 | P0 | 待验证（未用最小手数复现） |
-| E006 | 2026-10-28 | 网络 | `git push origin` GitHub 超时 `curl 28 (Operation timed out)`，Gitee 正常 | P2 | 临时绕过（主备走 Gitee，等代理） |
-| E007 | 2026-10-28 | 网络 | 本地 `curl https://www.okx.com` 退出码 7 `CURLE_COULDNT_CONNECT`，不走代理直连被墙 | P0 | 临时绕过（本地走 Clash 代理） |
+| E006 | 2026-10-28 | 网络 | `git push origin` GitHub 超时 `curl 28 (Operation timed out)`，Gitee 正常 | P2 | ✅ 已修复（2026-10-31：merge 远程占位初始提交后 861dc24，GitHub+Gitee 双端一致） |
+| E007 | 2026-10-28 | 网络 | 本地 `curl https://www.okx.com` 退出码 7 `CURLE_COULDNT_CONNECT`，不走代理直连被墙 | P0 | ✅ 已解除（2026-10-31：直连恢复 200；容器内经 Docker NAT 亦通） |
+| E008 | 2026-10-31 | 网络 / 部署 | GitHub 远端存在无关 `Initial commit`（bd662ff）导致 `push rejected (fetch first)`；系统代理（127.0.0.1:7890）已启用但环境变量未设，使 curl/docker 误判"被墙" | P2 | ✅ 已修复（`--allow-unrelated-histories -X ours` merge 后双端一致；代理经 CONNECT 验证可转发 wss） |
 
 ---
 
@@ -331,7 +332,7 @@ git push gitee main
 **关联文件**
 - `./TODO.md`（P0-4 第 50–52 行："Gitee 已同步，GitHub 连接被重置（curl 28）"）
 
-**证据等级**：【临时绕过】—— 当前主备走 Gitee，GitHub 代理配置是否落地**未在仓库内验证**。
+**证据等级**：【已修复】—— 2026-10-31 网络恢复后，`git push github main` 直接推送被拒（远程存在无关的占位 `Initial commit` bd662ff），执行 `git merge github/main --allow-unrelated-histories -X ours` 合并后 `git push github main` 成功，`HEAD == github/main == gitee/main == 861dc24`。详见 E008。
 
 ---
 
@@ -376,7 +377,50 @@ curl.exe -v https://www.okx.com/api/v5/public/time
 - `./TODO.md`（P0-1 第 36 行；P0-5 第 197 行）
 - `../backend_api_python/.env`（第 288 行 `PROXY_URL=` 当前为空）
 
-**证据等级**：【临时绕过】—— 本地开发走代理可用；后端容器 `PROXY_URL` 当前为空，生产部署区域未确定。
+**证据等级**：【已解除】—— 2026-10-31 复测：宿主机 `Invoke-WebRequest https://www.okx.com/api/v5/public/time` 直连 200；`docker exec quantdinger-backend` 容器内 `wget https://www.okx.com/api/v5/public/time` 返回 `{"code":"0",...}`；前端容器内 `wget https://api.binance.com/api/v3/ping` 返回 `{}`。直连与容器 NAT 均已恢复。代理 127.0.0.1:7890 仍可用作兜底（CONNECT 验证可转发 wss://stream.binance.com:9443）。
+
+---
+
+### E008 ｜ GitHub 远端无关初始提交 + 系统代理未设环境变量
+
+**现象（报错原文）**
+```text
+git push github main
+# ! [rejected] main -> main (fetch first)
+# Updates were rejected because the remote contains work that you do not
+# have locally. (unrelated histories)
+```
+- `git fetch github` 后发现远程 `main` 只有一个提交 `bd662ff Initial commit`（仅 2 行占位 README），与本地完整历史无公共祖先。
+- 背景：系统 WinINET 代理 `127.0.0.1:7890` 一直启用且端口监听，但 `HTTP_PROXY`/`HTTPS_PROXY` 环境变量为空 → curl、git、docker 直连境外站超时，一度被误判为"被墙"。
+
+**根因**
+1. GitHub 推送被拒 → 远程仓库存在本地没有的无关提交（初始化空仓库时生成的占位 README），本地与远程历史完全无关。
+2. "被墙"误判 → 代理配置在 WinINET（系统层）而非环境变量（进程层）：浏览器能翻墙，但 curl/git/python 等 CLI 进程不读 WinINET，直连被墙。
+
+**修复步骤（PowerShell，照抄）**
+```powershell
+$git = "C:\Program Files\Git\bin\git.exe"
+cd D:\Trader
+# 1. 合并无关历史：保留本地完整 README，吸收远程占位提交
+& $git merge github/main --allow-unrelated-histories -X ours -m "merge: 吸收 GitHub 占位初始提交, 保留本地完整 README"
+# 2. 双端推送
+& $git push github main
+& $git push gitee main
+# 3. 核对三处提交 ID 一致
+& $git rev-parse HEAD 'github/main' 'gitee/main'   # 应输出同一 SHA
+
+# 工具链走代理（进程层）：设置环境变量或按工具单独配置
+$env:HTTPS_PROXY="http://127.0.0.1:7890"; $env:HTTP_PROXY="http://127.0.0.1:7890"
+# git 单独配代理
+& $git config --global http.https://github.com.proxy http://127.0.0.1:7890
+```
+
+**预防措施（30 秒识别）**
+- `git push` 被拒先 `git fetch` 看远程历史，判断是否 unrelated histories，不要直接 `push -f`（会丢远程内容）。
+- CLI 工具"被墙"时先查 `$env:HTTPS_PROXY`，再查 WinINET（注册表 `ProxyEnable/ProxyServer`），不要只凭浏览器能上网就断定"网络没问题"。
+- Docker 容器不继承 Windows 系统代理，需要显式传 `PROXY_URL=http://host.docker.internal:7890`（E007 关联 `.env` 第 288 行）。
+
+**证据等级**：【已修复】—— merge 提交 `861dc24` 已推送成功，`HEAD == github/main == gitee/main`；代理 CONNECT 转发 wss 已验证 200 OK。
 
 ---
 
@@ -384,12 +428,12 @@ curl.exe -v https://www.okx.com/api/v5/public/time
 
 | 分类 | 编号 | 计数 | 占比 |
 |------|------|------|------|
-| 环境部署类（Docker / compose / 容器编排） | E001、E003 | 2 | 29% |
-| 网络类（GFW / GitHub / OKX） | E006、E007 | 2 | 29% |
-| 代码契约类（变量名 / 外部 API 协议） | E002、E005 | 2 | 29% |
-| 认知偏差类（以为部署了其实没部署） | E004 | 1 | 14% |
+| 环境部署类（Docker / compose / 容器编排） | E001、E003 | 2 | 25% |
+| 网络类（GFW / GitHub / 代理配置） | E006、E007、E008 | 3 | 37.5% |
+| 代码契约类（变量名 / 外部 API 协议） | E002、E005 | 2 | 25% |
+| 认知偏差类（以为部署了其实没部署） | E004 | 1 | 12.5% |
 
-**一句话洞察**：7 个坑里有 **3 个（E001/E003/E004）本质都是"我以为容器跑的是我以为的东西"** —— 镜像、DNS、文件系统三层都和本地心智模型错位；真正的纯代码 bug 是 0 个。
+**一句话洞察**：8 个坑里有 **3 个（E001/E003/E004）本质都是"我以为容器跑的是我以为的东西"** —— 镜像、DNS、文件系统三层都和本地心智模型错位；E006/E007/E008 三个"网络坑"里，真正被墙的只有 E006/E007 前半段，其余是代理配置分层（WinINET vs 环境变量）与远程历史分叉的认知问题。真正的纯代码 bug 是 0 个。
 
 ---
 
