@@ -1047,19 +1047,23 @@
             `).join('');
         }
 
-        function updateDashboardStats(summary) {
-            if (summary.total_equity) {
-                document.getElementById('total-equity').textContent = 
-                    summary.total_equity.toLocaleString('en-US', {minimumFractionDigits: 2});
-            } else {
-                document.getElementById('total-equity').textContent = '10,234.56';
+        function updateDashboardStats(summary, isReal = false) {
+            // 真实模式：total-equity 唯一来源为 loadRealPositions（OKX 实时权益），
+            // 避免把 summary 的演示哨兵（5000/空）写回造成权益闪变；仅未登录/接口全挂时用演示兜底。
+            if (!isReal) {
+                if (summary.total_equity) {
+                    document.getElementById('total-equity').textContent = 
+                        summary.total_equity.toLocaleString('en-US', {minimumFractionDigits: 2});
+                } else {
+                    document.getElementById('total-equity').textContent = '10,234.56';
+                }
             }
             
             if (summary.daily_pnl) {
                 const el = document.getElementById('daily-pnl');
                 el.textContent = (summary.daily_pnl >= 0 ? '+' : '') + summary.daily_pnl.toFixed(2);
                 el.style.color = summary.daily_pnl >= 0 ? 'var(--up-color)' : 'var(--down-color)';
-            } else {
+            } else if (!isReal) {
                 document.getElementById('daily-pnl').textContent = '+123.45';
                 document.getElementById('daily-pnl').style.color = 'var(--up-color)';
             }
