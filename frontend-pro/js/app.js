@@ -1059,10 +1059,12 @@
                 }
             }
             
-            if (summary.daily_pnl) {
+            // daily_pnl 为 0 也是真实值（今日无平仓盈亏），必须渲染而非回退演示占位
+            if (summary.daily_pnl !== undefined && summary.daily_pnl !== null) {
                 const el = document.getElementById('daily-pnl');
-                el.textContent = (summary.daily_pnl >= 0 ? '+' : '') + summary.daily_pnl.toFixed(2);
-                el.style.color = summary.daily_pnl >= 0 ? 'var(--up-color)' : 'var(--down-color)';
+                const dpnl = Number(summary.daily_pnl) || 0;
+                el.textContent = (dpnl >= 0 ? '+' : '') + dpnl.toFixed(2);
+                el.style.color = dpnl >= 0 ? 'var(--up-color)' : 'var(--down-color)';
             } else if (!isReal) {
                 document.getElementById('daily-pnl').textContent = '+123.45';
                 document.getElementById('daily-pnl').style.color = 'var(--up-color)';
