@@ -513,6 +513,25 @@ def summary():
         total_pnl = float(total_unrealized_pnl + total_realized_pnl)
         total_equity = float(total_initial_capital + total_pnl)
 
+        # ---- 统一权益权威源（2026-11-01）----
+        # summary.total_equity 优先取 OKX 真实账户权益（与 /account/positions 同源），
+        # 失败时回退库内口径（Σ初始资金 + 累计盈亏），消除 5000 哨兵与真实权益不一致。
+        try:
+            from app.services.exchange_execution import resolve_exchange_config
+            from app.services.live_trading.factory import create_client
+            from app.routes.strategy_account_routes import _first_okx_credential_id
+
+            _cid = _first_okx_credential_id(int(user_id))
+            if _cid:
+                _cfg = resolve_exchange_config({'credential_id': _cid}, user_id=int(user_id))
+                if str(_cfg.get('exchange_id') or '').lower() == 'okx':
+                    _bal = create_client(_cfg, market_type='swap').get_balance()
+                    _arr = (_bal or {}).get('data') or []
+                    if _arr and isinstance(_arr[0], dict) and _arr[0].get('totalEq') is not None:
+                        total_equity = float(_arr[0]['totalEq'])
+        except Exception as _e:
+            logger.warning("dashboard summary: okx equity lookup skipped: %s", _e)
+
         # Daily PnL chart (uses realized profit field if present, otherwise 0)
         # Keep output stable even if profit is mostly empty.
         day_to_profit: Dict[str, float] = {}
@@ -524,6 +543,13 @@ def summary():
             p = _net_trade_pnl(trow)
             day_to_profit[day] = float(day_to_profit.get(day, 0.0) + p)
         daily_pnl_chart = [{"date": d, "profit": float(v)} for d, v in sorted(day_to_profit.items())]
+
+        # ---- 今日盈亏（真实口径，2026-11-01）----
+        # daily_pnl = 本地库内"今日已实现净盈亏"（与 daily_pnl_chart 同日聚合），
+        # 供前端 #daily-pnl 使用，替代演示 +123.45；未实现浮盈不计入今日盈亏
+        # （持仓表无可靠入场时间分桶，避免把历史浮盈误记到今日）。
+        _today_key = time.strftime("%Y-%m-%d", time.localtime())
+        daily_pnl = float(day_to_profit.get(_today_key, 0.0))
 
         # Strategy performance pie (use unrealized pnl by strategy as best-effort)
         sid_to_unreal: Dict[int, float] = {}
@@ -618,6 +644,7 @@ def summary():
                     "total_pnl": round(total_pnl, 2),
                     "total_realized_pnl": round(total_realized_pnl, 2),
                     "total_unrealized_pnl": round(total_unrealized_pnl, 2),
+                    "daily_pnl": round(daily_pnl, 2),
                     # Performance KPIs
                     "performance": perf_stats,
                     # Strategy-level stats
