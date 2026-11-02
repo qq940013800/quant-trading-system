@@ -513,22 +513,15 @@ def summary():
         total_pnl = float(total_unrealized_pnl + total_realized_pnl)
         total_equity = float(total_initial_capital + total_pnl)
 
-        # ---- 统一权益权威源（2026-11-01）----
+        # ---- 统一权益权威源（2026-11-01；2026-11-02 收口到 live_trading.connection）----
         # summary.total_equity 优先取 OKX 真实账户权益（与 /account/positions 同源），
         # 失败时回退库内口径（Σ初始资金 + 累计盈亏），消除 5000 哨兵与真实权益不一致。
         try:
-            from app.services.exchange_execution import resolve_exchange_config
-            from app.services.live_trading.factory import create_client
-            from app.routes.strategy_account_routes import _first_okx_credential_id
+            from app.services.live_trading.connection import fetch_account_equity
 
-            _cid = _first_okx_credential_id(int(user_id))
-            if _cid:
-                _cfg = resolve_exchange_config({'credential_id': _cid}, user_id=int(user_id))
-                if str(_cfg.get('exchange_id') or '').lower() == 'okx':
-                    _bal = create_client(_cfg, market_type='swap').get_balance()
-                    _arr = (_bal or {}).get('data') or []
-                    if _arr and isinstance(_arr[0], dict) and _arr[0].get('totalEq') is not None:
-                        total_equity = float(_arr[0]['totalEq'])
+            _eq = fetch_account_equity(int(user_id))
+            if _eq is not None:
+                total_equity = float(_eq)
         except Exception as _e:
             logger.warning("dashboard summary: okx equity lookup skipped: %s", _e)
 

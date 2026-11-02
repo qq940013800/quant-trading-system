@@ -87,22 +87,21 @@ def get_account_positions():
             market_type=market_type,
         )
 
-        # total_equity: best-effort OKX balance via the standard credential→factory chain.
+        # total_equity: best-effort OKX balance via the standard credential→factory chain
+        # (centralized in live_trading.connection so dashboard/positions share ONE path).
         # Never blocks the positions response when the balance lookup fails.
         total_equity = None
         try:
-            cid = credential_id or _first_okx_credential_id(int(user_id))
-            if cid:
-                from app.services.exchange_execution import resolve_exchange_config
-                from app.services.live_trading.factory import create_client
+            from app.services.live_trading.connection import fetch_account_equity
 
-                cfg = resolve_exchange_config({'credential_id': cid}, user_id=int(user_id))
-                if str(cfg.get('exchange_id') or '').lower() == 'okx':
-                    client = create_client(cfg, market_type=market_type or 'swap')
-                    bal = client.get_balance()
-                    arr = bal.get('data') or []
-                    if arr and isinstance(arr[0], dict) and arr[0].get('totalEq') is not None:
-                        total_equity = f"${float(arr[0]['totalEq']):,.2f}"
+            _eq = fetch_account_equity(
+                int(user_id),
+                credential_id=credential_id,
+                market_type=market_type or 'swap',
+                use_cache=False,
+            )
+            if _eq is not None:
+                total_equity = f"${float(_eq):,.2f}"
         except Exception as e:
             logger.warning(f"get_account_positions total_equity lookup skipped: {e}")
 
@@ -115,3 +114,62 @@ def get_account_positions():
         logger.error(f"get_account_positions failed: {str(e)}")
         logger.error(traceback.format_exc())
         return jsonify({'code': 0, 'msg': str(e), 'data': {'positions': [], 'items': []}}), 500
+
+
+@strategy_blp.route('/account/exchange-connections', methods=['GET'])
+@login_required
+def list_exchange_connections():
+    """Read-only connection-health overview for the user's saved credentials."""
+    try:
+        from app.services.live_trading.connection import connection_overview
+
+        data = connection_overview(user_id=int(g.user_id))
+        return jsonify({'code': 1, 'msg': 'success', 'data': data})
+    except Exception as e:
+        logger.error(f"list_exchange_connections failed: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({'code': 0, 'msg': str(e), 'data': None}), 500
+
+
+@strategy_blp.route('/account/exchange-connections/test', methods=['POST'])
+@login_required
+def test_exchange_connection():
+    """Read-only: test a saved credential by id (always fresh, bypasses cache)."""
+    try:
+        payload = request.get_json(silent=True) or {}
+        credential_id = payload.get('credential_id') or payload.get('id')
+        if not credential_id:
+            return jsonify({'code': 0, 'msg': 'Missing credential_id', 'data': None}), 400
+
+        from app.services.live_trading.connection import test_saved_credential
+
+        result = test_saved_credential(int(credential_id), user_id=int(g.user_id))
+        code = 1 if result.get('ok') else 0
+        msg = 'success' if result.get('ok') else (result.get('error') or 'CONNECTION_FAILED')
+        return jsonify({'code': code, 'msg': msg, 'data': result})
+    except Exception as e:
+        logger.error(f"test_exchange_connection failed: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({'code': 0, 'msg': str(e), 'data': None}), 500
+
+
+@strategy_blp.route('/account/exchange-connections/test-strategy', methods=['POST'])
+@login_required
+def test_strategy_exchange_connection():
+    """Read-only: test the exchange binding of a strategy by id."""
+    try:
+        payload = request.get_json(silent=True) or {}
+        strategy_id = payload.get('strategy_id')
+        if not strategy_id:
+            return jsonify({'code': 0, 'msg': 'Missing strategy_id', 'data': None}), 400
+
+        from app.services.live_trading.connection import test_strategy_connection
+
+        result = test_strategy_connection(int(strategy_id), user_id=int(g.user_id))
+        code = 1 if result.get('ok') else 0
+        msg = 'success' if result.get('ok') else (result.get('error') or 'CONNECTION_FAILED')
+        return jsonify({'code': code, 'msg': msg, 'data': result})
+    except Exception as e:
+        logger.error(f"test_strategy_exchange_connection failed: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({'code': 0, 'msg': str(e), 'data': None}), 500
