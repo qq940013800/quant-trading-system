@@ -1790,39 +1790,68 @@
             debugLog(`保存API账户: ${name} (${exchange})`, 'info');
 
             try {
-                // 先测试连接
-                const testRes = await fetch('/api/account/test-connection', {
+                // 统一走标准凭证库（Fernet 加密入库 + live_trading.factory 探测），
+                // 与 dashboard/positions 的权益口径共用同一条链，避免旧内存字典链
+                // 测出的真实余额与仪表盘回退口径分裂。
+                const credPayload = {
+                    exchange_id: exchange || 'okx',
+                    api_key: apiKey,
+                    secret_key: apiSecret,
+                    passphrase: passphrase,
+                    environment: 'demo',   // 弹窗当前绑定 OKX 模拟盘（与旧 is_demo 一致）
+                    market_scope: 'both'
+                };
+
+                // 1) 先探测（只读私账接口）
+                const testRes = await fetch('/api/credentials/test', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ exchange, api_key: apiKey, api_secret: apiSecret, passphrase })
+                    body: JSON.stringify(credPayload)
                 });
                 const testData = await testRes.json();
-                
-                if (testData.success) {
-                    alert(`✅ 连接成功！账户余额: ${testData.data.balance || '未知'}`);
-                    // 保存到后端
-                    const saveRes = await fetch('/api/account/save', {
+
+                if (testData.code !== 1) {
+                    alert(`❌ 连接失败: ${testData.msg || 'CREDENTIAL_CONNECTION_FAILED'}`);
+                    return;
+                }
+
+                // 2) 加密入库（持久化，重启不丢，dashboard 可选中）
+                const createRes = await fetch('/api/credentials/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, ...credPayload })
+                });
+                const createData = await createRes.json();
+                if (createData.code !== 1) {
+                    alert(`❌ 保存凭证失败: ${createData.msg || 'CREATE_FAILED'}`);
+                    return;
+                }
+
+                // 3) 用已入库凭证取真实 totalEq（与仪表盘同一条链），用于回显
+                let equityText = '已连接';
+                const cid = createData.data && createData.data.id;
+                if (cid) {
+                    const chkRes = await fetch('/api/account/exchange-connections/test', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            name, exchange, api_key: apiKey, api_secret: apiSecret, passphrase,
-                            permissions: { read: permRead, trade: permTrade }
-                        })
+                        body: JSON.stringify({ credential_id: cid })
                     });
-                    const saveData = await saveRes.json();
-                    if (saveData.success) {
-                        closeApiAccountModal();
-                        loadAccountsList();
-                        debugLog('API账户保存成功', 'success');
+                    const chkData = await chkRes.json();
+                    const eq = chkData.data && chkData.data.equity;
+                    if (chkData.code === 1 && eq != null) {
+                        equityText = `$${Number(eq).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                     }
-                } else {
-                    alert(`❌ 连接失败: ${testData.message}`);
                 }
+
+                alert(`✅ 连接成功！账户余额: ${equityText}`);
+                closeApiAccountModal();
+                loadAccountsList();
+                // 刷新仪表盘总权益（清除 30s 缓存前的旧回退值）
+                if (typeof loadDashboard === 'function') { try { loadDashboard(); } catch (e) {} }
+                debugLog('API账户保存成功（标准凭证库）', 'success');
             } catch (e) {
                 debugLog(`API账户保存失败: ${e.message}`, 'error');
-                // 后端没有这个接口，先本地保存演示
-                alert('⚠️ 后端API接口未就绪，已在前端保存演示配置。请配置后端后重试。');
-                closeApiAccountModal();
+                alert(`⚠️ 保存失败: ${e.message}`);
             }
         }
 

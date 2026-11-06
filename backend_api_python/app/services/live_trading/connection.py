@@ -228,6 +228,28 @@ def test_strategy_connection(strategy_id: int, user_id: int = 1) -> Dict[str, An
     return result
 
 
+def _okx_credential_ids(user_id: int) -> List[int]:
+    """All OKX credential ids for a user, most recently updated first (ids only).
+
+    Ordering matters: a stale/expired credential that still decrypts must not
+    shadow a newer working one. We probe newest-first and let the caller skip
+    ids that fail (e.g. OKX 401 "API key doesn't exist").
+    """
+    from app.utils.db import get_db_connection
+
+    with get_db_connection() as db:
+        cur = db.cursor()
+        cur.execute(
+            "SELECT id FROM qd_exchange_credentials "
+            "WHERE user_id=%s AND exchange_id='okx' "
+            "ORDER BY updated_at DESC, id DESC",
+            (int(user_id),),
+        )
+        ids = [r['id'] for r in cur.fetchall() or []]
+        cur.close()
+    return ids
+
+
 def _cache_get(key: str) -> Any:
     with _overview_lock:
         hit = _overview_cache.get(key)
@@ -263,20 +285,31 @@ def fetch_account_equity(
 
     value: Optional[float] = None
     try:
-        from app.routes.strategy_account_routes import _first_okx_credential_id
+        if credential_id:
+            cids = [int(credential_id)]
+        else:
+            # Newest-updated first so a stale credential (e.g. OKX 401) does not
+            # prevent a newer, working credential from being used.
+            cids = _okx_credential_ids(int(user_id))
+        if not cids:
+            return None
 
-        cid = credential_id or _first_okx_credential_id(int(user_id))
-        if not cid:
-            return None
-        cfg = resolve_credential_config(int(cid), user_id=int(user_id))
-        if str(cfg.get("exchange_id") or "").lower() != "okx":
-            return None
         from app.services.live_trading.factory import create_client
 
-        bal = create_client(cfg, market_type=mt).get_balance()
-        arr = (bal or {}).get("data") or []
-        if arr and isinstance(arr[0], dict) and arr[0].get("totalEq") is not None:
-            value = float(arr[0]["totalEq"])
+        for cid in cids:
+            try:
+                cfg = resolve_credential_config(int(cid), user_id=int(user_id))
+                if str(cfg.get("exchange_id") or "").lower() != "okx":
+                    continue
+                bal = create_client(cfg, market_type=mt).get_balance()
+                arr = (bal or {}).get("data") or []
+                if arr and isinstance(arr[0], dict) and arr[0].get("totalEq") is not None:
+                    value = float(arr[0]["totalEq"])
+                    break
+            except Exception as inner:
+                # One bad/stale credential must not mask another working one.
+                logger.debug("fetch_account_equity: credential %s failed: %s", cid, inner)
+                continue
     except Exception as exc:
         logger.warning("fetch_account_equity skipped: %s", exc)
         return None
