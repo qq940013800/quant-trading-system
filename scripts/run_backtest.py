@@ -20,6 +20,7 @@ if str(ROOT) not in sys.path:
 
 from core.backtest.costs import CostModel
 from core.backtest.engine import DemoBreakoutStrategy, run_backtest
+from core.strategies import MeanReversionStrategy, TrendBreakoutStrategy
 from core.audit.replay import read_decisions, replay_decision
 
 

@@ -13,6 +13,9 @@
 """
 from __future__ import annotations
 
+import math
+from itertools import combinations
+
 import numpy as np
 import pandas as pd
 
@@ -87,11 +90,11 @@ def deflated_sharpe_ratio(returns: pd.Series, trials: int = 1,
     sr = compute_sharpe(returns, bars_per_year)
     n = len(returns)
     
-    # 计算偏度和峰度
+    # 计算偏度和峰度（pandas 的 kurtosis() 返回超额峰度；DSR 公式要求原始峰度 γ4）
     if skewness is None:
         skewness = float(returns.skew())  # type: ignore[arg-type]
     if kurtosis is None:
-        kurtosis = float(returns.kurtosis())  # type: ignore[arg-type]
+        kurtosis = float(returns.kurtosis()) + 3.0  # type: ignore[arg-type]
     
     # 期望值 Sharpe：在 null hypothesis 下（所有策略都是随机的）
     # 最好那个的期望 Sharpe
@@ -131,73 +134,129 @@ def deflated_sharpe_ratio(returns: pd.Series, trials: int = 1,
 # ------------------------------------------------------------------
 # PBO (Probability of Backtest Overfitting)
 # ------------------------------------------------------------------
-def probability_of_backtest_overfitting(strategy_returns: pd.DataFrame,
-                                        n_splits: int = 10,
-                                        test_size: float = 0.5) -> float:
-    """计算 PBO：回测过拟合概率。
+# PBO (Probability of Backtest Overfitting) — CSCV 标准实现
+# ------------------------------------------------------------------
+def _sharpe_columns(block: np.ndarray) -> np.ndarray:
+    """按列计算 Sharpe（周期口径；同一子集内排序时年化因子可约去）。"""
+    mu = block.mean(axis=0)
+    sd = block.std(axis=0, ddof=1)
+    out = np.zeros(mu.shape, dtype=np.float64)
+    ok = sd > 0
+    out[ok] = mu[ok] / sd[ok]
+    return out
 
-    第一性原理：把数据分成训练集和测试集，
-    在训练集上选最好的策略，看它在测试集上是不是还是最好的。
-    如果经常不是，说明你在过拟合。
+
+def _contiguous_blocks(n_periods: int, n_blocks: int) -> list[np.ndarray]:
+    """把时间序列切成 n_blocks 个连续块（保持时间顺序，禁止随机打乱）。"""
+    edges = np.linspace(0, n_periods, n_blocks + 1).astype(int)
+    return [np.arange(edges[i], edges[i + 1], dtype=np.int64)
+            for i in range(n_blocks)]
+
+
+def _cscv_combinations(n_blocks: int, n_oos: int,
+                       max_combinations: int) -> list[tuple[int, ...]]:
+    """枚举 OOS 块组合；超过上限时按固定步长确定性抽样（不引入随机性）。"""
+    total = math.comb(n_blocks, n_oos)
+    combos = list(combinations(range(n_blocks), n_oos))
+    if total <= max_combinations:
+        return combos
+    stride = math.ceil(total / max_combinations)
+    return combos[::stride]
+
+
+def probability_of_backtest_overfitting(
+        strategy_returns: pd.DataFrame,
+        n_splits: int = 10,
+        test_size: float = 0.5,
+        *,
+        max_combinations: int = 5000,
+        return_diagnostics: bool = False):
+    """PBO（Bailey, Borwein, López de Prado & Zhu 2015）—— CSCV 实现。
+
+    第一性原理：回测过拟合不是"曲线不好看"，而是"选择行为本身制造了
+    虚假的样本内优势"。CSCV 把整条收益矩阵切成 S 个连续块，枚举一部分
+    块作样本内（IS）、其余作样本外（OOS）：在 IS 上选表现最好的策略，
+    看它在 OOS 的相对排名是否落到下半区。落到下半区的组合占比即 PBO。
+
+    与旧实现的区别（旧实现已删除）：
+    - 旧实现随机打乱时间轴，破坏时序结构，且对同一数据不可复现；
+    - 旧实现用"测试集排名 > N/2"的粗判定，并使用全局随机种子污染调用方；
+    - 新实现为确定性枚举（contiguous blocks + combinations），无随机数。
 
     Args:
-        strategy_returns: 多个策略的收益率矩阵（列=策略，行=时间）
-        n_splits: 交叉验证折数
-        test_size: 测试集比例
+        strategy_returns: 多个策略的收益率矩阵（行=时间，列=策略；列名即策略名）。
+        n_splits: CSCV 块数 S；为奇数时向下取偶（S>=4 才有意义）。
+        test_size: OOS 块占比，默认 0.5（标准 CSCV）。
+        max_combinations: 组合数上限，超过则确定性等距抽样（结果可复现）。
+        return_diagnostics: True 时返回诊断 dict，默认返回 PBO 浮点数。
 
     Returns:
-        PBO 值（0-1）：
-        - 越低越好（< 0.2 表示过拟合风险低）
-        - 越高越危险（> 0.5 表示很可能过拟合）
+        float 或 dict（见 return_diagnostics）。0 表示未观察到过拟合，
+        0.5 附近表示选择行为接近随机，>0.5 表示样本内最优在样本外系统性失效。
+
+    Raises:
+        TypeError: strategy_returns 不是 DataFrame，或 n_splits 不是 int。
+        ValueError: 含 NaN/Inf，或 test_size 不在 (0,1) 区间。
     """
-    n_periods = len(strategy_returns)
-    n_strategies = len(strategy_returns.columns)
-    
-    if n_strategies < 2:
-        return 0.0  # 只有一个策略，谈不上过拟合
-    
-    n_test = int(n_periods * test_size)
-    n_train = n_periods - n_test
-    
-    if n_train < 30 or n_test < 30:
-        return 0.5  # 样本太少
-    
-    # 多次随机分割，统计过拟合次数
-    overfit_count = 0
-    n_iterations = min(n_splits, 20)  # 计算成本控制
-    
-    np.random.seed(42)  # 可复现
-    
-    for _ in range(n_iterations):
-        # 随机分割
-        indices = np.random.permutation(n_periods)
-        train_idx = indices[:n_train]
-        test_idx = indices[n_train:]
-        
-        train_returns = strategy_returns.iloc[train_idx]
-        test_returns = strategy_returns.iloc[test_idx]
-        
-        # 在训练集上计算每个策略的 Sharpe
-        train_sharpes = train_returns.apply(
-            lambda x: compute_sharpe(x, bars_per_year=252)
-        )
-        
-        # 选训练集上最好的策略
-        best_train_strategy = train_sharpes.idxmax()
-        best_train_rank = train_sharpes.rank(ascending=False)[best_train_strategy]  # type: ignore[call-overload]
-        
-        # 在测试集上计算排名
-        test_sharpes = test_returns.apply(
-            lambda x: compute_sharpe(x, bars_per_year=252)
-        )
-        test_rank = test_sharpes.rank(ascending=False)[best_train_strategy]  # type: ignore[call-overload]
-        
-        # 过拟合定义：训练集最好的策略，在测试集排名掉到下半区
-        if test_rank > n_strategies / 2:
-            overfit_count += 1
-    
-    pbo = overfit_count / n_iterations
-    return float(pbo)
+    if not isinstance(strategy_returns, pd.DataFrame):
+        raise TypeError("strategy_returns must be a pandas DataFrame")
+    if not isinstance(n_splits, int):
+        raise TypeError("n_splits must be int")
+    if not 0.0 < float(test_size) < 1.0:
+        raise ValueError(f"test_size must be in (0,1), got {test_size}")
+
+    data = strategy_returns.to_numpy(dtype=np.float64)
+    if data.ndim != 2 or data.shape[1] < 2:
+        return 0.0  # 单一策略不存在"选择"问题
+    if not np.isfinite(data).all():
+        raise ValueError("strategy_returns contains NaN/Inf; clean data before PBO")
+
+    n_periods, n_strategies = data.shape
+    n_blocks = n_splits - (n_splits % 2)
+    if n_blocks < 4 or n_periods // n_blocks < 2:
+        # 样本不足以下结论：返回 0.5（最大不确定性），调用方应记录为"未判定"
+        return 0.5
+
+    n_oos = max(1, min(n_blocks - 1, int(round(n_blocks * float(test_size)))))
+    blocks = _contiguous_blocks(n_periods, n_blocks)
+    combos = _cscv_combinations(n_blocks, n_oos, max_combinations)
+
+    logits: list[float] = []
+    is_best: list[int] = []
+    for combo in combos:
+        combo_set = set(combo)
+        oos_idx = np.concatenate([blocks[i] for i in combo])
+        is_idx = np.concatenate([blocks[i] for i in range(n_blocks)
+                                 if i not in combo_set])
+        if oos_idx.size < 2 or is_idx.size < 2:
+            continue
+        is_perf = _sharpe_columns(data[is_idx])
+        oos_perf = _sharpe_columns(data[oos_idx])
+        best = int(np.argmax(is_perf))
+        is_best.append(best)
+        order = np.argsort(oos_perf, kind="stable")
+        rank = np.empty(n_strategies, dtype=np.int64)
+        rank[order] = np.arange(1, n_strategies + 1)
+        omega = float(rank[best]) / (n_strategies + 1)
+        logits.append(math.log(omega / (1.0 - omega)))
+
+    if not logits:
+        return 0.5
+    arr = np.asarray(logits, dtype=np.float64)
+    pbo = float(np.mean(arr <= 0.0))
+    if return_diagnostics:
+        return {
+            "pbo": pbo,
+            "n_combinations": int(arr.size),
+            "n_blocks": n_blocks,
+            "n_strategies": n_strategies,
+            "mean_logit": float(arr.mean()),
+            "median_logit": float(np.median(arr)),
+            "is_best_counts": {strategy_returns.columns[i]: is_best.count(i)
+                               for i in range(n_strategies)},
+            "logits": arr.tolist(),
+        }
+    return pbo
 
 
 # ------------------------------------------------------------------

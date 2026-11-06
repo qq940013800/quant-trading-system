@@ -35,8 +35,14 @@ class StrategyConfig:
 
     # === meta-label：ML 过滤 ===
     meta_C: float = 1.0              # L2 正则强度（从 CLEAN 集校准）
-    meta_threshold: float = 0.55     # 决策阈值（从验证集校准，非 0.5）
-    min_prob: float = 0.45          # 最低概率（低于此直接不交易）
+    meta_q_lo: float = 0.30          # 开仓分位：训练 p 的 30% 分位以下弃权（阈值来自分布）
+    meta_q_hi: float = 0.70          # 满仓分位：训练 p 的 70% 分位以上满仓
+
+    def __post_init__(self) -> None:
+        if not 0.0 <= self.meta_q_lo < self.meta_q_hi <= 1.0:
+            raise ValueError(
+                f"require 0 <= meta_q_lo < meta_q_hi <= 1, got "
+                f"{self.meta_q_lo}/{self.meta_q_hi}")
 
     # === 仓位与风控 ===
     risk_per_trade: float = 0.01    # 单笔风险占总资金 1%
@@ -81,6 +87,9 @@ class MLTrendStrategy:
         self.config = config or StrategyConfig()
         self.model = LogisticBaseline(C=self.config.meta_C)
         self._fitted = False
+        # 训练后由训练集 p 分布确定（不硬编码概率阈值）
+        self._q_lo_val: float | None = None
+        self._q_hi_val: float | None = None
 
     # ------------------------------------------------------------------
     # 初级信号：海龟唐奇安通道突破
@@ -207,15 +216,33 @@ class MLTrendStrategy:
     # 训练
     # ------------------------------------------------------------------
     def fit(self, X: np.ndarray, y: np.ndarray) -> "MLTrendStrategy":
-        """训练 meta-label 模型。
+        """训练 meta-label 模型，并从**训练集** p 分布确定仓位分位阈值。
 
-        Args:
-            X: 特征矩阵 (n_samples, n_features)
-            y: meta-label（1=初级信号盈利, 0=初级信号亏损）
+        阈值来自分布（AGENTS.md 不变量 3）：q_lo/q_hi 是训练集预测概率的分位数，
+        不是按绩效网格搜索出来的固定 0.55/0.45。
         """
         self.model.fit(X, y)
+        p_train = self.model.predict_proba(np.asarray(X, dtype=np.float64))[:, 1]
+        self._q_lo_val = float(np.quantile(p_train, self.config.meta_q_lo))
+        self._q_hi_val = float(np.quantile(p_train, self.config.meta_q_hi))
+        if self._q_hi_val <= self._q_lo_val:
+            # 退化分布：避免除零，退化为"仅高于中位数才开仓"
+            self._q_hi_val = self._q_lo_val + 1e-6
         self._fitted = True
         return self
+
+    def _position_scale(self, prob: float) -> float:
+        """概率 → 仓位系数 k ∈ [0,1]（训练分布分位线性映射）。
+
+        未训练时返回 0.5（明确标注为默认值，不冒充校准结果）。
+        """
+        if (not self._fitted or self._q_lo_val is None
+                or self._q_hi_val is None):
+            return 0.5
+        span = self._q_hi_val - self._q_lo_val
+        if span <= 0:
+            return 0.5
+        return float(np.clip((float(prob) - self._q_lo_val) / span, 0.0, 1.0))
 
     # ------------------------------------------------------------------
     # 预测：完整决策流程
@@ -256,22 +283,21 @@ class MLTrendStrategy:
                 return signal
             signal.regime_weights = regime_weights
 
-        # 第三步：ML meta-label 过滤
+        # 第三步：ML meta-label 过滤（阈值来自训练分布分位，弃权是一等公民）
         if self._fitted:
             features = self._build_features(history, as_of)
-            prob = self.model.predict_proba(features.reshape(1, -1))[0, 1]
-            signal.meta_prob = float(prob)
+            prob = float(self.model.predict_proba(features.reshape(1, -1))[0, 1])
+            signal.meta_prob = prob
 
-            if prob < cfg.min_prob:
-                signal.reason = f"ML 概率过低（{prob:.2f} < {cfg.min_prob}）"
+            position_scale = self._position_scale(prob)
+            if position_scale <= 0.0:
+                signal.reason = (
+                    f"ML 概率低于训练分布 q{cfg.meta_q_lo:.0%} 分位"
+                    f"（{prob:.3f} < {self._q_lo_val:.3f}），弃权"
+                )
                 return signal
-            if prob < cfg.meta_threshold:
-                # 概率不够高，半仓
-                position_scale = 0.5
-            else:
-                position_scale = 1.0
         else:
-            # 未训练时用默认权重
+            # 未训练时用默认权重（明确是默认值，不是校准结果）
             signal.meta_prob = 0.5
             position_scale = 0.5
 

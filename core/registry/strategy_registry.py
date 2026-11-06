@@ -14,10 +14,14 @@
 """
 from __future__ import annotations
 
+import logging
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any
+
+logger = logging.getLogger("core.registry")
 
 
 class StrategyStatus(Enum):
@@ -162,8 +166,18 @@ class StrategyRegistry:
     4. 列出所有策略
     """
 
+    # 可合法退役的来源状态（与 StrategyStatus.can_transition 对齐）
+    RETIRABLE_FROM = (
+        StrategyStatus.BACKTEST,
+        StrategyStatus.PAPER,
+        StrategyStatus.PAUSED,
+        StrategyStatus.LIVE,
+    )
+
     def __init__(self):
         self._strategies: dict[str, StrategyVersion] = {}
+        # 退役审计日志：每次自动退役的完整输入快照（决策可审计）
+        self.retirement_log: list[dict[str, Any]] = []
 
     def register(self, strategy: StrategyVersion) -> None:
         """注册一个新策略版本。

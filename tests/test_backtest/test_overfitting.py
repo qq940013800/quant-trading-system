@@ -136,3 +136,72 @@ class TestCPCV:
         # train 和 test 不应该完全重叠
         # test sharpe 的均值应该比 train 低（样本外衰减）
         assert np.mean(result["test_sharpes"]) <= np.mean(result["train_sharpes"]) * 1.5
+
+
+# ------------------------------------------------------------------
+# PBO 的 CSCV 实现（2026-11 修正）
+# ------------------------------------------------------------------
+class TestPBOCSCV:
+    """PBO 必须满足：确定性、无全局随机状态副作用、能区分持续边缘与纯噪声。"""
+
+    @staticmethod
+    def _panel(seed: int = 0, n_obs: int = 252, n_strat: int = 6) -> pd.DataFrame:
+        rng = np.random.default_rng(seed)
+        return pd.DataFrame(
+            rng.normal(0.0, 0.01, size=(n_obs, n_strat)),
+            columns=[f"s{i}" for i in range(n_strat)],
+        )
+
+    def test_deterministic_and_no_global_rng_side_effect(self):
+        panel = self._panel(seed=1)
+        pbo1 = probability_of_backtest_overfitting(panel, n_splits=10)
+        pbo2 = probability_of_backtest_overfitting(panel, n_splits=10)
+        assert pbo1 == pbo2
+
+        np.random.seed(123)
+        expected = np.random.rand()
+        np.random.seed(123)
+        _ = probability_of_backtest_overfitting(panel, n_splits=10)
+        assert np.random.rand() == expected
+
+    def test_low_pbo_for_persistent_edge(self):
+        rng = np.random.default_rng(7)
+        n = 252
+        panel = pd.DataFrame(
+            rng.normal(0.0, 0.01, size=(n, 5)),
+            columns=[f"noise{i}" for i in range(5)],
+        )
+        panel["edge"] = rng.normal(0.003, 0.01, size=n)
+        assert probability_of_backtest_overfitting(panel, n_splits=10) < 0.1
+
+    def test_pbo_near_half_for_iid_noise(self):
+        panel = self._panel(seed=2, n_strat=20)
+        pbo = probability_of_backtest_overfitting(panel, n_splits=10)
+        assert 0.2 <= pbo <= 0.8
+
+    def test_diagnostics_consistency(self):
+        panel = self._panel(seed=3)
+        diag = probability_of_backtest_overfitting(
+            panel, n_splits=10, return_diagnostics=True
+        )
+        assert diag["n_combinations"] == 252  # C(10, 5)
+        assert diag["n_blocks"] == 10
+        logits = np.asarray(diag["logits"])
+        assert np.isfinite(logits).all()
+        assert np.isclose(diag["pbo"], np.mean(logits <= 0.0))
+
+    def test_input_validation(self):
+        with pytest.raises(TypeError):
+            probability_of_backtest_overfitting(pd.Series([0.0, 0.1, -0.1]))
+        bad = self._panel(seed=4)
+        bad.iloc[3, 2] = np.nan
+        with pytest.raises(ValueError):
+            probability_of_backtest_overfitting(bad)
+        with pytest.raises(ValueError):
+            probability_of_backtest_overfitting(self._panel(), test_size=1.5)
+
+    def test_single_strategy_and_insufficient_sample(self):
+        one = pd.DataFrame({"only": np.zeros(100)})
+        assert probability_of_backtest_overfitting(one) == 0.0
+        tiny = pd.DataFrame(np.zeros((8, 3)), columns=list("abc"))
+        assert probability_of_backtest_overfitting(tiny, n_splits=10) == 0.5

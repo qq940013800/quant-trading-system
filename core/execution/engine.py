@@ -31,6 +31,14 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional, Callable
 
+from core.control.kill_switch import KillSwitch
+from core.execution.reconcile import (
+    ReconcileReport,
+    Tolerance,
+    enforce as _enforce_reconcile,
+    reconcile as _reconcile,
+)
+
 logger = logging.getLogger("core.execution")
 
 
@@ -124,10 +132,12 @@ class ExecutionEngine:
     def __init__(self,
                  config: Optional[ExecutionConfig] = None,
                  order_fn: Optional[Callable] = None,
-                 risk_check_fn: Optional[Callable] = None):
+                 risk_check_fn: Optional[Callable] = None,
+                 kill_switch: Optional[KillSwitch] = None):
         self.config = config or ExecutionConfig()
         self.order_fn = order_fn or self._default_order
         self.risk_check_fn = risk_check_fn or self._default_risk_check
+        self.kill_switch = kill_switch
 
         self.orders: list[Order] = []
         self.positions: dict[str, Position] = {}  # symbol -> Position
@@ -184,7 +194,22 @@ class ExecutionEngine:
         """
         decision_id = f"exec-{uuid.uuid4().hex[:12]}"
 
-        # 0. 决策前自动引用历史经验（知识复用）
+        # 0. 控制面守卫：KillSwitch 已触发 -> 禁止新开仓（平仓路径不受影响）
+        if self.kill_switch is not None and self.kill_switch.is_armed():
+            ks_state = self.kill_switch.state()
+            self._record_decision(
+                decision_id=decision_id,
+                symbol=symbol,
+                side=side,
+                accepted=False,
+                reject_reason=f"kill_switch armed: {ks_state.reason}",
+                lots=0.0,
+                atr=atr,
+                equity=equity,
+            )
+            return None
+
+        # 0.1 决策前自动引用历史经验（知识复用）
         # 基于第一性原理：不要重新发明轮子，站在过去的肩膀上
         historical_lessons = self._retrieve_historical_lessons(symbol, side)
         if historical_lessons:
@@ -365,15 +390,25 @@ class ExecutionEngine:
         pos.stop_loss = new_stop
         return True
 
+    def reconcile(self, broker_orders, broker_positions, *,
+                  tolerance: Optional[Tolerance] = None,
+                  enforce_switch: bool = True) -> ReconcileReport:
+        """与经纪商对账；不干净时触发 KillSwitch，返回报告供审计。"""
+        report = _reconcile(self.orders, self.positions, broker_orders,
+                            broker_positions, tolerance or Tolerance())
+        if enforce_switch and self.kill_switch is not None:
+            _enforce_reconcile(report, self.kill_switch)
+        return report
+
     def get_open_positions(self) -> list[Position]:
         """获取所有持仓。"""
         return list(self.positions.values())
 
     def _create_order(self, symbol: str, side: OrderSide,
                        quantity: float, order_type: OrderType) -> Order:
-        """创建订单。"""
+        """创建订单，并登记到本地订单账本（对账的前提）。"""
         self.order_counter += 1
-        return Order(
+        order = Order(
             order_id=f"ORD-{self.order_counter:06d}",
             symbol=symbol,
             side=side,
@@ -381,6 +416,8 @@ class ExecutionEngine:
             quantity=quantity,
             status=OrderStatus.PENDING,
         )
+        self.orders.append(order)
+        return order
 
     def _submit_with_retry(self, order: Order) -> Order:
         """带重试的下单。"""
