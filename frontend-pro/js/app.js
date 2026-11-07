@@ -705,13 +705,13 @@
             document.getElementById('detail-strategy-symbol').textContent = strategy.symbol || 'BTC/USDT';
             document.getElementById('detail-strategy-created').textContent = strategy.created_at || '2026-01-01';
             
-            // 填充绩效指标（模拟数据，后续对接真实API）
-            document.getElementById('detail-total-return').textContent = '+12.5%';
-            document.getElementById('detail-sharpe').textContent = '1.85';
-            document.getElementById('detail-drawdown').textContent = '-8.3%';
-            document.getElementById('detail-winrate').textContent = '58.2%';
-            document.getElementById('detail-trades').textContent = '128';
-            document.getElementById('detail-profit-factor').textContent = '1.65';
+            // 绩效指标：优先取策略携带字段，后端未返回时显示 --，不编演示数字
+            document.getElementById('detail-total-return').textContent = '--';
+            document.getElementById('detail-sharpe').textContent = strategy.sharpe == null ? '--' : Number(strategy.sharpe).toFixed(2);
+            document.getElementById('detail-drawdown').textContent = strategy.max_drawdown == null ? '--' : Number(strategy.max_drawdown).toFixed(1) + '%';
+            document.getElementById('detail-winrate').textContent = strategy.win_rate == null ? '--' : Number(strategy.win_rate).toFixed(0) + '%';
+            document.getElementById('detail-trades').textContent = strategy.total_trades == null ? '--' : strategy.total_trades;
+            document.getElementById('detail-profit-factor').textContent = '--';
             
             // 更新按钮文字
             const isRunning = strategy.status === 'running' || strategy.status === 'active';
@@ -1167,11 +1167,11 @@
                 ...s,
                 name: s.name || s.strategy_name || '未命名策略',
                 status: s.status || s.execution_mode === 'live' ? 'running' : 'stopped',
-                today_pnl: s.today_pnl || s.daily_pnl || s.pnl_today || 0,
-                win_rate: s.win_rate || s.winrate || 0,
-                sharpe: s.sharpe || s.sharpe_ratio || 1.5,
-                max_drawdown: s.max_drawdown || s.drawdown || 0,
-                total_trades: s.total_trades || s.trade_count || 0
+                today_pnl: s.today_pnl ?? s.daily_pnl ?? s.pnl_today ?? null,
+                win_rate: s.win_rate ?? s.winrate ?? null,
+                sharpe: s.sharpe ?? s.sharpe_ratio ?? null,
+                max_drawdown: s.max_drawdown ?? s.drawdown ?? null,
+                total_trades: s.total_trades ?? s.trade_count ?? null
             }));
 
             const runningStrategies = strategies.filter(s => s.status === 'running');
@@ -1183,8 +1183,8 @@
                         <span class="strategy-status running">运行中</span>
                     </div>
                     <div class="strategy-metrics">
-                        <span>今日: ${s.today_pnl >= 0 ? '+' : ''}${(s.today_pnl || 0).toFixed(2)}</span>
-                        <span>胜率: ${(s.win_rate || 0).toFixed(0)}%</span>
+                        <span>今日: ${s.today_pnl == null ? '--' : (s.today_pnl >= 0 ? '+' : '') + s.today_pnl.toFixed(2)}</span>
+                        <span>胜率: ${s.win_rate == null ? '--' : s.win_rate.toFixed(0) + '%'}</span>
                     </div>
                 </div>
             `).join('');
@@ -1197,9 +1197,9 @@
                     </div>
                     <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">${s.description || '暂无描述'}</div>
                     <div class="strategy-metrics">
-                        <span>夏普: ${(s.sharpe || 1.85).toFixed(2)}</span>
-                        <span>回撤: ${(s.max_drawdown || 5.2).toFixed(1)}%</span>
-                        <span>交易: ${s.total_trades || 45}</span>
+                        <span>夏普: ${s.sharpe == null ? '--' : s.sharpe.toFixed(2)}</span>
+                        <span>回撤: ${s.max_drawdown == null ? '--' : s.max_drawdown.toFixed(1) + '%'}</span>
+                        <span>交易: ${s.total_trades == null ? '--' : s.total_trades}</span>
                     </div>
                 </div>
             `).join('');
