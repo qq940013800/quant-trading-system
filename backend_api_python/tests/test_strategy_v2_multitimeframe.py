@@ -256,6 +256,36 @@ def test_loader_drops_instruments_with_an_incomplete_timeframe_bundle():
     ]
 
 
+def test_execution_assumptions_declare_cost_model_limits():
+    bundles = _frequency_frames()
+
+    def fetch(_market, _symbol, frequency, *_args, **_kwargs):
+        return bundles[frequency][SYMBOL]
+
+    code = f'''\
+def initialize(context):
+    context.set_universe(["{SYMBOL}"])
+    context.subscribe(frequency="1h")
+
+def handle_data(context, data):
+    pass
+'''
+    _, result = StrategyV2BacktestService(frame_fetcher=fetch).run(
+        user_id=1,
+        code=code,
+        start_date=datetime(2026, 1, 2),
+        end_date=datetime(2026, 1, 2, 5),
+        initial_capital=10_000,
+        persist=False,
+    )
+
+    assumptions = result["executionAssumptions"]
+    assert assumptions["feeModel"] == "fixed_flat_rate"
+    assert assumptions["feeAlignment"] == "not_aligned_to_live"
+    assert assumptions["slippageModel"] == "fixed_linear_rate"
+    assert assumptions["fundingMode"] == "not_modeled"
+
+
 def test_contract_rejects_unsupported_monthly_subscription():
     with pytest.raises(StrategyV2ContractError, match="frequencyUnsupported:1mo"):
         compile_strategy_v2(
