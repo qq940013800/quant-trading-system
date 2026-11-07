@@ -161,6 +161,8 @@ def _compute_performance_stats(trades: List[Dict[str, Any]], initial_capital: fl
         "max_drawdown_pct": 0.0,
         "best_day": 0.0,
         "worst_day": 0.0,
+        # 样本不足或零波动时为 None，前端展示 "--"；禁止用占位夏普顶替
+        "sharpe": None,
     }
     if not trades:
         return empty_stats
@@ -259,6 +261,17 @@ def _compute_performance_stats(trades: List[Dict[str, Any]], initial_capital: fl
     best_day = max(day_profits.values()) if day_profits else 0.0
     worst_day = min(day_profits.values()) if day_profits else 0.0
 
+    # Sharpe（逐笔净盈亏口径，未年化）：缺日收益序列与年化因子，这里只用逐笔
+    # 净盈亏的均值/总体标准差衡量风险调整后表现。样本 <2 笔或零波动时不可计算，
+    # 返回 None 由前端展示 "--"，不用占位数值顶替。
+    if len(profits) >= 2:
+        mean_p = sum(profits) / len(profits)
+        variance = sum((p - mean_p) ** 2 for p in profits) / len(profits)
+        std_p = variance ** 0.5
+        sharpe = round(mean_p / std_p, 2) if std_p > 0 else None
+    else:
+        sharpe = None
+
     return {
         "total_trades": total_trades,
         "winning_trades": winning_trades,
@@ -276,6 +289,7 @@ def _compute_performance_stats(trades: List[Dict[str, Any]], initial_capital: fl
         "max_drawdown_pct": round(max_drawdown_pct, 2),
         "best_day": round(best_day, 2),
         "worst_day": round(worst_day, 2),
+        "sharpe": sharpe,
     }
 
 
