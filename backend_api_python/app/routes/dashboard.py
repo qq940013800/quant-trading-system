@@ -42,6 +42,38 @@ def _safe_float(v: Any, default: float = 0.0) -> float:
         return default
 
 
+def _build_quick_trade_row(row: Dict[str, Any]) -> Dict[str, Any]:
+    """Map a ``qd_quick_trades`` fill to the recent-trades shape the dashboard renders.
+
+    Quick fills carry no matched/realised P&L (``profit``/``net_pnl`` stay None);
+    the performance stats filter on ``profit IS NOT NULL``, so these rows show in
+    the trade list but never enter win-rate / profit-factor / realised-PnL.
+    """
+    filled = _safe_float(row.get("filled_amount"), 0.0) or _safe_float(row.get("amount"), 0.0)
+    avg = _safe_float(row.get("avg_fill_price"), 0.0) or _safe_float(row.get("price"), 0.0)
+    side = str(row.get("side") or "")
+    return {
+        "id": row.get("id"),
+        "symbol": row.get("symbol") or "",
+        "type": side,
+        "side": side,
+        "amount": filled,
+        "price": avg,
+        "strategy_name": "快捷交易",
+        "market_type": row.get("market_type") or "spot",
+        "exchange_id": row.get("exchange_id") or "",
+        "exchange_order_id": row.get("exchange_order_id") or "",
+        "filled_amount": filled,
+        "avg_fill_price": avg,
+        "commission": _safe_float(row.get("commission"), 0.0),
+        "commission_quote": row.get("commission_quote"),
+        "source": row.get("source") or "manual",
+        "profit": None,
+        "net_pnl": None,
+        "created_at": row.get("created_at"),
+    }
+
+
 def _net_trade_pnl(t: Dict[str, Any]) -> float:
     """Realised P&L after open + close commissions (USDT-margined pairs)."""
     from app.utils.trade_net_pnl import net_pnl_for_equity_step
@@ -489,7 +521,41 @@ def summary():
                 (user_id, user_id)
             )
             recent_trades_raw = cur.fetchall() or []
+
+            # 快捷成交（手动/一键）并入交易列表展示；无配对盈亏(profit=None)，
+            # 绩效统计按 profit IS NOT NULL 过滤自动排除，不污染胜率/PF/权益。
+            cur.execute(
+                """
+                SELECT id, exchange_id, symbol, side, order_type, amount, price,
+                       leverage, market_type, status, exchange_order_id,
+                       filled_amount, avg_fill_price, commission, commission_ccy,
+                       commission_quote, source, created_at
+                FROM qd_quick_trades
+                WHERE user_id = ? AND status = 'filled' AND COALESCE(filled_amount, 0) > 0
+                ORDER BY created_at DESC
+                LIMIT 500
+                """,
+                (user_id,),
+            )
+            quick_rows_raw = cur.fetchall() or []
             cur.close()
+
+        quick_rows: List[Dict[str, Any]] = [
+            _build_quick_trade_row(dict(q)) for q in quick_rows_raw
+        ]
+
+        def _trade_ts(rt: Dict[str, Any]) -> float:
+            ca = rt.get("created_at")
+            if hasattr(ca, "timestamp"):
+                return float(ca.timestamp())
+            try:
+                return float(ca)
+            except (TypeError, ValueError):
+                return 0.0
+
+        recent_trades_raw = sorted(
+            list(recent_trades_raw) + quick_rows, key=_trade_ts, reverse=True
+        )[:500]
         
         # Convert datetime to timestamp for frontend compatibility
         from datetime import timezone as _tz
