@@ -625,6 +625,30 @@
         });
         debugLog(`找到 ${document.querySelectorAll('.nav-item').length} 个导航项`, 'success');
 
+        // ========== AI验证层 子标签切换 ==========
+        function switchValidationTab(group) {
+            const page = document.getElementById('page-validation');
+            if (!page) return;
+            page.querySelectorAll('.vtab').forEach(t => {
+                t.classList.toggle('active', t.dataset.vtab === group);
+            });
+            page.querySelectorAll('[data-vpanel]').forEach(p => {
+                p.classList.toggle('vpanel-hidden', p.dataset.vpanel !== group);
+            });
+        }
+
+        function initValidationTabs() {
+            const page = document.getElementById('page-validation');
+            if (!page) return;
+            page.querySelectorAll('.vtab').forEach(t => {
+                t.addEventListener('click', () => switchValidationTab(t.dataset.vtab));
+            });
+            const active = page.querySelector('.vtab.active');
+            switchValidationTab(active ? active.dataset.vtab : 'monitor');
+        }
+
+        initValidationTabs();
+
         // ========== 时间周期切换 ==========
         document.querySelectorAll('.timeframe-tab').forEach(tab => {
             tab.addEventListener('click', () => {
@@ -1420,6 +1444,7 @@
                 const statusData = await statusRes.json();
                 if (statusData.code === 1 && statusData.data) {
                     renderValidationModules(statusData.data.modules);
+                    renderDriftMonitor(statusData.data.modules);
                     debugLog(`验证模块状态加载成功: ${statusData.data.total}个模块`, 'success');
                 }
                 
@@ -1479,7 +1504,27 @@
                 </div>
             `).join('');
         }
-        
+
+        function renderDriftMonitor(modules) {
+            const dataEl = document.getElementById('drift-data');
+            const conceptEl = document.getElementById('drift-concept');
+            const statusEl = document.getElementById('drift-status');
+            if (!dataEl || !conceptEl) return;
+            const drift = (modules || []).find(m => m.id === 'drift_monitor');
+            if (!drift) return; // 后端未返回漂移模块时保留空态占位
+            const details = drift.details || '';
+            const dataMatch = details.match(/数据漂移[:：]\s*([^,，]*)/);
+            const conceptMatch = details.match(/概念漂移[:：]\s*([^,，]*)/);
+            if (dataMatch) dataEl.textContent = dataMatch[1].trim();
+            if (conceptMatch) conceptEl.textContent = conceptMatch[1].trim();
+            if (statusEl) {
+                const ok = drift.status === 'healthy' || drift.status === 'connected';
+                statusEl.textContent = ok ? '正常' : '异常';
+                statusEl.style.color = ok ? '#0ecb81' : '#f6465d';
+                statusEl.style.background = ok ? 'rgba(14, 203, 129, 0.1)' : 'rgba(246, 70, 93, 0.1)';
+            }
+        }
+
         function renderAuditLogs(logs) {
             const container = document.getElementById('audit-logs');
             if (!container || !logs) return;

@@ -386,6 +386,31 @@
             color: var(--text-primary);
         }
 
+        /* AI验证层 子标签 */
+        .vtab {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: all 0.15s;
+        }
+
+        .vtab:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .vtab.active {
+            background: rgba(139, 92, 246, 0.1);
+            color: #8b5cf6;
+            font-weight: 600;
+        }
+
+        .vpanel-hidden {
+            display: none !important;
+        }
+
         .chart-placeholder {
             flex: 1;
             position: relative;

@@ -12,7 +12,7 @@
     
     
     
-    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/main.css?v=20261108a">
 </head>
 <body>
     <!-- 登录页面 -->
@@ -712,11 +712,11 @@
                 <!-- 顶部标签栏 -->
                 <div style="display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 1px solid var(--bg-border); padding-bottom: 16px;">
                     <div style="padding: 8px 16px; background: rgba(139, 92, 246, 0.1); color: #8b5cf6; border-radius: 6px; font-size: 13px; font-weight: 600;">AI验证层</div>
-                    <div style="padding: 8px 16px; color: var(--text-secondary); border-radius: 6px; font-size: 13px; cursor: pointer;">验证监控</div>
-                    <div style="padding: 8px 16px; color: var(--text-secondary); border-radius: 6px; font-size: 13px; cursor: pointer;">过拟合防御</div>
-                    <div style="padding: 8px 16px; color: var(--text-secondary); border-radius: 6px; font-size: 13px; cursor: pointer;">偏差检测</div>
-                    <div style="padding: 8px 16px; color: var(--text-secondary); border-radius: 6px; font-size: 13px; cursor: pointer;">漂移监控</div>
-                    <div style="padding: 8px 16px; color: var(--text-secondary); border-radius: 6px; font-size: 13px; cursor: pointer;">决策审计</div>
+                    <div class="vtab active" data-vtab="monitor">验证监控</div>
+                    <div class="vtab" data-vtab="overfit">过拟合防御</div>
+                    <div class="vtab" data-vtab="bias">偏差检测</div>
+                    <div class="vtab" data-vtab="drift">漂移监控</div>
+                    <div class="vtab" data-vtab="audit">决策审计</div>
                     <div style="margin-left: auto; display: flex; align-items: center; gap: 12px;">
                         <span style="padding: 4px 10px; background: rgba(139, 92, 246, 0.1); color: #8b5cf6; border-radius: 4px; font-size: 11px;">验证层独立</span>
                         <span id="validation-time" style="color: var(--text-secondary); font-size: 12px;">--:--:--</span>
@@ -726,7 +726,7 @@
                 <!-- 主内容区：左右两栏 -->
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
                     <!-- 左侧：核心验证模块状态 -->
-                    <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px;">
+                    <div data-vpanel="monitor" style="background: var(--bg-secondary); border-radius: 12px; padding: 24px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                             <h3 style="font-size: 16px; font-weight: 600;">核心验证模块状态</h3>
                             <span style="padding: 4px 10px; background: var(--bg-active); border-radius: 4px; font-size: 11px; color: var(--text-secondary);">13个模块</span>
@@ -789,7 +789,7 @@
                     </div>
 
                     <!-- 右侧：决策审计日志 -->
-                    <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px;">
+                    <div data-vpanel="audit" style="background: var(--bg-secondary); border-radius: 12px; padding: 24px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                             <h3 style="font-size: 16px; font-weight: 600;">决策审计日志（最近）</h3>
                             <span style="padding: 4px 10px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">实时</span>
@@ -806,7 +806,7 @@
                 </div>
 
                 <!-- 底部：极端情景压力测试 -->
-                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px;">
+                <div data-vpanel="monitor" style="background: var(--bg-secondary); border-radius: 12px; padding: 24px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                         <h3 style="font-size: 16px; font-weight: 600;">极端情景压力测试</h3>
                         <span style="padding: 4px 10px; background: var(--bg-active); border-radius: 4px; font-size: 11px; color: var(--text-secondary);">5个黑天鹅情景</span>
@@ -849,7 +849,7 @@
                 </div>
                 
                 <!-- 过拟合防御详细面板 -->
-                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
+                <div data-vpanel="overfit" style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                         <h3 style="font-size: 16px; font-weight: 600;">过拟合防御三重验证</h3>
                         <span style="padding: 4px 10px; background: rgba(139, 92, 246, 0.1); color: #8b5cf6; border-radius: 4px; font-size: 11px;">Renaissance标准</span>
@@ -923,7 +923,7 @@
                 </div>
                 
                 <!-- 策略生命周期监控面板 -->
-                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
+                <div data-vpanel="monitor" style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                         <h3 style="font-size: 16px; font-weight: 600;">策略生命周期监控</h3>
                         <span style="padding: 4px 10px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">实时监控中</span>
@@ -997,7 +997,7 @@
                 </div>
 
                 <!-- TCA交易成本分析面板 -->
-                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
+                <div data-vpanel="monitor" style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                         <h3 style="font-size: 16px; font-weight: 600;">💸 TCA 交易成本分析</h3>
                         <span style="padding: 4px 10px; background: rgba(240, 185, 11, 0.1); color: #f0b90b; border-radius: 4px; font-size: 11px;">Jane Street标准</span>
@@ -1044,7 +1044,7 @@
                 </div>
 
                 <!-- 数据治理体系面板 -->
-                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
+                <div data-vpanel="monitor" style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                         <h3 style="font-size: 16px; font-weight: 600;">📊 数据治理体系</h3>
                         <span style="padding: 4px 10px; background: rgba(88, 166, 255, 0.1); color: #58a6ff; border-radius: 4px; font-size: 11px;">Two Sigma标准</span>
@@ -1100,7 +1100,7 @@
                 </div>
 
                 <!-- 风控引擎面板 -->
-                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
+                <div data-vpanel="monitor" style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                         <h3 style="font-size: 16px; font-weight: 600;">🛡️ 风控引擎（强制执行）</h3>
                         <span style="padding: 4px 10px; background: rgba(246, 70, 93, 0.1); color: #f6465d; border-radius: 4px; font-size: 11px;">Citadel标准</span>
@@ -1145,7 +1145,7 @@
                 </div>
 
                 <!-- 市场状态识别L1面板 -->
-                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
+                <div data-vpanel="monitor" style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                         <h3 style="font-size: 16px; font-weight: 600;">🌊 市场状态识别 L1 (Regime)</h3>
                         <span style="padding: 4px 10px; background: rgba(139, 92, 246, 0.1); color: #8b5cf6; border-radius: 4px; font-size: 11px;">Renaissance HMM</span>
@@ -1200,7 +1200,7 @@
                 </div>
 
                 <!-- 高可用与灾备面板 -->
-                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
+                <div data-vpanel="monitor" style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                         <h3 style="font-size: 16px; font-weight: 600;">🔄 高可用与灾备体系</h3>
                         <span style="padding: 4px 10px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">全部正常</span>
@@ -1242,7 +1242,7 @@
                 </div>
 
                 <!-- 交易日志与绩效归因面板 -->
-                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
+                <div data-vpanel="monitor" style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                         <h3 style="font-size: 16px; font-weight: 600;">📝 交易日志与绩效归因</h3>
                         <span style="padding: 4px 10px; background: rgba(139, 92, 246, 0.1); color: #8b5cf6; border-radius: 4px; font-size: 11px;">AQR标准</span>
@@ -1266,6 +1266,14 @@
                             <div style="font-size: 24px; font-weight: 700; color: #0ecb81;">+0.32R</div>
                         </div>
                     </div>
+                </div>
+
+                <!-- 偏差检测面板 -->
+                <div data-vpanel="bias" style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="font-size: 16px; font-weight: 600;">🧭 行为偏差检测</h3>
+                        <span style="padding: 4px 10px; background: rgba(240, 185, 11, 0.1); color: #f0b90b; border-radius: 4px; font-size: 11px;">交易行为复盘</span>
+                    </div>
 
                     <div style="padding: 16px; background: rgba(240, 185, 11, 0.05); border-radius: 8px; border-left: 3px solid #f0b90b;">
                         <div style="font-size: 13px; font-weight: 600; margin-bottom: 12px; color: #f0b90b;">⚠️ 行为偏差检测</div>
@@ -1277,8 +1285,31 @@
                     </div>
                 </div>
 
+                <!-- 漂移监控面板 -->
+                <div data-vpanel="drift" style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="font-size: 16px; font-weight: 600;">📉 策略漂移监控（数据漂移 / 概念漂移）</h3>
+                        <span id="drift-status" style="padding: 4px 10px; background: var(--bg-active); border-radius: 4px; font-size: 11px; color: var(--text-secondary);">待接入</span>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 20px;">
+                            <div style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">数据漂移</div>
+                            <div id="drift-data" style="font-size: 12px; color: var(--text-secondary); line-height: 1.8;">等待后端漂移指标接入</div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 20px;">
+                            <div style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">概念漂移</div>
+                            <div id="drift-concept" style="font-size: 12px; color: var(--text-secondary); line-height: 1.8;">等待后端漂移指标接入</div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 16px; padding: 12px; background: rgba(139, 92, 246, 0.05); border-radius: 6px; font-size: 12px; color: var(--text-secondary);">
+                        口径：数据漂移衡量输入特征分布偏移；概念漂移衡量特征—收益关系变化。阈值由分布校准产生，不来自绩效网格搜索。
+                    </div>
+                </div>
+
                 <!-- 安全与合规面板 -->
-                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
+                <div data-vpanel="audit" style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                         <h3 style="font-size: 16px; font-weight: 600;">🔐 安全与合规体系</h3>
                         <span style="padding: 4px 10px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">状态良好</span>
@@ -1311,7 +1342,7 @@
                 </div>
 
                 <!-- 策略拥挤度监控面板 -->
-                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
+                <div data-vpanel="monitor" style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                         <h3 style="font-size: 16px; font-weight: 600;">👥 策略拥挤度监控</h3>
                         <span style="padding: 4px 10px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">整体健康</span>
@@ -1349,7 +1380,7 @@
                 </div>
 
                 <!-- 可观测性与监控告警面板 -->
-                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
+                <div data-vpanel="monitor" style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                         <h3 style="font-size: 16px; font-weight: 600;">📡 可观测性与监控告警</h3>
                         <span style="padding: 4px 10px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">系统健康</span>
@@ -1392,7 +1423,7 @@
                 </div>
 
                 <!-- CI/CD与部署运维面板 -->
-                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
+                <div data-vpanel="monitor" style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                         <h3 style="font-size: 16px; font-weight: 600;">🚀 CI/CD 与部署运维</h3>
                         <span style="padding: 4px 10px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">v1.0.0 运行中</span>
@@ -2114,6 +2145,6 @@
         </div>
     </div>
     
-    <script src="js/app.js?v=20261107b"></script>
+    <script src="js/app.js?v=20261108a"></script>
 </body>
 </html>
