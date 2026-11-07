@@ -2335,26 +2335,34 @@
                 debugLog(`策略健康度加载失败: ${e.message}`, 'error');
             }
 
-            // 5. 综合市场分析（演示）
-            try {
-                const res = await fetch('/api/p1/market-layers/demo');
-                const data = await res.json();
-                if (data.success) {
-                    const r = data.data;
-                    const dirColor = r.overall_direction === 'bullish' ? '#0ecb81' : 
-                                     r.overall_direction === 'bearish' ? '#f6465d' : '#f0b90b';
-                    document.getElementById('market-analysis-result').innerHTML = `
-                        <div>• 综合方向: <span style="color: ${dirColor}; font-weight: 600; text-transform: uppercase;">${r.overall_direction || 'neutral'}</span></div>
-                        <div>• 置信度: <span style="font-weight: 600;">${(r.confidence * 100 || 0).toFixed(0)}%</span></div>
-                        <div>• L1 市场状态: ${r.l1_regime || '-'}</div>
-                        <div>• L3 市场趋势: ${r.l3_trend || '-'}</div>
-                        <div>• L4 价格行为: ${r.l4_price_action || '-'}</div>
-                        <div>• L5 K线形态: ${r.l5_candlestick || '-'}</div>
-                        <div style="font-size: 11px; color: var(--text-secondary); margin-top: 8px;">📍 建议入场: ${r.entry_zone || '待分析'}</div>
-                    `;
+            // 5. 综合市场分析
+            const maEl = document.getElementById('market-analysis-result');
+            const maBadge = document.getElementById('market-analysis-badge');
+            if (Auth.isLoggedIn()) {
+                // 真实模式：后端暂无基于真实行情的综合分析端点，空态收口，不拉演示端点随机噪声
+                if (maEl) maEl.innerHTML = '<div style="padding:8px;color:var(--text-tertiary);font-size:12px;">暂无真实综合市场分析，待接入</div>';
+                if (maBadge) { maBadge.textContent = '待接入'; maBadge.style.color = 'var(--text-tertiary)'; }
+            } else {
+                try {
+                    const res = await fetch('/api/p1/market-layers/demo');
+                    const data = await res.json();
+                    if (data.success) {
+                        const r = data.data;
+                        const dirColor = r.overall_direction === 'bullish' ? '#0ecb81' : 
+                                         r.overall_direction === 'bearish' ? '#f6465d' : '#f0b90b';
+                        document.getElementById('market-analysis-result').innerHTML = `
+                            <div>• 综合方向: <span style="color: ${dirColor}; font-weight: 600; text-transform: uppercase;">${r.overall_direction || 'neutral'}</span></div>
+                            <div>• 置信度: <span style="font-weight: 600;">${(r.confidence * 100 || 0).toFixed(0)}%</span></div>
+                            <div>• L1 市场状态: ${r.l1_regime || '-'}</div>
+                            <div>• L3 市场趋势: ${r.l3_trend || '-'}</div>
+                            <div>• L4 价格行为: ${r.l4_price_action || '-'}</div>
+                            <div>• L5 K线形态: ${r.l5_candlestick || '-'}</div>
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-top: 8px;">📍 建议入场: ${r.entry_zone || '待分析'}</div>
+                        `;
+                    }
+                } catch (e) {
+                    debugLog(`综合市场分析加载失败: ${e.message}`, 'error');
                 }
-            } catch (e) {
-                debugLog(`综合市场分析加载失败: ${e.message}`, 'error');
             }
 
             // 6. P1/P2 企业级模块卡片实时数据
