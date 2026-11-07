@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""core.registry —— 策略注册表模块。"""
+"""core.registry —— 策略注册表与 ML 模型版本注册中心。"""
 from .strategy_registry import (
     StrategyRegistry,
     StrategyVersion,
@@ -13,6 +13,11 @@ from .strategy_router import (
     SUPPORTED_REGIMES,
     STOP_TYPES,
 )
+from .model_registry import (
+    ModelRegistry,
+    ModelVersion,
+    ModelStage,
+)
 
 __all__ = [
     "StrategyRegistry",
@@ -24,4 +29,7 @@ __all__ = [
     "build_demo_router",
     "SUPPORTED_REGIMES",
     "STOP_TYPES",
+    "ModelRegistry",
+    "ModelVersion",
+    "ModelStage",
 ]

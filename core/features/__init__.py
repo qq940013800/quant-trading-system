@@ -14,6 +14,12 @@ from .base import (
     as_of,
     build_feature_panel,
 )
+from .registry import (
+    FeatureDefinition,
+    FeatureRegistry,
+    FeatureSet,
+    build_default_registry,
+)
 
 __all__ = [
     "AsOfContractError",
@@ -21,4 +27,8 @@ __all__ = [
     "BarLike",
     "as_of",
     "build_feature_panel",
+    "FeatureDefinition",
+    "FeatureRegistry",
+    "FeatureSet",
+    "build_default_registry",
 ]

@@ -97,6 +97,18 @@
 
 ## ✅ 已完成（最近更新，按时间倒序）
 
+### 47. 研究/ML 层阶段1骨架：特征注册表 + 模型注册中心 + 训练管线编排 ✅ 已完成
+- **完成时间**：2026-11-08
+- **内容**：
+  - `core/features/registry.py`：中心化特征元数据注册表。`FeatureSet` 仅 CLEAN/KNOWN（HELD_OUT 刻意不入枚举，注册层拒绝）；`FeatureDefinition` 冻结快照（name/version/func/upstream_fields/params/window_bars/set_owner/available_at/source/description，血缘 `name@version`，序列化不含 func）；注册机检 snake_case 命名、version 非空、func callable、upstream_fields 属 BarLike 字段子集、window_bars≥0、集合归属合法、source 必填；同源 `panel_features` 导出；`build_default_registry()` 预登记 `atr_wilder@v1` / `realized_vol@v1` / `donchian_position@v1`。
+  - `core/registry/model_registry.py`：ML 模型版本注册中心。`ModelStage` 严格状态机 CANDIDATE→STAGED→PRODUCTION→ARCHIVED/RETIRED（RETIRED 终态，非法转换拒绝）；`ModelVersion` 快照含特征血缘/标签口径/数据区间/种子/commit/超参/指标/父版本/制品占位；进入 STAGED 自动冻结，冻结后拒改 metrics（防事后调标）；`to_dict/from_dict` 往返还原阶段/冻结态/时间戳；唯一键 `model_id:version` 拒绝覆盖。
+  - `core/models/pipeline.py`：训练管线编排。同源因果面板 → triple-barrier 二分类标签 → 特征 NaN 行清洗 → purged walk-forward + embargo（禁随机切分）→ 折内 `Model` protocol 拟合 → OOS accuracy / AUC（Mann-Whitney，纯 numpy，ties 平均秩）/ 正类概率 → 可序列化 `TrainingResult`，可转 CANDIDATE `ModelVersion`。
+  - 包导出对齐 `core/features/__init__.py`、`core/registry/__init__.py`、`core/models/__init__.py`。
+- **验证**：新单测 32 passed（特征注册 14、模型注册 12、管线 6）；`import core.features / core.models / core.registry` 无环；全量 `pytest -q` 595 passed。
+- **既有失败（非本轮引入，未夹带修复）**：`tests/test_control/test_kill_switch.py::test_missing_state_with_audit_fails_closed` 1 failed；`tests/test_logging/test_audit_logger.py` 4 errors（teardown 临时目录 WinError 145 清理失败，用例本体通过）。对应源文件不在本轮改动列表，属 control/logging 既有切片，待单独处理。
+- **边界 / 未验证**：纯逻辑内存骨架，不持久化权重二进制、不连数据库、不产交易收益序列；未引入 sklearn/lightgbm 硬依赖；PBO/CPCV/DSR 仅预留指标槽位，实验账本与 trials 计数仍由实验脚本/审计负责（AGENTS.md 规则 11）。生产化 ML 依赖引入、训练脚本与权重落库、制品库与在线灰度属边界外，待拍板。
+- **提交**：待提交 Gitee。
+
 ### 43. 账户列表去演示哨兵并接入真实凭证端点 + 日志签名错位修复 ✅ 已完成
 - **完成时间**：2026-11-08
 - **内容**：侧边「我的账户」与绑定弹窗账户列表唯一事实源收口到 `GET /credentials/list`；`loadAccountsList` 改为异步拉取真实凭证回填，删除硬编码 `OKX-DEMO` 与固定 api_key_hint 演示卡片。`updateAccountsList` 真实登录态空凭证走空态「暂无已连接交易账户」，仅未登录/接口全挂（非真实）保留演示兜底；卡片按 `environment` 标注模拟盘/实盘。同时修正 14 处 `debugLog(msg, type)` 参数颠倒（级别↔消息）导致的系统日志级别筛选/计数失效；请求层、K线/WS/下单路径的裸 `console` 收口到系统日志通道，不改变控制流与返回值。

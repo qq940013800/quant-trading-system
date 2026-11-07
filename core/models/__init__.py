@@ -9,5 +9,14 @@
 from .base import Model
 from .labels import triple_barrier_labels
 from .cv import purged_walk_forward, PurgedCVError
+from .pipeline import PipelineConfig, TrainingResult, run_training
 
-__all__ = ["Model", "triple_barrier_labels", "purged_walk_forward", "PurgedCVError"]
+__all__ = [
+    "Model",
+    "triple_barrier_labels",
+    "purged_walk_forward",
+    "PurgedCVError",
+    "PipelineConfig",
+    "TrainingResult",
+    "run_training",
+]
