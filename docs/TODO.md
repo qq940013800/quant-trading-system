@@ -107,7 +107,7 @@
 - **验证**：新单测 32 passed（特征注册 14、模型注册 12、管线 6）；`import core.features / core.models / core.registry` 无环；全量 `pytest -q` 595 passed。
 - **既有失败（非本轮引入，未夹带修复）**：`tests/test_control/test_kill_switch.py::test_missing_state_with_audit_fails_closed` 1 failed；`tests/test_logging/test_audit_logger.py` 4 errors（teardown 临时目录 WinError 145 清理失败，用例本体通过）。对应源文件不在本轮改动列表，属 control/logging 既有切片，待单独处理。
 - **边界 / 未验证**：纯逻辑内存骨架，不持久化权重二进制、不连数据库、不产交易收益序列；未引入 sklearn/lightgbm 硬依赖；PBO/CPCV/DSR 仅预留指标槽位，实验账本与 trials 计数仍由实验脚本/审计负责（AGENTS.md 规则 11）。生产化 ML 依赖引入、训练脚本与权重落库、制品库与在线灰度属边界外，待拍板。
-- **提交**：待提交 Gitee。
+- **提交**：Gitee `7e482c5`。
 
 ### 43. 账户列表去演示哨兵并接入真实凭证端点 + 日志签名错位修复 ✅ 已完成
 - **完成时间**：2026-11-08
