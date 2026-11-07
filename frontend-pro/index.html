@@ -53,6 +53,7 @@
                 <div class="nav-item" data-page="risk">风险管理</div>
                 <div class="nav-item" data-page="engine">核心引擎</div>
                 <div class="nav-item" data-page="validation">AI验证层</div>
+                <div class="nav-item" data-page="review">AI复盘</div>
                 <div class="nav-item" data-page="logs">日志中心</div>
                 <div class="nav-item" data-page="wiki">内部 Wiki</div>
                 <div class="nav-item" data-page="about">系统简介</div>
@@ -1492,6 +1493,78 @@
                 </div>
             </div>
 
+            <!-- AI复盘页面 -->
+            <div class="page-view" id="page-review" style="padding: 24px; max-width: 1400px; margin: 0 auto;">
+                <div style="margin-bottom: 20px;">
+                    <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 6px;">🧠 AI 策略复盘</h3>
+                    <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.7;">
+                        基于已成交记录与决策日志做只读归因复盘：规则诊断 + 可选 AI 总结，结论与建议回灌经验库；本页面不触发下单、平仓或资金调整。
+                    </p>
+                </div>
+
+                <!-- 复盘工具栏 -->
+                <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; align-items: center;">
+                    <select id="review-strategy-select" style="padding: 8px 12px; background: var(--bg-secondary); border: 1px solid var(--bg-border); border-radius: 6px; color: var(--text-primary); font-size: 13px; min-width: 280px;">
+                        <option value="">加载策略…</option>
+                    </select>
+                    <select id="review-lookback" style="padding: 8px 12px; background: var(--bg-secondary); border: 1px solid var(--bg-border); border-radius: 6px; color: var(--text-primary); font-size: 13px;">
+                        <option value="7">近 7 天</option>
+                        <option value="30" selected>近 30 天</option>
+                        <option value="90">近 90 天</option>
+                    </select>
+                    <label style="font-size: 13px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+                        <input type="checkbox" id="review-include-ai" checked /> 含 AI 总结
+                    </label>
+                    <button id="review-generate-btn" style="padding: 8px 16px; background: #f0b90b; border: none; border-radius: 6px; color: #0b0e11; font-size: 13px; font-weight: 600; cursor: pointer;">生成复盘</button>
+                    <div style="flex: 1;"></div>
+                    <button id="review-history-refresh" style="padding: 8px 16px; background: var(--bg-secondary); border: 1px solid var(--bg-border); border-radius: 6px; color: var(--text-primary); font-size: 13px; cursor: pointer;">刷新历史</button>
+                </div>
+
+                <!-- 状态提示条 -->
+                <div id="review-status" style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; padding: 10px 14px; background: var(--bg-secondary); border-radius: 8px;">
+                    选择策略后点击「生成复盘」，报告将基于所选周期内的真实成交记录生成。
+                </div>
+
+                <!-- 策略概要 -->
+                <div id="review-strategy-meta" style="display: none; background: var(--bg-secondary); border-radius: 12px; padding: 18px; margin-bottom: 20px;"></div>
+
+                <!-- 绩效指标网格 -->
+                <div id="review-metrics" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 20px;"></div>
+
+                <!-- 诊断与建议 -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+                    <div style="background: var(--bg-secondary); border-radius: 12px; padding: 18px;">
+                        <h3 style="font-size: 15px; margin-bottom: 12px; color: #f0b90b;">🔍 规则诊断</h3>
+                        <div id="review-diagnostics" style="display: flex; flex-direction: column; gap: 10px;"></div>
+                    </div>
+                    <div style="background: var(--bg-secondary); border-radius: 12px; padding: 18px;">
+                        <h3 style="font-size: 15px; margin-bottom: 12px; color: #0ecb81;">📌 改进建议</h3>
+                        <div id="review-recommendations" style="display: flex; flex-direction: column; gap: 10px;"></div>
+                    </div>
+                </div>
+
+                <!-- AI 总结 -->
+                <div id="review-ai" style="display: none; background: var(--bg-secondary); border-radius: 12px; padding: 18px; margin-bottom: 20px;">
+                    <h3 style="font-size: 15px; margin-bottom: 12px; color: #8b5cf6;">🤖 AI 复盘总结</h3>
+                    <div id="review-ai-body"></div>
+                </div>
+
+                <!-- 计费与保存标记 -->
+                <div id="review-billing" style="display: none; font-size: 12px; color: var(--text-secondary); margin-bottom: 20px;"></div>
+
+                <!-- 历史复盘记录 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 18px;">
+                    <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                        <h3 style="font-size: 15px; color: #eaecef; margin: 0;">🕒 历史复盘记录</h3>
+                        <div style="flex: 1;"></div>
+                        <span style="font-size: 12px; color: var(--text-secondary);">仅展示当前所选策略</span>
+                    </div>
+                    <div id="review-history-list" style="display: flex; flex-direction: column; gap: 10px;">
+                        <div style="padding: 12px; color: var(--text-secondary); text-align: center; font-size: 13px;">暂无历史复盘记录</div>
+                    </div>
+                </div>
+            </div>
+
             <!-- P0核心引擎页面 -->
             <div class="page-view" id="page-engine" style="padding: 24px; max-width: 1400px; margin: 0 auto;">
                 <!-- 页面标题 -->
@@ -2213,6 +2286,32 @@
                     </div>
                 </div>
 
+                <!-- AI 复盘与经验回灌 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+                    <h3 style="font-size: 15px; margin-bottom: 12px; color: #8b5cf6;">🧠 AI 复盘与经验回灌</h3>
+                    <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.7; margin-bottom: 12px;">
+                        第一性原理：每笔交易决策都是一次实验；复盘对照「输入 → 判断 → 结果」归因，区分运气造成的盈亏与可改进的体系缺陷，把结论抽象成可复用经验回灌规则库。
+                    </p>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; font-size: 13px; line-height: 1.7;">
+                        <div>
+                            <div style="color: var(--text-secondary); margin-bottom: 6px;">复盘链路（动态报告留后端历史库，不进静态 Wiki）</div>
+                            <div>· 入口：终端「AI复盘」页，可选策略、回看周期（7/30/90 天）、是否含 AI 总结</div>
+                            <div>· 产出：绩效指标 · 规则诊断 · 改进建议 · AI 总结 · 计费与归档标记 · 历史回溯</div>
+                            <div>· 归档：后端历史报告库，支持跨周期对比策略是否衰减</div>
+                        </div>
+                        <div>
+                            <div style="color: var(--text-secondary); margin-bottom: 6px;">边界与纪律</div>
+                            <div>· 只读归因，不触发下单、平仓、改仓位或资金动作</div>
+                            <div>· 样本不足（少于 5 笔平仓）仅作方向性参考，积累 10–20 笔再调参</div>
+                            <div>· 结论可追溯到真实成交记录；单次盈亏/胜率/AI 摘要不固化进 Wiki</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 12px; font-size: 13px; color: var(--text-secondary); line-height: 1.7;">
+                        <strong style="color: #eaecef;">回灌闭环：</strong>复盘诊断经人工确认可固化 → 追加 RULES.md 踩坑表 / 技能库 references；暴露的待改进项 → 登记 TODO.md 按 P0/P1/P2 重排；方法论与新踩坑周期性同步回本 Wiki；下次上线或同类问题先检索历史复盘与 RULES，命中再行动。
+                    </div>
+                    <div style="margin-top: 10px; font-size: 12px; color: var(--text-secondary); line-height: 1.7;">机构对标：定期事后归因到信号/执行/风控/样本分层，区分市场运气与体系能力；先核对样本量、成本与数据质量，不因短期回撤直接改冻结的决策规则；复盘留痕服务生命周期监控与自动退役判断。</div>
+                </div>
+
                 <!-- 当前阻塞 / 待拍板 -->
                 <div style="background: var(--bg-secondary); border-radius: 12px; padding: 20px; margin-bottom: 24px;">
                     <h3 style="font-size: 15px; margin-bottom: 12px; color: #f6465d;">⛔ 当前阻塞 / 待拍板（触碰实盘链路，未擅改）</h3>
@@ -2367,6 +2466,6 @@
         </div>
     </div>
     
-    <script src="js/app.js?v=20261108w"></script>
+    <script src="js/app.js?v=20261108x"></script>
 </body>
 </html>

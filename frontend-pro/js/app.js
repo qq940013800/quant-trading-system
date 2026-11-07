@@ -122,6 +122,19 @@
                 return this.request('/strategies');
             },
 
+            // AI 复盘：生成策略复盘报告（只读归因，不触发交易）
+            postReviewReport(payload) {
+                return this.request('/strategies/review-report', {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+            },
+
+            // AI 复盘：历史复盘记录列表
+            getReviewHistory(strategyId, limit = 20) {
+                return this.request(`/strategies/review-report/history?id=${encodeURIComponent(strategyId)}&limit=${limit}`);
+            },
+
             getPositions() {
                 return this.request('/portfolio/positions');
             },
@@ -629,6 +642,15 @@
                     if (page === 'engine') {
                         setTimeout(() => {
                             loadEngineData();
+                        }, 100);
+                    }
+
+                    // 切换到 AI 复盘页时加载策略下拉与历史记录
+                    if (page === 'review') {
+                        setTimeout(() => {
+                            initReviewModule();
+                            loadReviewStrategies();
+                            loadReviewHistory();
                         }, 100);
                     }
                 } catch (err) {
@@ -2090,7 +2112,262 @@
             loadP2ModuleCards();
         }
 
-        // ========== P1/P2 企业级模块卡片实时轮询 ==========
+        // ========== AI 复盘模块（只读归因，不触发交易） ==========
+        let reviewStrategies = [];
+
+        function _reviewEl(id) { return document.getElementById(id); }
+
+        function _reviewNum(v, digits = 2) {
+            if (v == null || v === '' || isNaN(Number(v))) return '--';
+            return Number(v).toFixed(digits);
+        }
+
+        function _reviewPct(v, digits = 1) {
+            if (v == null || v === '' || isNaN(Number(v))) return '--';
+            return Number(v).toFixed(digits) + '%';
+        }
+
+        function _reviewTime(ts) {
+            if (ts == null || ts === '') return '--';
+            const d = new Date(typeof ts === 'number' ? ts * 1000 : ts);
+            if (isNaN(d.getTime())) return String(ts);
+            return d.toLocaleString('zh-CN', { hour12: false });
+        }
+
+        async function loadReviewStrategies() {
+            const sel = _reviewEl('review-strategy-select');
+            if (!sel) return;
+            const res = await ApiService.getStrategies();
+            let list = [];
+            if (res && Array.isArray(res.data)) list = res.data;
+            else if (res && res.data && Array.isArray(res.data.items)) list = res.data.items;
+            reviewStrategies = list;
+            if (!list.length) {
+                sel.innerHTML = '<option value="">暂无可用策略</option>';
+                return;
+            }
+            sel.innerHTML = '<option value="">请选择策略</option>' + list.map(s => {
+                const id = s.id;
+                const name = s.strategy_name || s.name || '未命名策略';
+                return `<option value="${id}">${name}</option>`;
+            }).join('');
+        }
+
+        function _reviewDiagColor(severity) {
+            const s = String(severity || '').toLowerCase();
+            if (s === 'error' || s === 'critical') return '#f6465d';
+            if (s === 'warn' || s === 'warning') return '#f0b90b';
+            return '#848e9c';
+        }
+
+        function _reviewRecColor(priority) {
+            const p = String(priority || '').toLowerCase();
+            if (p === 'high') return '#f6465d';
+            if (p === 'medium') return '#f0b90b';
+            return '#0ecb81';
+        }
+
+        function renderReviewReport(report) {
+            const meta = _reviewEl('review-strategy-meta');
+            const m = report.strategy || {};
+            meta.style.display = 'block';
+            const metaBits = [
+                m.name, m.symbol, m.timeframe, m.status, m.exchange, m.market_type
+            ].filter(Boolean);
+            meta.innerHTML = `
+                <div style="font-weight: 600; margin-bottom: 8px; color: #eaecef;">${m.name || '策略复盘'}</div>
+                <div style="font-size: 12px; color: var(--text-secondary);">${metaBits.join(' · ') || '—'}</div>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-top: 6px;">复盘周期：近 ${report.lookback_days || 30} 天 · 生成于 ${_reviewTime(report.generated_at)}</div>
+            `;
+
+            const metrics = report.metrics || {};
+            const cards = [
+                { label: '平仓盈亏笔数', value: _reviewNum(metrics.closed_trades_with_pnl, 0) },
+                { label: '胜率', value: _reviewPct(metrics.win_rate) },
+                { label: '盈亏比', value: _reviewNum(metrics.profit_factor) },
+                { label: '期望值/笔', value: _reviewNum(metrics.expectancy) },
+                { label: '区间净盈亏', value: _reviewNum(metrics.window_net_pnl) },
+                { label: '区间收益', value: _reviewPct(metrics.window_return_pct) },
+                { label: '区间最大回撤', value: _reviewPct(metrics.window_max_drawdown_pct) },
+                { label: '最大连亏', value: _reviewNum(metrics.max_consecutive_losses, 0) },
+                { label: '手续费', value: _reviewNum(metrics.total_commission, 4) },
+                { label: '当前持仓', value: _reviewNum(metrics.open_position_count, 0) }
+            ];
+            _reviewEl('review-metrics').innerHTML = cards.map(c => `
+                <div style="background: var(--bg-primary); border-radius: 8px; padding: 14px;">
+                    <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 6px;">${c.label}</div>
+                    <div style="font-size: 18px; font-weight: 700;">${c.value}</div>
+                </div>
+            `).join('');
+
+            const diag = Array.isArray(report.diagnostics) ? report.diagnostics : [];
+            const diagEl = _reviewEl('review-diagnostics');
+            if (!diag.length) {
+                diagEl.innerHTML = '<div style="color: var(--text-secondary); font-size: 13px;">暂无规则诊断项</div>';
+            } else {
+                diagEl.innerHTML = diag.map(d => {
+                    const color = _reviewDiagColor(d.severity);
+                    return `
+                        <div style="background: var(--bg-primary); border-left: 3px solid ${color}; border-radius: 8px; padding: 12px;">
+                            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 4px;">
+                                <span style="font-weight: 600; font-size: 13px; color: #eaecef;">${d.title || '诊断项'}</span>
+                                <span style="font-size: 11px; color: ${color};">${d.severity || 'info'}</span>
+                            </div>
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">${d.detail || ''}</div>
+                        </div>`;
+                }).join('');
+            }
+
+            const rec = Array.isArray(report.recommendations) ? report.recommendations : [];
+            const recEl = _reviewEl('review-recommendations');
+            if (!rec.length) {
+                recEl.innerHTML = '<div style="color: var(--text-secondary); font-size: 13px;">暂无改进建议</div>';
+            } else {
+                recEl.innerHTML = rec.map(r => {
+                    const color = _reviewRecColor(r.priority);
+                    return `
+                        <div style="background: var(--bg-primary); border-left: 3px solid ${color}; border-radius: 8px; padding: 12px;">
+                            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 4px;">
+                                <span style="font-weight: 600; font-size: 13px; color: #eaecef;">${r.title || '建议'}</span>
+                                <span style="font-size: 11px; color: ${color};">${r.priority || 'low'}</span>
+                            </div>
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">${r.detail || ''}</div>
+                        </div>`;
+                }).join('');
+            }
+
+            const ai = report.ai || {};
+            const aiBox = _reviewEl('review-ai');
+            const aiBody = _reviewEl('review-ai-body');
+            const aiHas = ai.status === 'ok' && (ai.summary || (ai.diagnosis || []).length || (ai.recommendations || []).length || (ai.cautions || []).length);
+            if (aiHas) {
+                aiBox.style.display = 'block';
+                const listBlock = (title, arr, color) => {
+                    if (!Array.isArray(arr) || !arr.length) return '';
+                    return `<div style="margin-top: 10px;"><div style="font-size: 12px; color: ${color}; margin-bottom: 6px;">${title}</div>` +
+                        arr.map(x => `<div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 4px;">· ${x}</div>`).join('') + '</div>';
+                };
+                aiBody.innerHTML = `
+                    <div style="font-size: 13px; color: var(--text-primary); line-height: 1.7;">${ai.summary || ''}</div>
+                    ${listBlock('诊断要点', ai.diagnosis, '#f0b90b')}
+                    ${listBlock('AI 建议', ai.recommendations, '#0ecb81')}
+                    ${listBlock('风险提示', ai.cautions, '#f6465d')}
+                `;
+            } else {
+                aiBox.style.display = 'none';
+                aiBody.innerHTML = '';
+            }
+
+            const b = report.billing;
+            const bEl = _reviewEl('review-billing');
+            if (b) {
+                bEl.style.display = 'block';
+                const saved = report.history_saved ? '已归档到历史复盘' : '未归档';
+                bEl.innerHTML = `计费：${b.enabled ? `本次扣除 ${b.charged || 0} 积分（剩余 ${_reviewNum(b.remaining, 0)}）` : '规则复盘免费'} · ${saved}${report.history_id ? ` · 记录 #${report.history_id}` : ''}`;
+            } else {
+                bEl.style.display = 'none';
+            }
+        }
+
+        async function generateReviewReport() {
+            const sel = _reviewEl('review-strategy-select');
+            const status = _reviewEl('review-status');
+            const btn = _reviewEl('review-generate-btn');
+            const sid = sel ? sel.value : '';
+            if (!sid) {
+                status.textContent = '请先选择策略。';
+                return;
+            }
+            const lookback = parseInt(_reviewEl('review-lookback').value, 10) || 30;
+            const includeAi = _reviewEl('review-include-ai').checked;
+            status.textContent = '正在生成复盘报告…';
+            status.style.color = 'var(--text-secondary)';
+            if (btn) btn.disabled = true;
+            try {
+                const res = await ApiService.postReviewReport({
+                    id: Number(sid),
+                    lookback_days: lookback,
+                    include_ai: includeAi,
+                    language: 'zh-CN'
+                });
+                if (res._unauthorized) {
+                    status.textContent = '未登录或登录已过期，请重新进入页面。';
+                    return;
+                }
+                if (res.code === 1 && res.data) {
+                    renderReviewReport(res.data);
+                    const aiStatus = (res.data.ai || {}).status || 'skipped';
+                    status.textContent = `复盘已生成（近 ${lookback} 天，AI 状态：${aiStatus}）。`;
+                    loadReviewHistory();
+                } else {
+                    const data = res.data || {};
+                    if (data.error_type === 'INSUFFICIENT_CREDITS') {
+                        status.textContent = '积分不足，无法调用 AI 总结；可取消「含 AI 总结」后使用规则复盘。';
+                    } else {
+                        status.textContent = '复盘生成失败：' + (res.msg || '未知错误');
+                    }
+                }
+            } catch (e) {
+                status.textContent = '复盘生成异常：' + (e.message || e);
+                debugLog('复盘生成异常: ' + (e.message || e), 'error');
+            } finally {
+                if (btn) btn.disabled = false;
+            }
+        }
+
+        async function loadReviewHistory() {
+            const sel = _reviewEl('review-strategy-select');
+            const listEl = _reviewEl('review-history-list');
+            if (!listEl) return;
+            const sid = sel ? sel.value : '';
+            if (!sid) {
+                listEl.innerHTML = '<div style="padding: 12px; color: var(--text-secondary); text-align: center; font-size: 13px;">选择策略后查看历史复盘记录</div>';
+                return;
+            }
+            const res = await ApiService.getReviewHistory(sid, 20);
+            let hist = [];
+            if (res && res.code === 1) {
+                hist = Array.isArray(res.data) ? res.data : (res.data && res.data.items) || [];
+            }
+            if (!hist.length) {
+                listEl.innerHTML = '<div style="padding: 12px; color: var(--text-secondary); text-align: center; font-size: 13px;">暂无历史复盘记录</div>';
+                return;
+            }
+            listEl.innerHTML = hist.map(h => `
+                <div style="background: var(--bg-primary); border-radius: 8px; padding: 12px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; font-size: 12px;">
+                    <span style="color: var(--text-secondary);">#${h.id}</span>
+                    <span style="color: var(--text-primary);">近 ${h.lookback_days || 30} 天</span>
+                    <span>净盈亏 ${_reviewNum(h.total_net_pnl)}</span>
+                    <span>收益 ${_reviewPct(h.total_return_pct)}</span>
+                    <span>胜率 ${_reviewPct(h.win_rate)}</span>
+                    <span>回撤 ${_reviewPct(h.max_drawdown_pct)}</span>
+                    <span style="color: var(--text-secondary);">AI：${h.ai_status || 'skipped'}</span>
+                    <span style="flex: 1;"></span>
+                    <span style="color: var(--text-secondary);">${_reviewTime(h.created_at)}</span>
+                </div>
+                ${h.summary ? `<div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6; padding: 0 12px 10px 12px;">${h.summary}</div>` : ''}
+            `).join('');
+        }
+
+        function initReviewModule() {
+            const genBtn = _reviewEl('review-generate-btn');
+            if (genBtn && !genBtn.dataset.bound) {
+                genBtn.dataset.bound = '1';
+                genBtn.addEventListener('click', generateReviewReport);
+            }
+            const histBtn = _reviewEl('review-history-refresh');
+            if (histBtn && !histBtn.dataset.bound) {
+                histBtn.dataset.bound = '1';
+                histBtn.addEventListener('click', loadReviewHistory);
+            }
+            const sel = _reviewEl('review-strategy-select');
+            if (sel && !sel.dataset.bound) {
+                sel.dataset.bound = '1';
+                sel.addEventListener('change', loadReviewHistory);
+            }
+        }
+
+
         const P2_LAMP = {
             green: '#0ecb81',
             yellow: '#f0b90b',
