@@ -1487,6 +1487,17 @@
                     }
                 }
 
+                // 过拟合三重验证（PBO / CPCV / DSR）；缺样本时后端返回 null，前端渲染 --
+                const overfitRes = await fetch('/api/p1/overfitting/status', {
+                    headers: { 'Authorization': 'Bearer ' + Auth.getToken() }
+                });
+                if (overfitRes.ok) {
+                    const overfitData = await overfitRes.json();
+                    if (overfitData.success && overfitData.data) {
+                        renderOverfittingSummary(overfitData.data);
+                    }
+                }
+
                 // 更新时间
                 const now = new Date();
                 document.getElementById('validation-time').textContent = now.toLocaleTimeString();
@@ -1497,6 +1508,22 @@
             }
         }
         
+        function renderOverfittingSummary(data) {
+            const pboEl = document.getElementById('pbo-value');
+            const cpcvEl = document.getElementById('cpcv-value');
+            const dsrEl = document.getElementById('dsr-value');
+            if (!pboEl || !cpcvEl || !dsrEl) return;
+
+            const pbo = data.pbo && data.pbo.pbo;
+            pboEl.textContent = pbo == null ? '--' : Number(pbo).toFixed(3);
+
+            const stable = data.cpcv && data.cpcv.is_stable;
+            cpcvEl.textContent = stable == null ? '--' : (stable ? '通过' : '不稳定');
+
+            const dsr = data.dsr && data.dsr.deflated_sharpe;
+            dsrEl.textContent = dsr == null ? '--' : Number(dsr).toFixed(3);
+        }
+
         function renderValidationModules(modules) {
             const container = document.getElementById('validation-modules');
             if (!container || !modules) return;
