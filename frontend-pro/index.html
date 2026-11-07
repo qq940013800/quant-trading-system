@@ -2100,6 +2100,69 @@
                     </div>
                 </div>
 
+                <!-- 可复制成功经验（本系统已跑通、可复用的流程） -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+                    <h3 style="font-size: 15px; margin-bottom: 12px; color: #0ecb81;">🏆 可复制成功经验（已落地验证，可复用流程）</h3>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; font-size: 13px; line-height: 1.7;">
+                        <div>
+                            <div style="color: var(--text-secondary); margin-bottom: 6px;">1. 真实契约先行</div>
+                            先定 <code>data_kind</code>/<code>data_status</code> 契约与空态 <code>--</code> 口径，再接后端回填；缺标记按非真实处理，不默认渲染演示值。
+                        </div>
+                        <div>
+                            <div style="color: var(--text-secondary); margin-bottom: 6px;">2. 显式 id 回填</div>
+                            DOM 目标用显式 <code>id</code> + <code>textContent</code>，不靠 <code>style</code> 文本匹配；WS 先核对流类型与字段名（partial depth <code>bids/asks</code>，增量 diff <code>b/a</code>）。
+                        </div>
+                        <div>
+                            <div style="color: var(--text-secondary); margin-bottom: 6px;">3. 只读优先、最小手数验证</div>
+                            新链路先只读健康检查与 demo 成交闭环，再谈加仓；凭证走标准凭证库，不并行存第二份；实盘全链路等真实 Key 后最小手数起步。
+                        </div>
+                        <div>
+                            <div style="color: var(--text-secondary); margin-bottom: 6px;">4. 单一事实源</div>
+                            规则/待办落 <code>docs/RULES.md</code>、<code>docs/TODO.md</code>，前端只读镜像，不在页面另写一套口径；改动随版本同步。
+                        </div>
+                        <div>
+                            <div style="color: var(--text-secondary); margin-bottom: 6px;">5. 新旧面板分层收口</div>
+                            新旧面板并存时真实数据源只接新卡片，旧面板真实模式清空为 <code>--</code>；静态样例仅作未登录或接口全挂兜底。
+                        </div>
+                        <div>
+                            <div style="color: var(--text-secondary); margin-bottom: 6px;">6. 闭环复验再交付</div>
+                            改完 <code>node --check</code>，浏览器登录态逐页切换，读宽度/文本/控制台 0 报错；不只凭 DOM 文本存在就判定上屏通过。
+                        </div>
+                        <div>
+                            <div style="color: var(--text-secondary); margin-bottom: 6px;">7. 容器部署纪律</div>
+                            容器代码非 volume 挂载，本地改完须 <code>docker cp</code> + 重启；镜像必须 COPY 自研路由，不依赖官方镜像自带路由。
+                        </div>
+                        <div>
+                            <div style="color: var(--text-secondary); margin-bottom: 6px;">8. 故障沉淀闭环</div>
+                            每个故障按 现象 → 根因 → 修复 → 预防措施 → 规则落盘 记录，避免重复踩同一类坑。
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 全球机构最佳实践对标（演进方向，非照搬数值） -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+                    <h3 style="font-size: 15px; margin-bottom: 12px; color: #f0b90b;">🌐 全球机构最佳实践对标（方向参考，阈值仍须来自分布校准）</h3>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                        <thead>
+                            <tr style="color: var(--text-secondary); text-align: left;">
+                                <th style="padding: 8px 10px; border-bottom: 1px solid var(--border-color);">机构</th>
+                                <th style="padding: 8px 10px; border-bottom: 1px solid var(--border-color);">核心做法</th>
+                                <th style="padding: 8px 10px; border-bottom: 1px solid var(--border-color);">现状 / 差距</th>
+                                <th style="padding: 8px 10px; border-bottom: 1px solid var(--border-color);">演进方向</th>
+                            </tr>
+                        </thead>
+                        <tbody style="color: var(--text-secondary);">
+                            <tr><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">Renaissance</td><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">海量弱信号叠加，不追求圣杯</td><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">因子数量偏少</td><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">扩展 20+ 弱信号因子，叠加成统计显著的 Alpha</td></tr>
+                            <tr><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">Two Sigma</td><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">另类数据 + ML 驱动</td><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">当前主要用价格数据</td><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">接入成交量/持仓量/舆情等另类数据，ML 只作工具不作信仰</td></tr>
+                            <tr><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">Citadel</td><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">风控前置、事中拦截</td><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">风控偏事后检查</td><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">订单发出前过风控 gate 拦截（#107 待拍板，未擅改）</td></tr>
+                            <tr><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">DE Shaw</td><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">多策略平台，方法论优先</td><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">单策略为主</td><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">按风险因子分散策略组合，而非堆持仓数量</td></tr>
+                            <tr><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">Millennium</td><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">追求稳定正收益，不追高 Sharpe</td><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">避免为高 Sharpe 而过拟合</td><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">绩效以稳定正期望为准，不把回测高 Sharpe 当上线依据</td></tr>
+                            <tr><td style="padding: 10px;">Jane Street</td><td style="padding: 10px;">信息密度优先、工具化极简</td><td style="padding: 10px;">界面持续收口中</td><td style="padding: 10px;">等宽字体数字对齐，关键指标一眼可见，危险操作二次确认</td></tr>
+                        </tbody>
+                    </table>
+                    <div style="margin-top: 12px; font-size: 12px; color: var(--text-secondary); line-height: 1.7;">注：对标是演进方向，不是照搬机构数值；任何阈值/参数必须由 CLEAN 集分布校准，决策规则实验前冻结。</div>
+                </div>
+
                 <!-- 核心原则速查 -->
                 <div style="background: var(--bg-secondary); border-radius: 12px; padding: 20px; margin-bottom: 24px;">
                     <h3 style="font-size: 15px; margin-bottom: 12px; color: #0ecb81;">💡 核心原则速查</h3>

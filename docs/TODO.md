@@ -271,6 +271,7 @@
 - ✅ **#133 压力测试内置演示情景与 72 分收口**：`/validation/stress-test` 后端为硬编码 5 情景 + 72 分 + 写死 summary，非真实持仓/权益冲击测算。前端 HTML 五卡 name/dd/desc 与综合评分/summary 改空态 `--`；`renderStressTest` 增加真实契约判定：仅 `data_kind==='real'` 才渲染，缺标记/内置演示/无情景一律 `_clearStressTest()`。浏览器复验评分 `--/100`、summary 空、五卡 `--`、控制台 0 报错。后端真实冲击引擎见 P1-11。
 - ✅ **#134 前端新增内部 Wiki 只读知识库页**：导航新增"内部 Wiki"，纯静态只读镜像，分区含系统宪法三卡、过拟合/风控/数据质量/工程可靠性四宫格、真实数据口径收口、核心原则速查 8 条、当前阻塞/待拍板、踩坑经验表 5 行；规则与待办单一事实源仍在 `docs/RULES.md`、`docs/TODO.md`，页面不另写一套口径，本轮未做后端动态读取。
 - ✅ **#134 附带修复存量 HTML 嵌套未闭合缺陷**：`#page-validation` 内"策略拥挤度监控"面板与 validation 容器两处 `div` 未闭合，浏览器容错把 `logs/engine/about/wiki` 吞入其 `display:none` 子树，级联塌缩为 0×0 宽度；补两处闭合标签后 9 个页面全部回到 `MAIN.main-content` 平级。浏览器逐页复验宽度 967、内容按高度展开、控制台 0 报错；`index.html` div 开合配平 diff=0，`node --check app.js` exit 0。
+- ✅ **#135 Wiki 补充可复制成功经验与机构最佳实践对标**：`#page-wiki` 新增"🏆 可复制成功经验"8 条（真实契约先行/显式 id 回填/只读最小手数/单一事实源/新旧分层收口/闭环复验/容器部署纪律/故障沉淀闭环）与"🌐 全球机构最佳实践对标"表 6 行（Renaissance/Two Sigma/Citadel/DE Shaw/Millennium/Jane Street，列核心做法、现状差距、演进方向）；对标为方向参考，阈值仍须分布校准，不照搬机构数值。素材对齐 `docs/WIKI.md` 机构对标表；浏览器复验 11 分区标题、对标表 6 行、宽度 967、控制台 0 报错。
 
 
 ### 🔴 P1（核心口径，决定看板能否反映真实绩效）
