@@ -148,6 +148,11 @@
             // 回测历史记录（只读，用于回测结果卡真实回显）
             getBacktestHistory(limit = 20) {
                 return this.request(`/backtest/history?limit=${limit}`);
+            },
+
+            // 单条回测完整结果（只读，取权益/回撤曲线）
+            getBacktestRun(runId) {
+                return this.request(`/backtest/get?runId=${runId}`);
             }
         };
 
@@ -497,6 +502,16 @@
         // ========== 权益曲线 ==========
         let equityChart = null;
         let drawdownChart = null;
+        let equitySeries = null;
+        let drawdownSeries = null;
+
+        // 读取容器当前尺寸；容器隐藏/未就绪时回退兜底尺寸，避免图表落成默认 300×150
+        function _chartSize(container, fallbackW, fallbackH) {
+            return {
+                width: (container && container.clientWidth) || fallbackW,
+                height: (container && container.clientHeight) || fallbackH
+            };
+        }
 
         function initVolumeChart() {
             const container = document.getElementById('volume-chart');
@@ -533,42 +548,35 @@
             volumeSeries.setData(data);
         }
 
-        function initEquityChart() {
+        function initEquityChart(points) {
             const container = document.getElementById('equity-chart');
             if (!container) return;
-            
-            equityChart = LightweightCharts.createChart(container, {
-                layout: {
-                    background: { color: '#12161c' },
-                    textColor: '#848e9c',
-                },
-                grid: {
-                    vertLines: { color: '#1e2329' },
-                    horzLines: { color: '#1e2329' },
-                },
-                width: container.clientWidth,
-                height: container.clientHeight,
-            });
 
-            const lineSeries = equityChart.addAreaSeries({
-                lineColor: '#f0b90b',
-                topColor: 'rgba(240, 185, 11, 0.3)',
-                bottomColor: 'rgba(240, 185, 11, 0.0)',
-                lineWidth: 2,
-            });
+            if (!equityChart) {
+                const size = _chartSize(container, 919, 400);
+                equityChart = LightweightCharts.createChart(container, {
+                    layout: {
+                        background: { color: '#12161c' },
+                        textColor: '#848e9c',
+                    },
+                    grid: {
+                        vertLines: { color: '#1e2329' },
+                        horzLines: { color: '#1e2329' },
+                    },
+                    width: size.width,
+                    height: size.height,
+                });
 
-            // 生成模拟权益曲线
-            const data = [];
-            let equity = 10000;
-            const now = Math.floor(Date.now() / 1000);
-            
-            for (let i = 100; i >= 0; i--) {
-                const time = now - i * 86400;
-                equity += (Math.random() - 0.45) * 200;
-                data.push({ time, value: equity });
+                equitySeries = equityChart.addAreaSeries({
+                    lineColor: '#f0b90b',
+                    topColor: 'rgba(240, 185, 11, 0.3)',
+                    bottomColor: 'rgba(240, 185, 11, 0.0)',
+                    lineWidth: 2,
+                });
             }
 
-            lineSeries.setData(data);
+            equityChart.applyOptions(_chartSize(container, 919, 400));
+            equitySeries.setData(Array.isArray(points) ? points : []);
         }
 
         // ========== 页面切换 ==========
@@ -838,6 +846,48 @@
             if (sharpeEl) sharpeEl.textContent = '--';
             if (ddEl) ddEl.textContent = '--';
             if (winEl) winEl.textContent = '--';
+            if (equitySeries) equitySeries.setData([]);
+            if (drawdownSeries) drawdownSeries.setData([]);
+        }
+
+        // 将后端 equityCurve 序列映射为 lightweight-charts 点（time=unix 秒，按时间升序去重）
+        function _btCurvePoints(equityCurve, valueKey) {
+            if (!Array.isArray(equityCurve)) return [];
+            const seen = new Set();
+            const pts = [];
+            for (const p of equityCurve) {
+                if (!p || p.time == null) continue;
+                const t = Math.floor(Date.parse(p.time) / 1000);
+                if (!Number.isFinite(t)) continue;
+                const v = Number(p[valueKey]);
+                if (!Number.isFinite(v)) continue;
+                if (seen.has(t)) continue;
+                seen.add(t);
+                pts.push({ time: t, value: v });
+            }
+            pts.sort((a, b) => a.time - b.time);
+            return pts;
+        }
+
+        // 拉取单条回测完整结果，渲染权益/回撤曲线；失败或无序列则清空空态
+        async function _loadBacktestCurve(runId) {
+            if (!runId) {
+                initEquityChart([]);
+                initDrawdownChart([]);
+                return;
+            }
+            try {
+                const res = await ApiService.getBacktestRun(runId);
+                const result = (res && res.code === 1 && res.data && res.data.result) ? res.data.result : null;
+                const equityPts = result ? _btCurvePoints(result.equityCurve, 'value') : [];
+                const ddPts = result ? _btCurvePoints(result.equityCurve, 'drawdown') : [];
+                initEquityChart(equityPts);
+                initDrawdownChart(ddPts);
+            } catch (e) {
+                debugLog('回测曲线加载失败: ' + e.message, 'warn');
+                initEquityChart([]);
+                initDrawdownChart([]);
+            }
         }
 
         async function loadBacktestResults() {
@@ -870,6 +920,7 @@
                 }
                 if (winEl) winEl.textContent = row.win_rate == null ? '--' : Number(row.win_rate).toFixed(1) + '%';
                 if (resultsPanel) resultsPanel.classList.add('active');
+                _loadBacktestCurve(row.id);
             } catch (e) {
                 debugLog('回测历史加载失败: ' + e.message, 'error');
                 _btBlankResults();
@@ -889,43 +940,35 @@
             if (btnText) btnText.textContent = '刷新结果';
         }
 
-        function initDrawdownChart() {
+        function initDrawdownChart(points) {
             const container = document.getElementById('drawdown-chart');
             if (!container) return;
-            
-            drawdownChart = LightweightCharts.createChart(container, {
-                layout: {
-                    background: { color: 'transparent' },
-                    textColor: '#848e9c',
-                },
-                grid: {
-                    vertLines: { color: '#1e2329' },
-                    horzLines: { color: '#1e2329' },
-                },
-                width: container.clientWidth,
-                height: container.clientHeight,
-            });
 
-            const areaSeries = drawdownChart.addAreaSeries({
-                lineColor: '#f6465d',
-                topColor: 'rgba(246, 70, 93, 0.3)',
-                bottomColor: 'rgba(246, 70, 93, 0.0)',
-                lineWidth: 2,
-            });
+            if (!drawdownChart) {
+                const size = _chartSize(container, 919, 160);
+                drawdownChart = LightweightCharts.createChart(container, {
+                    layout: {
+                        background: { color: 'transparent' },
+                        textColor: '#848e9c',
+                    },
+                    grid: {
+                        vertLines: { color: '#1e2329' },
+                        horzLines: { color: '#1e2329' },
+                    },
+                    width: size.width,
+                    height: size.height,
+                });
 
-            // 生成模拟回撤数据
-            const data = [];
-            let drawdown = 0;
-            const now = Math.floor(Date.now() / 1000);
-            
-            for (let i = 100; i >= 0; i--) {
-                const time = now - i * 86400;
-                drawdown += (Math.random() - 0.48) * 0.5;
-                drawdown = Math.min(0, drawdown);
-                data.push({ time, value: drawdown });
+                drawdownSeries = drawdownChart.addAreaSeries({
+                    lineColor: '#f6465d',
+                    topColor: 'rgba(246, 70, 93, 0.3)',
+                    bottomColor: 'rgba(246, 70, 93, 0.0)',
+                    lineWidth: 2,
+                });
             }
 
-            areaSeries.setData(data);
+            drawdownChart.applyOptions(_chartSize(container, 919, 160));
+            drawdownSeries.setData(Array.isArray(points) ? points : []);
         }
 
         // ========== 日志中心 ==========
@@ -1198,13 +1241,19 @@
             const runningEl = document.getElementById('running-strategies');
             const gridEl = document.getElementById('strategies-grid');
 
-            // 不是真实数据时，使用演示数据
-            if (!isReal || !strategies || strategies.length === 0) {
+            // 不是真实数据（未登录/接口挂）时使用演示兜底；真实模式空策略渲染空态，不编造示例
+            const isEmpty = !strategies || strategies.length === 0;
+            if (!isReal && isEmpty) {
                 strategies = [
                     { id: 1, name: 'ML增强趋势策略', status: 'running', today_pnl: 45.67, win_rate: 65, sharpe: 1.85, max_drawdown: 3.2, total_trades: 45 },
                     { id: 2, name: '均值回归策略', status: 'running', today_pnl: -12.34, win_rate: 58, sharpe: 1.42, max_drawdown: 4.8, total_trades: 128 },
                     { id: 3, name: '突破策略', status: 'stopped', today_pnl: 0, win_rate: 0, sharpe: 0, max_drawdown: 0, total_trades: 0 }
                 ];
+            } else if (isReal && isEmpty) {
+                const emptyHtml = '<div style="padding: 8px; color: var(--text-tertiary); font-size: 12px;">暂无策略</div>';
+                if (runningEl) runningEl.innerHTML = emptyHtml;
+                if (gridEl) gridEl.innerHTML = emptyHtml;
+                return;
             }
 
             // 智能字段映射：兼容后端不同字段名
@@ -1344,10 +1393,11 @@
             }
             if (equityChart) {
                 const container = document.getElementById('equity-chart');
-                equityChart.applyOptions({
-                    width: container.clientWidth,
-                    height: container.clientHeight
-                });
+                equityChart.applyOptions(_chartSize(container, 919, 400));
+            }
+            if (drawdownChart) {
+                const container = document.getElementById('drawdown-chart');
+                drawdownChart.applyOptions(_chartSize(container, 919, 160));
             }
         });
 
