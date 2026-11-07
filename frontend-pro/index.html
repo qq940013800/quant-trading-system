@@ -2149,6 +2149,77 @@
                     </div>
                 </div>
 
+                <!-- 现状优势与局限 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 32px; margin-bottom: 24px;">
+                    <h2 style="font-size: 20px; margin-bottom: 16px; color: #0ecb81;">📋 现状优势与局限（代码快照自评）</h2>
+                    <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.8; margin-bottom: 20px;">
+                        以下基于当前代码库只读盘点，区分已落地与待补缺口；不含绩效数字，阈值由历史分布校准，不照搬机构数值。
+                    </p>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 20px; border-left: 3px solid #0ecb81;">
+                            <div style="font-weight: 600; margin-bottom: 12px; color: #0ecb81;">✅ 已具备的优势</div>
+                            <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; font-size: 13px; color: var(--text-secondary); line-height: 1.7;">
+                                <li>· 闭环骨架完整：采集 → 因子/回测 → 组合仓位 → 风控 → 执行 → 复盘审计；计算在后端，前端只展示与确认。</li>
+                                <li>· 过拟合防御落地：PBO / CPCV / Deflated Sharpe 三重验证本地实现；决策规则实验前冻结，trials 计数含失败试验。</li>
+                                <li>· 数据源可插拔：工厂按市场路由，统一缓存、熔断器与限流器；凭证加密入库、单一凭证库。</li>
+                                <li>· 决策可审计：决策/交易/系统三类日志落库只读回显，复盘结论回灌知识沉淀。</li>
+                                <li>· 工程纪律：REST 统一 code+msg+data、认证前置、真实/演示空态隔离契约、Wiki 单一事实源。</li>
+                            </ul>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 20px; border-left: 3px solid #f6465d;">
+                            <div style="font-weight: 600; margin-bottom: 12px; color: #f6465d;">⚠️ 待补的局限</div>
+                            <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; font-size: 13px; color: var(--text-secondary); line-height: 1.7;">
+                                <li>· ML 生产闭环未成型：缺离线训练 → 模型注册 → 版本管理 → 漂移监控；现有 AI 以规则/统计评分与外部 LLM 意图路由为主，无训练型预测模型权重。</li>
+                                <li>· 研究-生产一致性待加固：缺中心化特征仓库，回测/实盘特征同源机制待落地；历史 K 线尚未入库。</li>
+                                <li>· 执行层偏直连：未见独立 OMS/EMS 与 TWAP/VWAP 拆单；TCA 以成本汇总为主，成交质量归因薄弱。</li>
+                                <li>· 风控网关复用待闭合：多下单入口是否强制走同一风控 gate 尚未全链路核实（阻塞待拍板）。</li>
+                                <li>· 韧性与实验基建待补：多副本/备份恢复/灾备、灰度 AB、模型漂移告警未落地；前端无自动化 JS 单测。</li>
+                                <li>· 实盘未验证：当前仅 OKX 模拟盘只读与两笔模拟成交闭环；实盘全链路待真实 Key 最小手数验证。</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 分阶段演进待办 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 32px; margin-bottom: 24px;">
+                    <h2 style="font-size: 20px; margin-bottom: 16px; color: #f0b90b;">🔭 分阶段演进待办</h2>
+                    <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.8; margin-bottom: 20px;">
+                        分阶段推进，先稳固底座再补研究与执行；触碰交易、风控、资金链路的改动须先方案评审、模拟盘最小手数验证并人工确认。待办单一事实源见 <code style="background: var(--bg-primary); padding: 2px 6px; border-radius: 4px; color: #f0b90b;">docs/TODO.md</code>。
+                    </p>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 20px; border-top: 3px solid #0ecb81;">
+                            <div style="font-weight: 600; margin-bottom: 10px; color: #0ecb81;">P0 稳固底座</div>
+                            <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--text-secondary); line-height: 1.7;">
+                                <li>· 风控调用链只读测绘，输出 gate 复用清单与风险矩阵。</li>
+                                <li>· 数据表口径与 API 契约文档化，统一错误码与空态契约。</li>
+                                <li>· 补齐可观测指标与风控拦截事件日志。</li>
+                                <li>· 历史 K 线入库与数据质量校验。</li>
+                                <li>· 延续真实/演示空态收口，清理临时兜底。</li>
+                            </ul>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 20px; border-top: 3px solid #f0b90b;">
+                            <div style="font-weight: 600; margin-bottom: 10px; color: #f0b90b;">P1 研究与 ML 骨架</div>
+                            <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--text-secondary); line-height: 1.7;">
+                                <li>· 因子有效性检验：IC/IR/单调性/相关性矩阵，过滤冗余弱信号。</li>
+                                <li>· 最小特征仓库：回测、模拟盘、实盘复用同一套特征计算。</li>
+                                <li>· 实验管理：版本注册、规则冻结、trials 计数、AB 框架。</li>
+                                <li>· 特征/信号漂移监控，越界告警并停止新开仓。</li>
+                                <li>· 策略匹配接入真实策略池，按市场状态分配权重。</li>
+                            </ul>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 20px; border-top: 3px solid #f6465d;">
+                            <div style="font-weight: 600; margin-bottom: 10px; color: #f6465d;">P2 执行 / 韧性 / 规模化</div>
+                            <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--text-secondary); line-height: 1.7;">
+                                <li>· 统一风控网关：账户/策略/订单三层硬拦截，独立于策略。</li>
+                                <li>· 统一跟踪止盈服务，让利润奔跑；止损单调只向盈利方向移动。</li>
+                                <li>· OMS/EMS 与拆单算法、TCA 成交质量归因。</li>
+                                <li>· 灰度资金与策略生命周期自动退役；另类数据入模。</li>
+                                <li>· 多副本、备份恢复、灾备与 CI/CD 固化。</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 版本信息 -->
                 <div style="text-align: center; color: var(--text-secondary); font-size: 12px; padding: 24px;">
                     <div>QuantDinger Pro v2.1.0 · 基于第一性原理构建</div>
