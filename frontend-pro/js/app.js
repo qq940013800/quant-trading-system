@@ -850,6 +850,30 @@
             if (drawdownSeries) drawdownSeries.setData([]);
         }
 
+        // 真实模式判定：已登录且回测历史接口返回真实记录；false 时保留演示样例作为兜底
+        let backtestIsReal = false;
+
+        // 后端暂无逐策略绩效快照与月度收益序列，真实模式对比表/热力图清空为 --，杜绝假绩效混淆
+        function _clearComparisonTable() {
+            const tbody = document.getElementById('comparison-table-body');
+            if (!tbody) return;
+            tbody.querySelectorAll('tr').forEach(tr => {
+                tr.querySelectorAll('td').forEach(td => {
+                    td.textContent = '--';
+                    td.style.color = '';
+                });
+            });
+        }
+
+        function _clearMonthlyHeatmap() {
+            const grid = document.getElementById('monthly-heatmap-grid');
+            if (!grid) return;
+            grid.querySelectorAll('.heatmap-cell').forEach(cell => {
+                cell.textContent = '--';
+                cell.classList.remove('positive', 'negative');
+            });
+        }
+
         // 将后端 equityCurve 序列映射为 lightweight-charts 点（time=unix 秒，按时间升序去重）
         function _btCurvePoints(equityCurve, valueKey) {
             if (!Array.isArray(equityCurve)) return [];
@@ -896,9 +920,14 @@
                 const resp = await ApiService.getBacktestHistory(20);
                 const rows = (resp && resp.code === 1 && Array.isArray(resp.data)) ? resp.data : [];
                 if (!rows.length) {
+                    backtestIsReal = false;
                     _btBlankResults();
                     return;
                 }
+                backtestIsReal = true;
+                // 真实模式：后端暂无逐策略绩效/月度收益，对比表与热力图清空为 --，静态演示样例不再混淆
+                _clearComparisonTable();
+                _clearMonthlyHeatmap();
                 // 优先最近一条有成交结果的记录；history 已按 id 倒序，否则取第一条
                 const row = rows.find(r => r.result_status === 'completed_trades') || rows[0];
 
@@ -923,6 +952,7 @@
                 _loadBacktestCurve(row.id);
             } catch (e) {
                 debugLog('回测历史加载失败: ' + e.message, 'error');
+                backtestIsReal = false;
                 _btBlankResults();
             }
         }
@@ -1564,7 +1594,11 @@
                     if (stressData.code === 1 && stressData.data) {
                         renderStressTest(stressData.data);
                         debugLog(`压力测试结果加载成功: ${stressData.data.total_scenarios}个情景`, 'success');
+                    } else {
+                        _clearStressTest();
                     }
+                } else {
+                    _clearStressTest();
                 }
                 
                 // 加载交易日志与绩效归因
@@ -1703,38 +1737,69 @@
             }
         }
 
+        function _stressCards() {
+            return document.querySelectorAll('#page-validation [style*="border-top: 3px solid"]');
+        }
+
+        // 接口异常/无情景时清空演示哨兵，所有指标置 --，不留静态假数值
+        function _clearStressTest() {
+            _stressCards().forEach((card) => {
+                const nameEl = card.querySelector('[style*="font-size: 12px"]');
+                const ddEl = card.querySelector('[style*="font-size: 20px"]');
+                const descEl = card.querySelector('[style*="font-size: 11px"]');
+                if (nameEl) nameEl.textContent = '--';
+                if (ddEl) ddEl.textContent = '--';
+                if (descEl) descEl.textContent = '--';
+            });
+            const mainEl = document.getElementById('stress-score-main');
+            const sumEl = document.getElementById('stress-score-summary');
+            if (mainEl) mainEl.textContent = '综合风险评分：-- / 100';
+            if (sumEl) sumEl.textContent = '';
+        }
+
         function renderStressTest(data) {
-            if (!data || !data.scenarios) return;
-            
+            if (!data || !Array.isArray(data.scenarios) || data.scenarios.length === 0) {
+                _clearStressTest();
+                return;
+            }
+
             const colorMap = {
                 red: '#f6465d',
                 orange: '#f0b90b',
                 green: '#0ecb81',
                 purple: '#8b5cf6'
             };
-            
-            // 更新压力测试卡片
-            const scenarioCards = document.querySelectorAll('#page-validation .bg-primary.rounded-8');
+
+            // 更新压力测试卡片（名称/数值/颜色/描述均以后端为准）
+            const cards = _stressCards();
             data.scenarios.forEach((s, i) => {
-                const card = document.querySelectorAll('#page-validation [style*="border-top: 3px solid"]')[i];
-                if (card) {
-                    card.style.borderTopColor = colorMap[s.color] || '#848e9c';
-                    const drawdownEl = card.querySelector('[style*="font-size: 20px"]');
-                    if (drawdownEl) {
-                        drawdownEl.textContent = (s.drawdown > 0 ? '+' : '') + s.drawdown.toFixed(2) + '%';
-                        drawdownEl.style.color = colorMap[s.color] || '#0ecb81';
-                    }
+                const card = cards[i];
+                if (!card) return;
+                const color = colorMap[s.color] || '#848e9c';
+                card.style.borderTopColor = color;
+                const nameEl = card.querySelector('[style*="font-size: 12px"]');
+                const ddEl = card.querySelector('[style*="font-size: 20px"]');
+                const descEl = card.querySelector('[style*="font-size: 11px"]');
+                if (nameEl) nameEl.textContent = s.name || '--';
+                if (ddEl) {
+                    const v = Number(s.drawdown);
+                    ddEl.textContent = Number.isFinite(v) ? (v > 0 ? '+' : '') + v.toFixed(2) + '%' : '--';
+                    ddEl.style.color = color;
                 }
+                if (descEl) descEl.textContent = s.description || '--';
             });
-            
+
             // 更新综合风险评分
-            const riskScoreEl = document.querySelector('#page-validation [style*="综合风险评分"]');
-            if (riskScoreEl && data.overall_risk_score) {
-                riskScoreEl.innerHTML = `
-                    <span style="color: #0ecb81; font-weight: 600;">✓ 综合风险评分：${data.overall_risk_score}/100（${data.risk_level}）</span><br>
-                    <span style="font-size: 12px;">${data.summary}</span>
-                `;
+            const mainEl = document.getElementById('stress-score-main');
+            const sumEl = document.getElementById('stress-score-summary');
+            if (!mainEl) return;
+            if (data.overall_risk_score == null) {
+                mainEl.textContent = '综合风险评分：-- / 100';
+                if (sumEl) sumEl.textContent = '';
+                return;
             }
+            mainEl.textContent = `✓ 综合风险评分：${data.overall_risk_score}/100（${data.risk_level || '--'}）`;
+            if (sumEl) sumEl.textContent = data.summary || '';
         }
         
         // ========== 风险仪表盘数据加载 ==========

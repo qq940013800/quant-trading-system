@@ -518,7 +518,7 @@
                         <!-- 月度收益热力图 -->
                         <div class="monthly-heatmap">
                             <div style="font-weight: 600; margin-bottom: 16px;">月度收益热力图 (%)</div>
-                            <div class="heatmap-grid">
+                            <div class="heatmap-grid" id="monthly-heatmap-grid">
                                 <div class="heatmap-header"></div>
                                 <div class="heatmap-header" style="text-align:center;">1月</div>
                                 <div class="heatmap-header" style="text-align:center;">2月</div>
@@ -565,7 +565,7 @@
                                         <th>交易数</th>
                                     </tr>
                                 </thead>
-                                <tbody>
+                                <tbody id="comparison-table-body">
                                     <tr>
                                         <td>ML增强趋势</td>
                                         <td style="color: var(--up-color);">+67.97%</td>
@@ -809,7 +809,7 @@
                 <div data-vpanel="monitor" style="background: var(--bg-secondary); border-radius: 12px; padding: 24px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                         <h3 style="font-size: 16px; font-weight: 600;">极端情景压力测试</h3>
-                        <span style="padding: 4px 10px; background: var(--bg-active); border-radius: 4px; font-size: 11px; color: var(--text-secondary);">5个黑天鹅情景</span>
+                        <span style="padding: 4px 10px; background: var(--bg-active); border-radius: 4px; font-size: 11px; color: var(--text-secondary);">5个黑天鹅情景 · 演示情景模板，待后端真实冲击引擎</span>
                     </div>
                     
                     <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 20px;">
@@ -842,8 +842,8 @@
                     
                     <div style="padding: 16px; background: rgba(14, 203, 129, 0.05); border-radius: 8px; border-left: 3px solid #0ecb81;">
                         <div style="font-size: 13px; color: var(--text-secondary);">
-                            <span style="color: #0ecb81; font-weight: 600;">✓ 综合风险评分：72/100（中等风险）</span><br>
-                            <span style="font-size: 12px;">所有极端情景下系统均存活，最大回撤控制在2%以内。验证层独立于交易层，确保策略在上线前经过严格的质量门禁。</span>
+                            <span id="stress-score-main" style="color: #0ecb81; font-weight: 600;">✓ 综合风险评分：72/100（中等风险）</span><br>
+                            <span id="stress-score-summary" style="font-size: 12px;">所有极端情景下系统均存活，最大回撤控制在2%以内。验证层独立于交易层，确保策略在上线前经过严格的质量门禁。</span>
                         </div>
                     </div>
                 </div>
@@ -2144,6 +2144,6 @@
         </div>
     </div>
     
-    <script src="js/app.js?v=20261108n"></script>
+    <script src="js/app.js?v=20261108o"></script>
 </body>
 </html>
