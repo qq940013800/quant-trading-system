@@ -1251,19 +1251,19 @@
                     <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;">
                         <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
                             <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">总交易数</div>
-                            <div style="font-size: 24px; font-weight: 700;">156</div>
+                            <div id="journal-trades" style="font-size: 24px; font-weight: 700; color: var(--text-secondary);">--</div>
                         </div>
                         <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
                             <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">胜率</div>
-                            <div style="font-size: 24px; font-weight: 700; color: #0ecb81;">62%</div>
+                            <div id="journal-winrate" style="font-size: 24px; font-weight: 700; color: var(--text-secondary);">--</div>
                         </div>
                         <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
                             <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">盈利因子</div>
-                            <div style="font-size: 24px; font-weight: 700; color: #0ecb81;">1.85</div>
+                            <div id="journal-pf" style="font-size: 24px; font-weight: 700; color: var(--text-secondary);">--</div>
                         </div>
                         <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
                             <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">期望值</div>
-                            <div style="font-size: 24px; font-weight: 700; color: #0ecb81;">+0.32R</div>
+                            <div id="journal-expectancy" style="font-size: 24px; font-weight: 700; color: var(--text-secondary);">--</div>
                         </div>
                     </div>
                 </div>
@@ -1277,11 +1277,10 @@
 
                     <div style="padding: 16px; background: rgba(240, 185, 11, 0.05); border-radius: 8px; border-left: 3px solid #f0b90b;">
                         <div style="font-size: 13px; font-weight: 600; margin-bottom: 12px; color: #f0b90b;">⚠️ 行为偏差检测</div>
-                        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: var(--text-secondary);">
-                            <div>• <strong>处置效应：</strong> 平均盈利1.2R < 平均亏损1.5R —— 赚的太早跑了</div>
-                            <div>• <strong>计划外交易：</strong> 12/156笔（7.7%）未按计划执行</div>
-                            <div>• <strong>改进建议：</strong> 让利润奔跑，不要急着止盈</div>
+                        <div id="journal-bias-list" style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: var(--text-secondary);">
+                            <div>暂无行为偏差数据</div>
                         </div>
+                        <div id="journal-recommendation" style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;"></div>
                     </div>
                 </div>
 
@@ -2145,6 +2144,6 @@
         </div>
     </div>
     
-    <script src="js/app.js?v=20261108c"></script>
+    <script src="js/app.js?v=20261108d"></script>
 </body>
 </html>

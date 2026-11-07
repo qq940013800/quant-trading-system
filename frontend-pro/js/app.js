@@ -1472,13 +1472,25 @@
                     }
                 }
                 
+                // 加载交易日志与绩效归因
+                const journalRes = await fetch('/api/p1/journal/analyze?days=30', {
+                    headers: { 'Authorization': 'Bearer ' + Auth.getToken() }
+                });
+                if (journalRes.ok) {
+                    const journalData = await journalRes.json();
+                    if (journalData.success && journalData.data) {
+                        renderJournalAnalysis(journalData.data);
+                        debugLog(`绩效归因加载成功: ${journalData.data.total_trades}笔`, 'success');
+                    }
+                }
+
                 // 更新时间
                 const now = new Date();
                 document.getElementById('validation-time').textContent = now.toLocaleTimeString();
-                
+
             } catch (err) {
-                debugLog(`AI验证层API暂不可用，使用内置数据: ${err.message}`, 'warn');
-                // API不可用时保留现有硬编码数据，不做任何修改
+                debugLog(`AI验证层API暂不可用: ${err.message}`, 'warn');
+                // API不可用时保留空态 --，不回填演示哨兵数字
             }
         }
         
@@ -1543,7 +1555,32 @@
                 </div>
             `).join('');
         }
-        
+
+        function renderJournalAnalysis(d) {
+            if (!d) return;
+            const tradesEl = document.getElementById('journal-trades');
+            if (tradesEl) tradesEl.textContent = (d.total_trades == null ? '--' : String(d.total_trades));
+            const wrEl = document.getElementById('journal-winrate');
+            if (wrEl) wrEl.textContent = d.win_rate == null ? '--' : Number(d.win_rate).toFixed(1) + '%';
+            const pfEl = document.getElementById('journal-pf');
+            if (pfEl) pfEl.textContent = d.profit_factor == null ? '--' : Number(d.profit_factor).toFixed(2);
+            const expEl = document.getElementById('journal-expectancy');
+            if (expEl) expEl.textContent = d.expectancy == null ? '--' : (Number(d.expectancy) >= 0 ? '+' : '') + Number(d.expectancy).toFixed(2) + 'R';
+
+            const biasList = document.getElementById('journal-bias-list');
+            if (biasList) {
+                const biases = Array.isArray(d.behavioral_biases) ? d.behavioral_biases : [];
+                biasList.innerHTML = biases.length
+                    ? biases.map(b => `<div>• <strong>${b.type || '偏差'}：</strong> ${b.description || ''}</div>`).join('')
+                    : '<div>暂无行为偏差数据</div>';
+            }
+            const recEl = document.getElementById('journal-recommendation');
+            if (recEl) {
+                const recs = Array.isArray(d.recommendations) ? d.recommendations : [];
+                recEl.textContent = recs.length ? '• 改进建议：' + recs[0] : '';
+            }
+        }
+
         function renderStressTest(data) {
             if (!data || !data.scenarios) return;
             
