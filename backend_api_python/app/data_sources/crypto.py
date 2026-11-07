@@ -402,6 +402,24 @@ class CryptoDataSource(BaseDataSource):
         
         return normalized
 
+    def _fetch_ticker_with_retry(self, symbol: str) -> Dict[str, Any]:
+        """Fetch a ticker via CCXT.
+
+        Retry once on transient errors (network blip, rate limit, 5xx).
+        Symbol-not-found errors are not retryable and are re-raised immediately
+        so the caller can run symbol correction / invalid-symbol caching.
+        """
+        last_exc: Optional[Exception] = None
+        for attempt in range(2):
+            try:
+                return self.exchange.fetch_ticker(symbol)
+            except Exception as exc:
+                last_exc = exc
+                if _is_symbol_not_found_error(exc) or attempt == 1:
+                    raise
+                time.sleep(0.4)
+        raise last_exc  # pragma: no cover
+
     def get_ticker(self, symbol: str) -> Dict[str, Any]:
         """
         Get latest ticker for a crypto symbol via CCXT.
@@ -446,7 +464,7 @@ class CryptoDataSource(BaseDataSource):
             return {'last': 0, 'symbol': symbol}
         
         try:
-            ticker = self.exchange.fetch_ticker(normalized)
+            ticker = self._fetch_ticker_with_retry(normalized)
             if ticker and isinstance(ticker, dict):
                 return ticker
         except Exception as e:
@@ -624,11 +642,15 @@ class CryptoDataSource(BaseDataSource):
                         f"[CryptoKline] {symbol} {timeframe} returned {len(klines)} candles, "
                         f"utc_range={first_ts}~{last_ts}, limit={limit}, before_time={before_time}"
                     )
-                except Exception:
-                    pass
+                except Exception as trace_exc:
+                    logger.debug("CryptoKline trace timestamp format failed: %s", trace_exc)
 
-        except _PublicKlineUnavailable:
-            pass
+        except _PublicKlineUnavailable as unavailable:
+            logger.debug(
+                "Public kline unavailable on %s: %s",
+                getattr(self.exchange, 'id', ''),
+                unavailable,
+            )
         except Exception as e:
             logger.error(f"Failed to fetch crypto K-lines {symbol}: {str(e)}")
             import traceback
