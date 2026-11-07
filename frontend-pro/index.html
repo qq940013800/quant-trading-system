@@ -649,7 +649,9 @@
                             </div>
                         </div>
                         <div style="background: var(--bg-secondary); border-radius: 8px; padding: 20px;">
-                            <h4 style="font-size: 14px; margin-bottom: 16px; color: var(--text-primary);">组合风险预算分配</h4>
+                            <h4 style="font-size: 14px; margin-bottom: 8px; color: var(--text-primary);">组合风险预算分配</h4>
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 16px;">口径：策略级风险贡献待后端接入；当前仅组合级风险摘要</div>
+                            <!-- 兜底演示样例：未登录/接口全挂时保留；真实模式由 _clearRiskBudget() 清空为 -- -->
                             <div style="display: flex; flex-direction: column; gap: 8px;" id="risk-budget-list">
                                 <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
                                     <span>突破策略</span>
@@ -929,6 +931,7 @@
                         <span style="padding: 4px 10px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">实时监控中</span>
                     </div>
                     
+                    <!-- 兜底演示样例：未登录/接口全挂时保留；真实模式由 _clearHealthMonitorCards() 清空为 -- -->
                     <div style="display: flex; flex-direction: column; gap: 12px;" id="strategy-health-list">
                         <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px; background: var(--bg-primary); border-radius: 8px; border-left: 4px solid #0ecb81;">
                             <div style="flex: 2;">
@@ -1003,6 +1006,7 @@
                         <span style="padding: 4px 10px; background: rgba(240, 185, 11, 0.1); color: #f0b90b; border-radius: 4px; font-size: 11px;">Jane Street标准</span>
                     </div>
 
+                    <!-- 兜底演示样例：未登录/接口全挂时保留；真实模式由 _clearTca() 清空为 -- -->
                     <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px;">
                         <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
                             <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">佣金</div>
@@ -1038,7 +1042,7 @@
                         </div>
                         <div style="text-align: right;">
                             <div style="font-size: 28px; font-weight: 700; color: #f0b90b;" id="tca-total">8.2 bps</div>
-                            <div style="font-size: 11px; color: #0ecb81;">✅ 成本可控（<10bps）</div>
+                            <div style="font-size: 11px; color: #0ecb81;" id="tca-verdict">✅ 成本可控（<10bps）</div>
                         </div>
                     </div>
                 </div>
@@ -1055,35 +1059,35 @@
                             <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">完整性</div>
                             <div style="font-size: 24px; font-weight: 700; color: #0ecb81;" id="dq-completeness">98%</div>
                             <div style="height: 4px; background: var(--bg-border); border-radius: 2px; margin-top: 8px;">
-                                <div style="height: 100%; width: 98%; background: #0ecb81; border-radius: 2px;"></div>
+                                <div id="dq-bar-completeness" style="height: 100%; width: 98%; background: #0ecb81; border-radius: 2px;"></div>
                             </div>
                         </div>
                         <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
                             <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">准确性</div>
                             <div style="font-size: 24px; font-weight: 700; color: #0ecb81;" id="dq-accuracy">96%</div>
                             <div style="height: 4px; background: var(--bg-border); border-radius: 2px; margin-top: 8px;">
-                                <div style="height: 100%; width: 96%; background: #0ecb81; border-radius: 2px;"></div>
+                                <div id="dq-bar-accuracy" style="height: 100%; width: 96%; background: #0ecb81; border-radius: 2px;"></div>
                             </div>
                         </div>
                         <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
                             <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">一致性</div>
                             <div style="font-size: 24px; font-weight: 700; color: #f0b90b;" id="dq-consistency">92%</div>
                             <div style="height: 4px; background: var(--bg-border); border-radius: 2px; margin-top: 8px;">
-                                <div style="height: 100%; width: 92%; background: #f0b90b; border-radius: 2px;"></div>
+                                <div id="dq-bar-consistency" style="height: 100%; width: 92%; background: #f0b90b; border-radius: 2px;"></div>
                             </div>
                         </div>
                         <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
                             <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">及时性</div>
                             <div style="font-size: 24px; font-weight: 700; color: #0ecb81;" id="dq-timeliness">99%</div>
                             <div style="height: 4px; background: var(--bg-border); border-radius: 2px; margin-top: 8px;">
-                                <div style="height: 100%; width: 99%; background: #0ecb81; border-radius: 2px;"></div>
+                                <div id="dq-bar-timeliness" style="height: 100%; width: 99%; background: #0ecb81; border-radius: 2px;"></div>
                             </div>
                         </div>
                         <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
                             <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">唯一性</div>
                             <div style="font-size: 24px; font-weight: 700; color: #0ecb81;" id="dq-uniqueness">100%</div>
                             <div style="height: 4px; background: var(--bg-border); border-radius: 2px; margin-top: 8px;">
-                                <div style="height: 100%; width: 100%; background: #0ecb81; border-radius: 2px;"></div>
+                                <div id="dq-bar-uniqueness" style="height: 100%; width: 100%; background: #0ecb81; border-radius: 2px;"></div>
                             </div>
                         </div>
                     </div>
@@ -1091,10 +1095,10 @@
                     <div style="padding: 16px; background: rgba(14, 203, 129, 0.05); border-radius: 8px; border-left: 3px solid #0ecb81;">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div>
-                                <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">综合质量评分：优秀</div>
+                                <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">综合质量评分：<span id="dq-overall-label">优秀</span></div>
                                 <div style="font-size: 12px; color: var(--text-secondary);">垃圾进垃圾出——数据质量是策略有效性的第一道门</div>
                             </div>
-                            <div style="font-size: 32px; font-weight: 700; color: #0ecb81;">97</div>
+                            <div style="font-size: 32px; font-weight: 700; color: #0ecb81;" id="dq-overall-score">97</div>
                         </div>
                     </div>
                 </div>
@@ -1151,7 +1155,7 @@
                         <span style="padding: 4px 10px; background: rgba(139, 92, 246, 0.1); color: #8b5cf6; border-radius: 4px; font-size: 11px;">Renaissance HMM</span>
                     </div>
 
-                    <div style="padding: 20px; background: rgba(14, 203, 129, 0.05); border-radius: 8px; border-left: 4px solid #0ecb81; margin-bottom: 20px;">
+                    <div id="l1-status-card" style="padding: 20px; background: rgba(14, 203, 129, 0.05); border-radius: 8px; border-left: 4px solid #0ecb81; margin-bottom: 20px;">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div>
                                 <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">当前市场状态</div>
@@ -1164,7 +1168,7 @@
                         </div>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+                    <div id="l1-regime-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
                         <div style="padding: 12px; background: rgba(14, 203, 129, 0.1); border-radius: 6px; border: 1px solid #0ecb81;">
                             <div style="font-size: 12px; font-weight: 600; color: #0ecb81; margin-bottom: 4px;">强上升</div>
                             <div style="font-size: 18px; font-weight: 700; color: #0ecb81;">15%</div>
@@ -1191,7 +1195,7 @@
                         </div>
                     </div>
 
-                    <div style="margin-top: 16px; padding: 12px; background: var(--bg-primary); border-radius: 6px; font-size: 12px; color: var(--text-secondary);">
+                    <div id="l1-recommendation" style="margin-top: 16px; padding: 12px; background: var(--bg-primary); border-radius: 6px; font-size: 12px; color: var(--text-secondary);">
                         <strong style="color: #eaecef;">策略推荐：</strong>
                         当前状态适合运行 <span style="color: #0ecb81;">趋势跟踪策略</span>，
                         建议 <span style="color: #f0b90b;">暂停均值回归策略</span>，
@@ -1206,7 +1210,7 @@
                         <span style="padding: 4px 10px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">全部正常</span>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;">
+                    <div id="ha-components" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;">
                         <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
                             <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">API服务</div>
                             <div style="font-size: 24px; font-weight: 700; color: #0ecb81;">✅</div>
@@ -1314,7 +1318,7 @@
                         <span style="padding: 4px 10px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">状态良好</span>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;">
+                    <div id="sec-old-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;">
                         <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
                             <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">活跃会话</div>
                             <div style="font-size: 24px; font-weight: 700;">2</div>
@@ -1347,7 +1351,7 @@
                         <span style="padding: 4px 10px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">整体健康</span>
                     </div>
 
-                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <div id="crowd-old-list" style="display: flex; flex-direction: column; gap: 12px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px; background: var(--bg-primary); border-radius: 8px; border-left: 4px solid #0ecb81;">
                             <div style="flex: 2;">
                                 <div style="font-size: 13px; font-weight: 600; margin-bottom: 4px;">ML增强趋势策略</div>
@@ -1373,9 +1377,7 @@
                         </div>
                     </div>
 
-                    <div style="margin-top: 16px; padding: 12px; background: rgba(240, 185, 11, 0.05); border-radius: 6px; font-size: 12px; color: var(--text-secondary);">
-                        <strong style="color: #f0b90b;">建议：</strong> 均值回归策略拥挤度上升，建议减仓30%，准备寻找新Alpha
-                    </div>
+                    <div id="crowd-old-advice" style="margin-top: 16px; padding: 12px; background: rgba(240, 185, 11, 0.05); border-radius: 6px; font-size: 12px; color: var(--text-secondary);">
                 </div>
 
                 <!-- 可观测性与监控告警面板 -->
@@ -1385,7 +1387,7 @@
                         <span style="padding: 4px 10px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">系统健康</span>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;">
+                    <div id="obs-old-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;">
                         <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px;">
                             <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">延迟 P95</div>
                             <div style="font-size: 20px; font-weight: 700; color: #0ecb81;">120ms</div>
@@ -1428,29 +1430,7 @@
                         <span style="padding: 4px 10px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">v1.0.0 运行中</span>
                     </div>
 
-                    <div style="display: flex; flex-direction: column; gap: 10px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--bg-primary); border-radius: 6px;">
-                            <div>
-                                <div style="font-size: 13px; font-weight: 600;">v1.0.0</div>
-                                <div style="font-size: 11px; color: var(--text-secondary);">P0/P1/P2核心模块上线</div>
-                            </div>
-                            <div style="text-align: right;">
-                                <span style="padding: 3px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">运行中</span>
-                                <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">2小时前</div>
-                            </div>
-                        </div>
-
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--bg-primary); border-radius: 6px; opacity: 0.7;">
-                            <div>
-                                <div style="font-size: 13px; font-weight: 600;">v0.9.5</div>
-                                <div style="font-size: 11px; color: var(--text-secondary);">前端可视化面板更新</div>
-                            </div>
-                            <div style="text-align: right;">
-                                <span style="padding: 3px 8px; background: rgba(139, 92, 246, 0.1); color: #8b5cf6; border-radius: 4px; font-size: 11px;">已回滚</span>
-                                <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">昨天</div>
-                            </div>
-                        </div>
-                    </div>
+                    <div id="cicd-old-list" style="display: flex; flex-direction: column; gap: 10px;">
 
                     <div style="margin-top: 16px; padding: 12px; background: rgba(139, 92, 246, 0.05); border-radius: 6px; font-size: 12px; color: var(--text-secondary);">
                         <strong style="color: #8b5cf6;">原则：</strong> 手动部署迟早出事故 —— 自动化 = 可重复 + 可审计 + 可回滚
@@ -1787,7 +1767,7 @@
                                     <div style="font-size: 11px; color: #0ecb81;">✅ 三级健康度</div>
                                 </div>
                             </div>
-                            <div id="strategy-health-list" style="font-size: 12px; line-height: 1.8;">
+                            <div id="engine-health-list" style="font-size: 12px; line-height: 1.8;">
                                 <div style="color: var(--text-secondary);">加载中...</div>
                             </div>
                         </div>
@@ -2144,6 +2124,6 @@
         </div>
     </div>
     
-    <script src="js/app.js?v=20261108o"></script>
+    <script src="js/app.js?v=20261108t"></script>
 </body>
 </html>

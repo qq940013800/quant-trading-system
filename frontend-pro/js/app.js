@@ -874,6 +874,95 @@
             });
         }
 
+        // 真实模式判定：风险接口可达；false 时保留演示样例作为兜底
+        let riskIsReal = false;
+
+        // 后端暂无策略级风险预算/风险贡献数据，真实模式清空静态演示占比，杜绝假口径
+        function _clearRiskBudget() {
+            const list = document.getElementById('risk-budget-list');
+            if (!list) return;
+            list.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text-secondary);"><span>暂无策略级风险预算数据</span><span>--</span></div>';
+        }
+
+        // 后端暂无逐策略健康度绩效（名称/天数/收益/夏普/回撤/胜率），真实模式清空静态演示卡片
+        function _clearHealthMonitorCards() {
+            const list = document.getElementById('strategy-health-list');
+            if (!list) return;
+            list.innerHTML = '<div style="padding:16px;background:var(--bg-primary);border-radius:8px;color:var(--text-secondary);font-size:12px;">暂无策略级健康度绩效数据</div>';
+        }
+
+        // TCA 成本汇总：后端无订单返回 no_orders；真实模式清空静态演示成本
+        function _clearTca() {
+            ['tca-commission', 'tca-spread', 'tca-slippage', 'tca-impact', 'tca-timing', 'tca-total'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = '--';
+            });
+            const v = document.getElementById('tca-verdict');
+            if (v) v.textContent = '--';
+        }
+
+        function renderTcaSummary(data) {
+            if (!data || data.status === 'no_orders') { _clearTca(); return; }
+            const b = data.cost_breakdown_pct || {};
+            const map = [
+                ['tca-commission', b.commission],
+                ['tca-spread', b.spread],
+                ['tca-slippage', b.slippage],
+                ['tca-impact', b.market_impact],
+                ['tca-timing', b.timing_risk],
+            ];
+            map.forEach(([id, v]) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.textContent = (v == null || Number.isNaN(Number(v))) ? '--' : Number(v).toFixed(1) + '%';
+            });
+            const total = document.getElementById('tca-total');
+            if (total) total.textContent = (data.avg_cost_bps == null || Number.isNaN(Number(data.avg_cost_bps))) ? '--' : Number(data.avg_cost_bps).toFixed(1) + ' bps';
+            const verdict = document.getElementById('tca-verdict');
+            if (verdict) verdict.textContent = data.verdict || '--';
+        }
+
+        // 后端暂无数据集质量汇总（仅 POST data-quality-check 需传入数据），真实模式清空静态演示评分
+        function _clearDataQuality() {
+            ['dq-completeness', 'dq-accuracy', 'dq-consistency', 'dq-timeliness', 'dq-uniqueness'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = '--';
+            });
+            ['dq-bar-completeness', 'dq-bar-accuracy', 'dq-bar-consistency', 'dq-bar-timeliness', 'dq-bar-uniqueness'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.width = '0%';
+            });
+            const score = document.getElementById('dq-overall-score');
+            if (score) score.textContent = '--';
+            const label = document.getElementById('dq-overall-label');
+            if (label) label.textContent = '--';
+        }
+
+        // 后端暂无 L1 状态/分布占比/策略推荐与逐组件探针数据，真实模式清空静态演示
+        function _clearRegimeAndHa() {
+            const blank = (id, msg) => {
+                const el = document.getElementById(id);
+                if (el) el.innerHTML = `<div style="color: var(--text-secondary); font-size: 12px;">${msg}</div>`;
+            };
+            blank('l1-status-card', '暂无当前市场状态（待接真实行情识别）');
+            blank('l1-regime-grid', '暂无状态分布占比');
+            blank('l1-recommendation', '暂无策略推荐（待市场状态识别接入）');
+            blank('ha-components', '暂无逐组件健康/延迟探针数据');
+        }
+
+        // 与引擎页 P2 监控卡片重复的旧 validation 静态面板：真实模式清空演示数字/列表
+        function _clearLegacyMonitorPanels() {
+            const blank = (id, msg) => {
+                const el = document.getElementById(id);
+                if (el) el.innerHTML = `<div style="color: var(--text-secondary); font-size: 12px;">${msg}</div>`;
+            };
+            blank('sec-old-grid', '暂无安全会话/密钥/审计统计（见引擎页监控卡片）');
+            blank('crowd-old-list', '暂无策略拥挤度数据');
+            blank('crowd-old-advice', '暂无拥挤度建议');
+            blank('obs-old-grid', '暂无系统探针指标（延迟/错误率/CPU/内存）');
+            blank('cicd-old-list', '暂无部署记录');
+        }
+
         // 将后端 equityCurve 序列映射为 lightweight-charts 点（time=unix 秒，按时间升序去重）
         function _btCurvePoints(equityCurve, valueKey) {
             if (!Array.isArray(equityCurve)) return [];
@@ -1570,6 +1659,14 @@
                 if (statusData.code === 1 && statusData.data) {
                     renderValidationModules(statusData.data.modules);
                     renderDriftMonitor(statusData.data.modules);
+                    // 后端暂无逐策略健康度绩效，真实模式清空静态演示卡片
+                    _clearHealthMonitorCards();
+                    // 后端暂无数据集质量汇总，真实模式清空静态演示评分
+                    _clearDataQuality();
+                    // 后端暂无 L1 状态/分布与逐组件探针，真实模式清空静态演示
+                    _clearRegimeAndHa();
+                    // 与引擎 P2 卡片重复的旧静态面板，真实模式清空演示数字/列表
+                    _clearLegacyMonitorPanels();
                     debugLog(`验证模块状态加载成功: ${statusData.data.total}个模块`, 'success');
                 }
                 
@@ -1611,6 +1708,21 @@
                         renderJournalAnalysis(journalData.data);
                         debugLog(`绩效归因加载成功: ${journalData.data.total_trades}笔`, 'success');
                     }
+                }
+
+                // TCA 交易成本汇总；无订单/失败时清空静态演示成本
+                const tcaRes = await fetch('/api/tca/cost-summary', {
+                    headers: { 'Authorization': 'Bearer ' + Auth.getToken() }
+                });
+                if (tcaRes.ok) {
+                    const tcaData = await tcaRes.json();
+                    if (tcaData.success && tcaData.data) {
+                        renderTcaSummary(tcaData.data);
+                    } else {
+                        _clearTca();
+                    }
+                } else {
+                    _clearTca();
                 }
 
                 // 过拟合三重验证（PBO / CPCV / DSR）；缺样本时后端返回 null，前端渲染 --
@@ -1813,10 +1925,16 @@
                 if (!res.ok) throw new Error('API返回' + res.status);
                 const data = await res.json();
                 if (data.success && data.data) {
+                    riskIsReal = true;
+                    // 后端暂无策略级风险预算，真实模式清空静态演示占比
+                    _clearRiskBudget();
                     renderRiskDashboard(data.data);
                     debugLog(`风险数据加载成功`, 'success');
+                } else {
+                    riskIsReal = false;
                 }
             } catch (err) {
+                riskIsReal = false;
                 debugLog(`风险API暂不可用: ${err.message}`, 'warn');
                 // API不可用时保留空态 --，不回填演示哨兵数字
             }
@@ -1924,7 +2042,7 @@
                         <div>• 平均健康分: <span style="font-weight: 600;">${s.avg_health_score || '-'}</span> / 100</div>
                         <div style="font-size: 11px; color: var(--text-secondary); margin-top: 8px;">绿区运行 → 黄区减仓 → 红区退役</div>
                     `;
-                    document.getElementById('strategy-health-list').innerHTML = html;
+                    document.getElementById('engine-health-list').innerHTML = html;
                 }
             } catch (e) {
                 debugLog(`策略健康度加载失败: ${e.message}`, 'error');
