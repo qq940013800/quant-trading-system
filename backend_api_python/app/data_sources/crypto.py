@@ -39,6 +39,15 @@ def _invalid_symbol_ttl_sec() -> float:
     return 300.0
 
 
+def _markets_cache_ttl_sec() -> float:
+    """How long a loaded markets snapshot stays fresh before a reload.
+
+    Market metadata (listed/delisted pairs) changes slowly; a 30-minute TTL
+    balances symbol freshness against the cost of a full ``load_markets`` pull.
+    """
+    return 1800.0
+
+
 def _is_symbol_not_found_error(exc: Any) -> bool:
     text = str(exc or "").lower()
     return any(
@@ -250,6 +259,7 @@ class CryptoDataSource(BaseDataSource):
         self.exchange = exchange_class(config)
         self._markets_loaded = False
         self._markets_cache = None
+        self._markets_loaded_at = 0.0
 
     def _symbol_for_scoped_market(self, symbol: str) -> str:
         """CCXT linear/swap symbols often need ``BASE/QUOTE:QUOTE`` (e.g. BTC/USDT:USDT)."""
@@ -292,9 +302,15 @@ class CryptoDataSource(BaseDataSource):
             )
         _INVALID_SYMBOL_UNTIL[key] = time.time() + _invalid_symbol_ttl_sec()
     
+    def _markets_fresh(self) -> bool:
+        if not self._markets_loaded or self._markets_cache is None:
+            return False
+        loaded_at = float(getattr(self, "_markets_loaded_at", 0.0))
+        return (time.time() - loaded_at) < _markets_cache_ttl_sec()
+
     def _ensure_markets_loaded(self) -> bool:
-        """确保 markets 已加载（用于符号验证）"""
-        if self._markets_loaded and self._markets_cache is not None:
+        """确保 markets 已加载（用于符号验证），过期后按 TTL 重载一次。"""
+        if self._markets_fresh():
             return True
 
         lock = getattr(self, "_markets_load_lock", None)
@@ -302,13 +318,16 @@ class CryptoDataSource(BaseDataSource):
             lock = threading.Lock()
             self._markets_load_lock = lock
         with lock:
-            if self._markets_loaded and self._markets_cache is not None:
+            if self._markets_fresh():
                 return True
             try:
                 if hasattr(self.exchange, 'load_markets'):
-                    self.exchange.load_markets(reload=False)
+                    # First load lets CCXT reuse its internal cache; an expired
+                    # snapshot must be force-reloaded to pick up listed/delisted pairs.
+                    self.exchange.load_markets(reload=self._markets_loaded)
                 self._markets_cache = getattr(self.exchange, 'markets', {})
                 self._markets_loaded = True
+                self._markets_loaded_at = time.time()
                 return True
             except Exception as e:
                 logger.debug(f"Failed to load markets for {self.exchange.id}: {e}")
