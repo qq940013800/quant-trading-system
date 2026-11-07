@@ -143,6 +143,11 @@
                         leverageEnabled: false
                     })
                 });
+            },
+
+            // 回测历史记录（只读，用于回测结果卡真实回显）
+            getBacktestHistory(limit = 20) {
+                return this.request(`/backtest/history?limit=${limit}`);
             }
         };
 
@@ -584,10 +589,10 @@
                     targetPage.classList.add('active');
                     debugLog(`页面切换成功: ${page}`, 'success');
                     
-                    // 切换到回测页时初始化权益图
+                    // 切换到回测页时加载最近历史回测结果（只读回显）
                     if (page === 'backtest') {
                         setTimeout(() => {
-                            if (!equityChart) initEquityChart();
+                            loadBacktestResults();
                         }, 100);
                     }
                     
@@ -816,35 +821,72 @@
             }
         }
 
-        // ========== 运行回测 ==========
+        // ========== 回测结果：历史记录真实回显（只读，不触发新回测） ==========
+        function _btPct(value, { signed = false, digits = 2 } = {}) {
+            if (value === null || value === undefined || Number.isNaN(Number(value))) return '--';
+            const n = Number(value);
+            const sign = signed ? (n >= 0 ? '+' : '-') : '';
+            return sign + Math.abs(n).toFixed(digits) + '%';
+        }
+
+        function _btBlankResults() {
+            const retEl = document.getElementById('bt-total-return');
+            const sharpeEl = document.getElementById('bt-sharpe');
+            const ddEl = document.getElementById('bt-drawdown');
+            const winEl = document.getElementById('bt-winrate');
+            if (retEl) retEl.textContent = '--';
+            if (sharpeEl) sharpeEl.textContent = '--';
+            if (ddEl) ddEl.textContent = '--';
+            if (winEl) winEl.textContent = '--';
+        }
+
+        async function loadBacktestResults() {
+            const resultsPanel = document.getElementById('backtest-results');
+            try {
+                const resp = await ApiService.getBacktestHistory(20);
+                const rows = (resp && resp.code === 1 && Array.isArray(resp.data)) ? resp.data : [];
+                if (!rows.length) {
+                    _btBlankResults();
+                    return;
+                }
+                // 优先最近一条有成交结果的记录；history 已按 id 倒序，否则取第一条
+                const row = rows.find(r => r.result_status === 'completed_trades') || rows[0];
+
+                const retEl = document.getElementById('bt-total-return');
+                const sharpeEl = document.getElementById('bt-sharpe');
+                const ddEl = document.getElementById('bt-drawdown');
+                const winEl = document.getElementById('bt-winrate');
+
+                if (retEl) retEl.textContent = _btPct(row.total_return, { signed: true, digits: 2 });
+                if (sharpeEl) sharpeEl.textContent = row.sharpe == null ? '--' : Number(row.sharpe).toFixed(2);
+                if (ddEl) {
+                    if (row.max_drawdown == null) {
+                        ddEl.textContent = '--';
+                    } else {
+                        // 回撤统一展示为 -x.xx%；后端 maxDrawdown 为负数百分数，取绝对值恒带负号
+                        const dd = Math.abs(Number(row.max_drawdown));
+                        ddEl.textContent = '-' + dd.toFixed(2) + '%';
+                    }
+                }
+                if (winEl) winEl.textContent = row.win_rate == null ? '--' : Number(row.win_rate).toFixed(1) + '%';
+                if (resultsPanel) resultsPanel.classList.add('active');
+            } catch (e) {
+                debugLog('回测历史加载失败: ' + e.message, 'error');
+                _btBlankResults();
+            }
+        }
+
         async function runBacktest() {
             const btn = document.getElementById('run-backtest-btn');
             const btnText = document.getElementById('backtest-btn-text');
-            
-            btn.disabled = true;
-            btnText.innerHTML = '<span class="loading"></span> 运行中...';
 
-            // 模拟回测延迟
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            if (btn) btn.disabled = true;
+            if (btnText) btnText.innerHTML = '<span class="loading"></span> 加载中...';
 
-            // 显示结果
-            document.getElementById('backtest-results').classList.add('active');
-            
-            // 填充模拟数据
-            document.getElementById('bt-total-return').textContent = '+67.97%';
-            document.getElementById('bt-sharpe').textContent = '1.85';
-            document.getElementById('bt-drawdown').textContent = '-15.2%';
-            document.getElementById('bt-winrate').textContent = '55.6%';
+            await loadBacktestResults();
 
-            btn.disabled = false;
-            btnText.textContent = '运行回测';
-            showToast('回测完成', 'success');
-
-            // 初始化权益图和回撤图
-            setTimeout(() => {
-                if (!equityChart) initEquityChart();
-                if (!drawdownChart) initDrawdownChart();
-            }, 100);
+            if (btn) btn.disabled = false;
+            if (btnText) btnText.textContent = '刷新结果';
         }
 
         function initDrawdownChart() {
