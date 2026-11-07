@@ -434,48 +434,48 @@
         }
 
         function handleOrderbookUpdate(data) {
-            // 更新订单簿显示
-            const bids = data.b || [];  // 买单
-            const asks = data.a || [];  // 卖单
-            
-            const orderbookEl = document.getElementById('orderbook-content');
-            if (!orderbookEl) return;
-            
-            // 只显示前10档
-            const displayBids = bids.slice(0, 10);
-            const displayAsks = asks.slice(0, 10);
-            
-            let html = '';
-            
-            // 卖单（从高到低）
-            displayAsks.slice().reverse().forEach(([price, amount]) => {
-                const p = parseFloat(price).toFixed(2);
-                const a = parseFloat(amount).toFixed(4);
-                html += `<div class="orderbook-row ask">
-                    <span style="color: #f6465d;">${p}</span>
-                    <span style="color: #848e9c;">${a}</span>
+            // Binance partial book depth 流: bids=买单降序, asks=卖单升序
+            const bids = data.bids || [];
+            const asks = data.asks || [];
+
+            const asksEl = document.getElementById('orderbook-asks');
+            const bidsEl = document.getElementById('orderbook-bids');
+            const spreadEl = document.getElementById('orderbook-spread');
+            if (!asksEl || !bidsEl) return;
+
+            const num = (x) => parseFloat(x) || 0;
+            const allAmt = bids.map(b => num(b[1])).concat(asks.map(a => num(a[1])));
+            const maxAmt = Math.max(1, ...allAmt);
+
+            const row = (side, price, amount, cum, barPct) => {
+                const barSide = side === 'ask' ? 'ask' : 'bid';
+                return `<div class="orderbook-row ${barSide}">
+                    <span class="orderbook-price ${barSide}">${num(price).toFixed(2)}</span>
+                    <span class="orderbook-amount">${num(amount).toFixed(4)}</span>
+                    <span class="orderbook-total">${cum.toFixed(2)}</span>
+                    <div class="amount-bar" style="width:${barPct}%;"></div>
                 </div>`;
-            });
-            
-            // 价差
-            if (displayAsks.length > 0 && displayBids.length > 0) {
-                const spread = parseFloat(displayAsks[0][0]) - parseFloat(displayBids[0][0]);
-                html += `<div class="orderbook-spread">
-                    价差: $${spread.toFixed(2)}
-                </div>`;
+            };
+
+            // 卖盘：价格从高到低展示，累计总额沿档位累加
+            const askRows = asks.slice().reverse();
+            let cumAsk = 0;
+            asksEl.innerHTML = askRows.map(([p, q]) => {
+                cumAsk += num(p) * num(q);
+                return row('ask', p, q, cumAsk, (num(q) / maxAmt * 100).toFixed(1));
+            }).join('');
+
+            // 买盘：价格从高到低展示
+            let cumBid = 0;
+            bidsEl.innerHTML = bids.map(([p, q]) => {
+                cumBid += num(p) * num(q);
+                return row('bid', p, q, cumBid, (num(q) / maxAmt * 100).toFixed(1));
+            }).join('');
+
+            if (spreadEl && asks.length > 0 && bids.length > 0) {
+                const spread = num(asks[0][0]) - num(bids[0][0]);
+                spreadEl.textContent = `价差: $${spread.toFixed(2)}`;
             }
-            
-            // 买单（从高到低）
-            displayBids.forEach(([price, amount]) => {
-                const p = parseFloat(price).toFixed(2);
-                const a = parseFloat(amount).toFixed(4);
-                html += `<div class="orderbook-row bid">
-                    <span style="color: #0ecb81;">${p}</span>
-                    <span style="color: #848e9c;">${a}</span>
-                </div>`;
-            });
-            
-            orderbookEl.innerHTML = html;
         }
 
         function updateWsStatus(status) {
@@ -725,6 +725,20 @@
             document.getElementById('detail-winrate').textContent = strategy.win_rate == null ? '--' : Number(strategy.win_rate).toFixed(0) + '%';
             document.getElementById('detail-trades').textContent = strategy.total_trades == null ? '--' : strategy.total_trades;
             document.getElementById('detail-profit-factor').textContent = '--';
+
+            // 参数配置：取策略携带字段，后端未返回时显示 --，不编演示数字
+            const tc = strategy.trading_config || {};
+            const cap = strategy.initial_capital ?? null;
+            document.getElementById('detail-capital').textContent =
+                cap == null ? '--' : Number(cap).toFixed(2);
+            const lev = strategy.leverage ?? tc.leverage ?? null;
+            document.getElementById('detail-leverage').textContent =
+                lev == null ? '--' : Number(lev) + 'x';
+            const stopLoss = tc.equity_stop_loss_pct ?? null;
+            document.getElementById('detail-stop-loss').textContent =
+                stopLoss == null ? '--' : (Number(stopLoss) * 100).toFixed(1) + '%';
+            // 累计亏损停止：后端未提供独立字段，留空态
+            document.getElementById('detail-max-loss').textContent = '--';
             
             // 更新按钮文字
             const isRunning = strategy.status === 'running' || strategy.status === 'active';
@@ -1870,7 +1884,9 @@
         }
 
         function renderStressTest(data) {
-            if (!data || !Array.isArray(data.scenarios) || data.scenarios.length === 0) {
+            // 真实契约：仅当后端基于真实持仓/权益完成冲击测算并显式标记 data_kind==='real' 才渲染；
+            // 内置演示情景、缺标记或无情景一律清空空态，杜绝演示评分/回撤顶替真实压力测试结果
+            if (!data || data.data_kind !== 'real' || !Array.isArray(data.scenarios) || data.scenarios.length === 0) {
                 _clearStressTest();
                 return;
             }

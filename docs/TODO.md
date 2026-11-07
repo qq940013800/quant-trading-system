@@ -266,13 +266,17 @@
 - ✅ **#128 健康度卡片收口 + id 错位修复**：修复重复 id `strategy-health-list` 导致引擎摘要永远未回填；引擎摘要容器改名 `engine-health-list`，回填目标同步改名；validation 旧三条假绩效卡片真实模式清空。
 - ✅ **#129 TCA 成本面板收口**：对接 `/api/tca/cost-summary`，`no_orders`/失败清空六格 + verdict 为 `--`；有订单回填 breakdown 与 avg_cost_bps。
 - ✅ **#130 数据治理 / L1 状态 / 高可用 / 重复旧监控面板收口**：DQ 五格 + 进度条 + 综合评分清空；L1 状态卡/六态分布/推荐条、高可用逐组件四格清空；与引擎 P2 卡片重复的旧 validation 面板（安全四格 / 拥挤度列表 / 可观测四格 / CI-CD 列表）真实模式清空演示数字与列表。提交 Gitee `dfb0060`（2 files，143+/45-）；`node --check` 通过；浏览器实测各容器空态、控制台 0 报错。
+- ✅ **#131 订单簿回填错位 + 字段名 bug 修复**：JS 回填目标原为不存在的 `orderbook-content`（命中 null 提前 return，WS 推送成功也不渲染，静态演示行永久残留）；HTML 上容器归位 `orderbook-asks`、下容器 `orderbook-bids`、价差行 `orderbook-spread`。字段映射由增量流误用的 `b`/`a` 改为 partial book depth 流的 `bids`/`asks`；分容器三列回填（价格/数量/累计总额 + amount-bar），asks 高到低、bids 高到低。静态 10 行保留为未登录/WS 全挂兜底。浏览器复验 asks/bids 各 20 档、价差 `$0.01`、价格真实、控制台 0 报错。
+- ✅ **#132 策略详情参数四格收口**：原静态默认 1000 / 1x / -5% / 30%；HTML 四格默认 `--`，标签"止损比例"改"权益止损比例"；JS 回填 `initial_capital`（toFixed2）、`leverage ?? tc.leverage`（Number+x）、`tc.equity_stop_loss_pct`（×100 百分数），累计亏损停止后端无独立字段恒 `--`。浏览器复验 capital `1000.00`、leverage `1x`、stop `30.0%`、maxloss `--`。
+- ✅ **#133 压力测试内置演示情景与 72 分收口**：`/validation/stress-test` 后端为硬编码 5 情景 + 72 分 + 写死 summary，非真实持仓/权益冲击测算。前端 HTML 五卡 name/dd/desc 与综合评分/summary 改空态 `--`；`renderStressTest` 增加真实契约判定：仅 `data_kind==='real'` 才渲染，缺标记/内置演示/无情景一律 `_clearStressTest()`。浏览器复验评分 `--/100`、summary 空、五卡 `--`、控制台 0 报错。后端真实冲击引擎见 P1-11。
+
 
 ### 🔴 P1（核心口径，决定看板能否反映真实绩效）
 
 | # | 事项 | 真实状态 | 下一步动作 / 阻塞点 |
 |---|------|----------|--------------------|
 | P1-10 | **逐策略绩效快照接口**：`/strategies` 顶层无夏普/回撤/胜率/盈亏比/年化；对比表当前无真实数据源 | ❌ 未开始，方案见 `docs/design/design-perf-snapshot-api.md` | 评审 R1 年化口径、R2 夏普口径统一、R3 实盘/回测并列、R4 样本门槛；落地附后端单测 |
-| P1-11 | **压力测试后端真实冲击引擎**：`/validation/stress-test` 当前为内置演示情景（5 情景数值固定），非真实持仓/权益冲击测算 | ❌ 未开始 | 基于真实持仓与权益做情景冲击；前端空态收口已就绪，等后端数据源 |
+| P1-11 | **压力测试后端真实冲击引擎**：`/validation/stress-test` 当前为内置演示情景（5 情景数值固定、72 分写死），非真实持仓/权益冲击测算；前端已加 `data_kind==='real'` 契约判定，非 real 一律空态 `--` | ❌ 后端未开始 | 基于真实持仓与权益做情景冲击，响应须带 `data_kind:"real"` 与真实 scenarios/score；前端渲染链路已就绪 |
 | P1-12 | **策略健康度摘要接真实 runtime_health**：`/p1/strategy-health/summary` 后端硬编码 demo 三条，未接真实策略 | 🔄 关联 #77 策略生命周期监控 | worker 调度载体接线；健康度三级状态由真实 runtime 指标驱动 |
 | P1-13 | **夏普/绩效口径统一**：仪表盘逐笔净盈亏（未年化）与回测日收益年化两套口径并存 | ❌ 未开始，待对齐 | 先拍板统一为日收益年化口径；快照/看板/回测三处对齐 |
 

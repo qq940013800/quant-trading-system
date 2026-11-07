@@ -179,8 +179,8 @@
                         <!-- 订单簿 -->
                         <div class="orderbook">
                             <div class="orderbook-title">订单簿 - BTC/USDT</div>
-                            <div id="orderbook-bids">
-                                <!-- 卖盘（ask）从高到低 -->
+                            <div id="orderbook-asks">
+                                <!-- 卖盘（ask）从高到低；兜底演示样例，真实 WS 推送成功时由 JS 覆盖 -->
                                 <div class="orderbook-row ask">
                                     <span class="orderbook-price ask">42,150.50</span>
                                     <span class="orderbook-amount">0.234</span>
@@ -213,12 +213,12 @@
                                 </div>
                             </div>
                             
-                            <div class="orderbook-spread">
+                            <div class="orderbook-spread" id="orderbook-spread">
                                 42,138.50 ↓ 价差: $1.50 (0.004%)
                             </div>
                             
-                            <div id="orderbook-asks">
-                                <!-- 买盘（bid）从低到高 -->
+                            <div id="orderbook-bids">
+                                <!-- 买盘（bid）从低到高；兜底演示样例，真实 WS 推送成功时由 JS 覆盖 -->
                                 <div class="orderbook-row bid">
                                     <span class="orderbook-price bid">42,137.00</span>
                                     <span class="orderbook-amount">0.345</span>
@@ -390,19 +390,19 @@
                             <div class="detail-grid">
                                 <div class="detail-item">
                                     <span class="detail-label">投入资金 (USDT)</span>
-                                    <span class="detail-value" id="detail-capital">1000</span>
+                                    <span class="detail-value" id="detail-capital">--</span>
                                 </div>
                                 <div class="detail-item">
                                     <span class="detail-label">杠杆倍数</span>
-                                    <span class="detail-value" id="detail-leverage">1x</span>
+                                    <span class="detail-value" id="detail-leverage">--</span>
                                 </div>
                                 <div class="detail-item">
-                                    <span class="detail-label">止损比例</span>
-                                    <span class="detail-value" id="detail-stop-loss">-5%</span>
+                                    <span class="detail-label">权益止损比例</span>
+                                    <span class="detail-value" id="detail-stop-loss">--</span>
                                 </div>
                                 <div class="detail-item">
                                     <span class="detail-label">累计亏损停止</span>
-                                    <span class="detail-value" id="detail-max-loss">30%</span>
+                                    <span class="detail-value" id="detail-max-loss">--</span>
                                 </div>
                             </div>
                         </div>
@@ -815,37 +815,37 @@
                     </div>
                     
                     <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 20px;">
-                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-top: 3px solid #f6465d;">
-                            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">2008金融危机</div>
-                            <div style="font-size: 20px; font-weight: 700; color: #f6465d; margin-bottom: 8px;">-1.22%</div>
-                            <div style="font-size: 11px; color: var(--text-secondary);">熔断触发 · 存活</div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-top: 3px solid #848e9c;">
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">--</div>
+                            <div style="font-size: 20px; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px;">--</div>
+                            <div style="font-size: 11px; color: var(--text-secondary);">--</div>
                         </div>
-                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-top: 3px solid #f6465d;">
-                            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">2020新冠暴跌</div>
-                            <div style="font-size: 20px; font-weight: 700; color: #f6465d; margin-bottom: 8px;">-1.15%</div>
-                            <div style="font-size: 11px; color: var(--text-secondary);">熔断触发 · 存活</div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-top: 3px solid #848e9c;">
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">--</div>
+                            <div style="font-size: 20px; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px;">--</div>
+                            <div style="font-size: 11px; color: var(--text-secondary);">--</div>
                         </div>
-                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-top: 3px solid #f0b90b;">
-                            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">2010闪电崩盘</div>
-                            <div style="font-size: 20px; font-weight: 700; color: #f0b90b; margin-bottom: 8px;">-0.85%</div>
-                            <div style="font-size: 11px; color: var(--text-secondary);">流动性危机 · 存活</div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-top: 3px solid #848e9c;">
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">--</div>
+                            <div style="font-size: 20px; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px;">--</div>
+                            <div style="font-size: 11px; color: var(--text-secondary);">--</div>
                         </div>
-                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-top: 3px solid #0ecb81;">
-                            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">利率冲击</div>
-                            <div style="font-size: 20px; font-weight: 700; color: #0ecb81; margin-bottom: 8px;">-0.42%</div>
-                            <div style="font-size: 11px; color: var(--text-secondary);">正常波动 · 存活</div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-top: 3px solid #848e9c;">
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">--</div>
+                            <div style="font-size: 20px; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px;">--</div>
+                            <div style="font-size: 11px; color: var(--text-secondary);">--</div>
                         </div>
-                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-top: 3px solid #8b5cf6;">
-                            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">大宗商品逼空</div>
-                            <div style="font-size: 20px; font-weight: 700; color: #8b5cf6; margin-bottom: 8px;">+1.85%</div>
-                            <div style="font-size: 11px; color: var(--text-secondary);">逼空行情 · 盈利</div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-top: 3px solid #848e9c;">
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">--</div>
+                            <div style="font-size: 20px; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px;">--</div>
+                            <div style="font-size: 11px; color: var(--text-secondary);">--</div>
                         </div>
                     </div>
                     
                     <div style="padding: 16px; background: rgba(14, 203, 129, 0.05); border-radius: 8px; border-left: 3px solid #0ecb81;">
                         <div style="font-size: 13px; color: var(--text-secondary);">
-                            <span id="stress-score-main" style="color: #0ecb81; font-weight: 600;">✓ 综合风险评分：72/100（中等风险）</span><br>
-                            <span id="stress-score-summary" style="font-size: 12px;">所有极端情景下系统均存活，最大回撤控制在2%以内。验证层独立于交易层，确保策略在上线前经过严格的质量门禁。</span>
+                            <span id="stress-score-main" style="color: var(--text-secondary); font-weight: 600;">综合风险评分：-- / 100</span><br>
+                            <span id="stress-score-summary" style="font-size: 12px;"></span>
                         </div>
                     </div>
                 </div>
@@ -2124,6 +2124,6 @@
         </div>
     </div>
     
-    <script src="js/app.js?v=20261108t"></script>
+    <script src="js/app.js?v=20261108w"></script>
 </body>
 </html>
