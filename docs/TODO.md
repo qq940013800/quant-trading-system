@@ -269,6 +269,8 @@
 - ✅ **#131 订单簿回填错位 + 字段名 bug 修复**：JS 回填目标原为不存在的 `orderbook-content`（命中 null 提前 return，WS 推送成功也不渲染，静态演示行永久残留）；HTML 上容器归位 `orderbook-asks`、下容器 `orderbook-bids`、价差行 `orderbook-spread`。字段映射由增量流误用的 `b`/`a` 改为 partial book depth 流的 `bids`/`asks`；分容器三列回填（价格/数量/累计总额 + amount-bar），asks 高到低、bids 高到低。静态 10 行保留为未登录/WS 全挂兜底。浏览器复验 asks/bids 各 20 档、价差 `$0.01`、价格真实、控制台 0 报错。
 - ✅ **#132 策略详情参数四格收口**：原静态默认 1000 / 1x / -5% / 30%；HTML 四格默认 `--`，标签"止损比例"改"权益止损比例"；JS 回填 `initial_capital`（toFixed2）、`leverage ?? tc.leverage`（Number+x）、`tc.equity_stop_loss_pct`（×100 百分数），累计亏损停止后端无独立字段恒 `--`。浏览器复验 capital `1000.00`、leverage `1x`、stop `30.0%`、maxloss `--`。
 - ✅ **#133 压力测试内置演示情景与 72 分收口**：`/validation/stress-test` 后端为硬编码 5 情景 + 72 分 + 写死 summary，非真实持仓/权益冲击测算。前端 HTML 五卡 name/dd/desc 与综合评分/summary 改空态 `--`；`renderStressTest` 增加真实契约判定：仅 `data_kind==='real'` 才渲染，缺标记/内置演示/无情景一律 `_clearStressTest()`。浏览器复验评分 `--/100`、summary 空、五卡 `--`、控制台 0 报错。后端真实冲击引擎见 P1-11。
+- ✅ **#134 前端新增内部 Wiki 只读知识库页**：导航新增"内部 Wiki"，纯静态只读镜像，分区含系统宪法三卡、过拟合/风控/数据质量/工程可靠性四宫格、真实数据口径收口、核心原则速查 8 条、当前阻塞/待拍板、踩坑经验表 5 行；规则与待办单一事实源仍在 `docs/RULES.md`、`docs/TODO.md`，页面不另写一套口径，本轮未做后端动态读取。
+- ✅ **#134 附带修复存量 HTML 嵌套未闭合缺陷**：`#page-validation` 内"策略拥挤度监控"面板与 validation 容器两处 `div` 未闭合，浏览器容错把 `logs/engine/about/wiki` 吞入其 `display:none` 子树，级联塌缩为 0×0 宽度；补两处闭合标签后 9 个页面全部回到 `MAIN.main-content` 平级。浏览器逐页复验宽度 967、内容按高度展开、控制台 0 报错；`index.html` div 开合配平 diff=0，`node --check app.js` exit 0。
 
 
 ### 🔴 P1（核心口径，决定看板能否反映真实绩效）

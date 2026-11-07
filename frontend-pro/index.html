@@ -54,6 +54,7 @@
                 <div class="nav-item" data-page="engine">核心引擎</div>
                 <div class="nav-item" data-page="validation">AI验证层</div>
                 <div class="nav-item" data-page="logs">日志中心</div>
+                <div class="nav-item" data-page="wiki">内部 Wiki</div>
                 <div class="nav-item" data-page="about">系统简介</div>
             </nav>
             <div class="nav-right">
@@ -1379,6 +1380,7 @@
 
                     <div id="crowd-old-advice" style="margin-top: 16px; padding: 12px; background: rgba(240, 185, 11, 0.05); border-radius: 6px; font-size: 12px; color: var(--text-secondary);">
                 </div>
+                </div>
 
                 <!-- 可观测性与监控告警面板 -->
                 <div data-vpanel="monitor" style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-top: 24px;">
@@ -1436,6 +1438,7 @@
                         <strong style="color: #8b5cf6;">原则：</strong> 手动部署迟早出事故 —— 自动化 = 可重复 + 可审计 + 可回滚
                     </div>
                 </div>
+            </div>
             </div>
 
             <!-- 日志中心页面 -->
@@ -2001,6 +2004,148 @@
                 <div style="text-align: center; color: var(--text-secondary); font-size: 12px; padding: 24px;">
                     <div>QuantDinger Pro v2.1.0 · 基于第一性原理构建</div>
                     <div style="margin-top: 8px;">不预测市场，只应对不确定性</div>
+                </div>
+            </div>
+
+            <!-- ========== 内部 Wiki：知识与避坑规则（只读镜像，单一事实源 docs/RULES.md、docs/TODO.md） ========== -->
+            <div class="page-view" id="page-wiki" style="padding: 32px; max-width: 1200px; margin: 0 auto;">
+                <div style="margin-bottom: 28px;">
+                    <h1 style="font-size: 28px; font-weight: 700; margin-bottom: 8px; color: #f0b90b;">📚 内部 Wiki · 知识与避坑规则</h1>
+                    <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.7;">
+                        本页为只读镜像，沉淀系统宪法、工程/风控/数据铁律、踩坑经验与当前阻塞项；规则与待办的单一事实源在仓库
+                        <code style="background: var(--bg-primary); padding: 2px 6px; border-radius: 4px; color: #f0b90b;">docs/RULES.md</code> 与
+                        <code style="background: var(--bg-primary); padding: 2px 6px; border-radius: 4px; color: #f0b90b;">docs/TODO.md</code>，修改请改文档并随版本同步，不在页面内另写一套口径。
+                    </p>
+                </div>
+
+                <!-- 系统宪法 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-bottom: 24px;">
+                    <h2 style="font-size: 18px; margin-bottom: 16px; color: #f6465d;">⚖️ 系统宪法（三条不可协商不变量）</h2>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 18px; border-left: 3px solid #f6465d;">
+                            <div style="font-weight: 600; margin-bottom: 8px;">因果单向</div>
+                            <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.7;">任何计算只用 <code>available_at ≤ bar.close</code> 的数据；禁止前视偏差与未来函数。</div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 18px; border-left: 3px solid #f0b90b;">
+                            <div style="font-weight: 600; margin-bottom: 8px;">决策可审计</div>
+                            <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.7;">每笔接受/拒绝都能还原各层输入与判断；规则、阈值、试验记录可追溯。</div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 18px; border-left: 3px solid #0ecb81;">
+                            <div style="font-weight: 600; margin-bottom: 8px;">阈值来自分布</div>
+                            <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.7;">阈值由 CLEAN 集分布校准，不由绩效网格搜索产生；决策规则实验前冻结。</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 避坑铁律分组 -->
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px;">
+                    <div style="background: var(--bg-secondary); border-radius: 12px; padding: 20px;">
+                        <h3 style="font-size: 15px; margin-bottom: 12px; color: #f0b90b;">🧪 过拟合防御</h3>
+                        <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; font-size: 13px; line-height: 1.6;">
+                            <li><span style="color: #0ecb81;">✅</span> 决策规则实验前冻结，实验后只评估不改阈值；trials 计数含全部失败试验。</li>
+                            <li><span style="color: #0ecb81;">✅</span> 三重验证缺一不可：PBO、CPCV、Deflated Sharpe Ratio。</li>
+                            <li><span style="color: #0ecb81;">✅</span> 样本外连续稳定表现才允许小仓位测试；回测好看不等于可上线。</li>
+                            <li><span style="color: #f6465d;">❌</span> 禁止只报告最好的一次试验；禁止用未来数据做回测。</li>
+                        </ul>
+                    </div>
+                    <div style="background: var(--bg-secondary); border-radius: 12px; padding: 20px;">
+                        <h3 style="font-size: 15px; margin-bottom: 12px; color: #f6465d;">🛡️ 风控纪律</h3>
+                        <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; font-size: 13px; line-height: 1.6;">
+                            <li><span style="color: #0ecb81;">✅</span> 单笔风险 ≤ 总资金 2%；波动率目标定仓位；分数 Kelly（1/4~1/2），不用全 Kelly。</li>
+                            <li><span style="color: #0ecb81;">✅</span> 止损在系统层强制执行，人工无法覆盖；触发即执行，不扛单等回本。</li>
+                            <li><span style="color: #0ecb81;">✅</span> 回撤分级减仓；杠杆永远保守，不追求高收益。</li>
+                            <li><span style="color: #f6465d;">❌</span> 禁止盈利后加仓（越涨越买）；禁止回撤超限仍不减仓。</li>
+                        </ul>
+                    </div>
+                    <div style="background: var(--bg-secondary); border-radius: 12px; padding: 20px;">
+                        <h3 style="font-size: 15px; margin-bottom: 12px; color: #0ecb81;">📊 数据质量</h3>
+                        <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; font-size: 13px; line-height: 1.6;">
+                            <li><span style="color: #0ecb81;">✅</span> 特征/统计量只用收盘后数据；单测专门覆盖前视偏差。</li>
+                            <li><span style="color: #0ecb81;">✅</span> CLEAN 集估计 ATR/波动率，KNOWN 集构建供需区；训练/验证/测试严格分离。</li>
+                            <li><span style="color: #0ecb81;">✅</span> 分钟级数据先做缺口检查与插值；回测成本含滑点与点差。</li>
+                            <li><span style="color: #f6465d;">❌</span> 禁止统计集与构建集混用；禁止测试集参与参数优化。</li>
+                        </ul>
+                    </div>
+                    <div style="background: var(--bg-secondary); border-radius: 12px; padding: 20px;">
+                        <h3 style="font-size: 15px; margin-bottom: 12px; color: #8b5cf6;">🔧 工程可靠性</h3>
+                        <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; font-size: 13px; line-height: 1.6;">
+                            <li><span style="color: #0ecb81;">✅</span> 容器代码非挂载，本地改完须 <code>docker cp</code> + 重启；改 JS 先 <code>node --check</code>。</li>
+                            <li><span style="color: #0ecb81;">✅</span> 前后端字段/函数名先 Read 后端签名再对齐，不猜名字；静态资源带版本号破缓存。</li>
+                            <li><span style="color: #0ecb81;">✅</span> 生产容器用 <code>docker compose up -d</code> 恢复，不手动 stop+rm。</li>
+                            <li><span style="color: #f6465d;">❌</span> 禁止 PowerShell 处理 UTF-8 中文；禁止本地改完即视为部署生效。</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- 真实数据口径收口规则（本轮沉淀） -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+                    <h3 style="font-size: 15px; margin-bottom: 12px; color: #f0b90b;">🟢 真实数据口径收口（演示模板与真实数据源隔离）</h3>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; font-size: 13px; line-height: 1.7;">
+                        <div>
+                            <div style="color: var(--text-secondary); margin-bottom: 6px;">数据源状态先于渲染</div>
+                            接口 <code>code===1</code> 且数据非空才回填；无数据/异常走清空函数，单元格置 <code>--</code>；仅未登录或接口全挂时保留静态样例兜底。
+                        </div>
+                        <div>
+                            <div style="color: var(--text-secondary); margin-bottom: 6px;">真实契约标记</div>
+                            后端结果须带 <code>data_kind:"real"/"demo"</code>（回测行用 <code>data_status</code>）；前端先判标记，仅 <code>real</code> 回填，缺标记按非真实处理，不得默认渲染。
+                        </div>
+                        <div>
+                            <div style="color: var(--text-secondary); margin-bottom: 6px;">选择器与回填</div>
+                            回填元素用显式 <code>id</code>（<code>getElementById</code>）+ <code>textContent</code>；不按 <code>style</code> 属性匹配文本；区分真实 0 与无数据，null 不占位。
+                        </div>
+                        <div>
+                            <div style="color: var(--text-secondary); margin-bottom: 6px;">新旧 UI 隔离 / WS 字段</div>
+                            新旧两套面板并存时真实数据源只接新卡片，旧面板真实模式清空；WS 先核对流类型与字段名（partial depth 为 <code>bids/asks</code>，增量 diff 为 <code>b/a</code>），容器 id 改名后同步更新回填目标。
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 核心原则速查 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+                    <h3 style="font-size: 15px; margin-bottom: 12px; color: #0ecb81;">💡 核心原则速查</h3>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 24px; font-size: 13px; line-height: 1.8; color: var(--text-secondary);">
+                        <div>1. 先想怎么亏钱，再想怎么赚钱（逆向思维）</div>
+                        <div>2. 简单策略比复杂模型更可靠（奥卡姆剃刀）</div>
+                        <div>3. 分散化是唯一免费午餐（风险因子分散，非持仓数量）</div>
+                        <div>4. 截断亏损，让利润奔跑（左尾截断 + 右尾暴露）</div>
+                        <div>5. 不爆仓是第一要务（活得久才能复利）</div>
+                        <div>6. 每次故障都是一次学习机会（反脆弱）</div>
+                        <div>7. 决策可审计，每笔交易都能还原（透明度）</div>
+                        <div>8. 因果单向，只用收盘后的数据（前视防御）</div>
+                    </div>
+                </div>
+
+                <!-- 当前阻塞 / 待拍板 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+                    <h3 style="font-size: 15px; margin-bottom: 12px; color: #f6465d;">⛔ 当前阻塞 / 待拍板（触碰实盘链路，未擅改）</h3>
+                    <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; font-size: 13px; line-height: 1.7;">
+                        <li>· <strong>#107 共享风控 gate 复用三同步入口</strong>：触碰实盘下单链路，受停止条件约束，待拍板。</li>
+                        <li>· <strong>#108 周期对账 / 漂移告警</strong>：需新增后台调度，确认后再动。</li>
+                        <li>· <strong>#102 / #87 / #91 实盘全链路测试</strong>：等 OKX 真实 Key 与最小手数验证；当前仅 OKX demo 只读 + 两笔 demo 成交闭环。</li>
+                        <li>· <strong>P1-11 压力测试后端真实冲击引擎</strong>：前端已加 <code>data_kind==='real'</code> 契约判定，非 real 一律空态；等后端基于真实持仓/权益出真实情景与评分。</li>
+                        <li>· <strong>P1-13 夏普/绩效口径统一</strong>：仪表盘逐笔净盈亏（未年化）与回测日收益年化两套口径并存，待对齐。</li>
+                    </ul>
+                </div>
+
+                <!-- 踩坑经验表 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 20px;">
+                    <h3 style="font-size: 15px; margin-bottom: 12px; color: #f0b90b;">🕳️ 踩坑经验清单（节选，完整见 RULES.md 第六章）</h3>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                        <thead>
+                            <tr style="color: var(--text-secondary); text-align: left;">
+                                <th style="padding: 8px 10px; border-bottom: 1px solid var(--border-color);">现象</th>
+                                <th style="padding: 8px 10px; border-bottom: 1px solid var(--border-color);">根因 / 解法</th>
+                                <th style="padding: 8px 10px; border-bottom: 1px solid var(--border-color);">影响</th>
+                            </tr>
+                        </thead>
+                        <tbody style="color: var(--text-secondary);">
+                            <tr><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">PowerShell 处理 UTF-8 中文乱码</td><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">改用 Python 脚本读写中文文件</td><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">前端拆分失败回滚</td></tr>
+                            <tr><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">容器改代码不生效</td><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">容器代码非 volume 挂载，须 docker cp + restart</td><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">改了代码页面不变</td></tr>
+                            <tr><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">前后端字段名不一致</td><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">先 Read 后端签名对齐字段，不猜名字</td><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">前端一直"加载中"或 500</td></tr>
+                            <tr><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">浏览器缓存旧 JS</td><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">静态资源带版本号参数破缓存，强制刷新复核</td><td style="padding: 10px; border-bottom: 1px solid var(--border-color);">改了不生效</td></tr>
+                            <tr><td style="padding: 10px;">订单簿/指标回填不渲染</td><td style="padding: 10px;">回填目标 id 不存在命中 null；WS 流字段名错配；改用显式 id + 核对流类型字段</td><td style="padding: 10px;">静态兜底行永久残留</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </main>
