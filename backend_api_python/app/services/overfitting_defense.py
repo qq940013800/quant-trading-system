@@ -5,10 +5,51 @@ PBO + CPCV + Deflated Sharpe Ratio
 这是量化系统的生命线——如果策略过拟合，回测再好看也是垃圾。
 对标 Renaissance / Two Sigma 的过拟合防御标准。
 """
+import math
 import numpy as np
 from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
 from datetime import datetime
+
+
+# 标准正态分布的纯本地实现（避免引入未声明的 scipy 重依赖）。
+# ppf 采用 Acklam 逆正态近似；cdf 基于标准库 math.erf。
+_NORM_PPF_A = [-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02,
+               1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459237e+00]
+_NORM_PPF_B = [-5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02,
+               6.680131188771972e+01, -1.328068155288572e+01]
+_NORM_PPF_C = [-7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00,
+               -2.549732593437378e+00, 4.374664141464968e+00, 2.938163982698783e+00]
+_NORM_PPF_D = [7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e+00,
+               3.754408661907416e+00]
+
+
+def _norm_ppf(p: float) -> float:
+    """逆标准正态 CDF（Acklam 近似，输入 0< p <1）。"""
+    plow, phigh = 0.02425, 1.0 - 0.02425
+    if p < plow:
+        q = math.sqrt(-2.0 * math.log(p))
+        return (((((_NORM_PPF_C[0] * q + _NORM_PPF_C[1]) * q + _NORM_PPF_C[2]) * q
+                  + _NORM_PPF_C[3]) * q + _NORM_PPF_C[4]) * q + _NORM_PPF_C[5]) / (
+                     (((( _NORM_PPF_D[0] * q + _NORM_PPF_D[1]) * q + _NORM_PPF_D[2]) * q
+                       + _NORM_PPF_D[3]) * q + 1.0))
+    if p > phigh:
+        q = math.sqrt(-2.0 * math.log(1.0 - p))
+        return -((((( _NORM_PPF_C[0] * q + _NORM_PPF_C[1]) * q + _NORM_PPF_C[2]) * q
+                    + _NORM_PPF_C[3]) * q + _NORM_PPF_C[4]) * q + _NORM_PPF_C[5]) / (
+                     (((( _NORM_PPF_D[0] * q + _NORM_PPF_D[1]) * q + _NORM_PPF_D[2]) * q
+                       + _NORM_PPF_D[3]) * q + 1.0))
+    q = p - 0.5
+    r = q * q
+    return (((((_NORM_PPF_A[0] * r + _NORM_PPF_A[1]) * r + _NORM_PPF_A[2]) * r
+              + _NORM_PPF_A[3]) * r + _NORM_PPF_A[4]) * r + _NORM_PPF_A[5]) * q / (
+                 (((( _NORM_PPF_B[0] * r + _NORM_PPF_B[1]) * r + _NORM_PPF_B[2]) * r
+                   + _NORM_PPF_B[3]) * r + _NORM_PPF_B[4]) * r + 1.0)
+
+
+def _norm_cdf(z: float) -> float:
+    """标准正态 CDF。"""
+    return 0.5 * (1.0 + math.erf(z / math.sqrt(2.0)))
 
 
 @dataclass
@@ -22,10 +63,10 @@ class PFOResult:
     
     def to_dict(self):
         return {
-            "pbo": round(self.pbo, 4),
-            "is_overfitted": self.is_overfitted,
-            "degradation_ratio": round(self.degradation_ratio, 4),
-            "n_trials": self.n_trials,
+            "pbo": float(round(self.pbo, 4)),
+            "is_overfitted": bool(self.is_overfitted),
+            "degradation_ratio": float(round(self.degradation_ratio, 4)),
+            "n_trials": int(self.n_trials),
             "recommendation": self.recommendation
         }
 
@@ -41,11 +82,11 @@ class CPCVResult:
     
     def to_dict(self):
         return {
-            "mean_sharpe": round(self.mean_sharpe, 4),
-            "std_sharpe": round(self.std_sharpe, 4),
-            "min_sharpe": round(self.min_sharpe, 4),
-            "is_stable": self.is_stable,
-            "n_splits": self.n_splits
+            "mean_sharpe": float(round(self.mean_sharpe, 4)),
+            "std_sharpe": float(round(self.std_sharpe, 4)),
+            "min_sharpe": float(round(self.min_sharpe, 4)),
+            "is_stable": bool(self.is_stable),
+            "n_splits": int(self.n_splits)
         }
 
 
@@ -59,10 +100,10 @@ class DSRResult:
     
     def to_dict(self):
         return {
-            "observed_sharpe": round(self.observed_sharpe, 4),
-            "expected_max_sharpe": round(self.expected_max_sharpe, 4),
-            "deflated_sharpe": round(self.deflated_sharpe, 4),
-            "is_significant": self.is_significant
+            "observed_sharpe": float(round(self.observed_sharpe, 4)),
+            "expected_max_sharpe": float(round(self.expected_max_sharpe, 4)),
+            "deflated_sharpe": float(round(self.deflated_sharpe, 4)),
+            "is_significant": bool(self.is_significant)
         }
 
 
@@ -259,15 +300,13 @@ class OverfittingDefense:
         # 随机策略的期望最大夏普（期望值）
         # E[max] ≈ (1-γ)Φ⁻¹(1-1/N) + γΦ⁻¹(1-1/(N*e))
         # γ ≈ 0.5772 (欧拉常数)
-        from scipy.stats import norm
-        
         gamma = 0.5772156649
-        
+
         if n_trials > 1:
             # 近似计算随机试验的期望最大夏普
             expected_max_sharpe = (
-                (1 - gamma) * norm.ppf(1 - 1/n_trials) + 
-                gamma * norm.ppf(1 - 1/(n_trials * np.e))
+                (1 - gamma) * _norm_ppf(1 - 1 / n_trials) +
+                gamma * _norm_ppf(1 - 1 / (n_trials * np.e))
             ) * (1 / np.sqrt(n_observations)) * np.sqrt(252)
         else:
             expected_max_sharpe = 0
@@ -283,7 +322,7 @@ class OverfittingDefense:
         
         # 计算统计显著性（Z-score）
         z_score = deflated_sharpe / se_sr_annual if se_sr_annual > 0 else 0
-        p_value = 1 - norm.cdf(z_score)
+        p_value = 1 - _norm_cdf(z_score)
         
         # 95%置信度下是否显著
         is_significant = p_value < 0.05
@@ -330,14 +369,15 @@ class OverfittingDefense:
         )
         
         # 综合判断
-        overall_pass = (
-            not pbo_result.is_overfitted and 
-            cpcv_result.is_stable and 
+        overall_pass = bool(
+            not pbo_result.is_overfitted and
+            cpcv_result.is_stable and
             dsr_result.is_significant
         )
         
         return {
             "timestamp": datetime.now().isoformat(),
+            "has_sample": True,
             "overall_pass": overall_pass,
             "overall_risk_level": "low" if overall_pass else "high",
             "pbo": pbo_result.to_dict(),
@@ -345,7 +385,39 @@ class OverfittingDefense:
             "dsr": dsr_result.to_dict(),
             "recommendation": self._generate_recommendation(pbo_result, cpcv_result, dsr_result)
         }
-    
+
+    def get_defense_summary(self, returns: Optional[np.ndarray] = None) -> Dict:
+        """结构化过拟合防御摘要；无有效样本时返回空态，不跑模拟噪声。
+
+        路由层无收益序列入参时调用本方法并传 ``None``，前端三卡据此渲染 ``--``，
+        而不是用演示数字顶替缺失值。
+        """
+        if returns is None or len(returns) < 2:
+            return self._empty_summary()
+        return self.full_validation(np.asarray(returns, dtype=float))
+
+    def _empty_summary(self) -> Dict:
+        return {
+            "timestamp": datetime.now().isoformat(),
+            "has_sample": False,
+            "overall_pass": None,
+            "overall_risk_level": "unknown",
+            "pbo": {
+                "pbo": None, "is_overfitted": None,
+                "degradation_ratio": None, "n_trials": 0,
+                "recommendation": "缺少策略收益样本",
+            },
+            "cpcv": {
+                "mean_sharpe": None, "std_sharpe": None, "min_sharpe": None,
+                "is_stable": None, "n_splits": 0,
+            },
+            "dsr": {
+                "observed_sharpe": None, "expected_max_sharpe": None,
+                "deflated_sharpe": None, "is_significant": None,
+            },
+            "recommendation": "暂无策略收益样本，无法执行三重过拟合验证",
+        }
+
     def _generate_recommendation(self, pbo, cpcv, dsr) -> str:
         """生成综合建议"""
         issues = []
@@ -365,3 +437,8 @@ class OverfittingDefense:
 
 # 单例
 overfitting_defense = OverfittingDefense()
+
+
+def get_overfitting_defense() -> OverfittingDefense:
+    """返回全局过拟合防御单例（路由层按工厂函数导入）。"""
+    return overfitting_defense
