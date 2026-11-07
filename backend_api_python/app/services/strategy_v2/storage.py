@@ -212,6 +212,9 @@ class StrategyBacktestRepository:
         item["result_status"] = result.get("resultStatus") or "unknown"
         item["data_kind"] = (result.get("dataProvenance") or {}).get("kind") or "unknown"
         item["benchmark_total_return"] = result.get("benchmarkTotalReturn")
+        item["sharpe"] = result.get("sharpeRatio", result.get("sharpe_ratio"))
+        item["max_drawdown"] = result.get("maxDrawdown", result.get("max_drawdown"))
+        item["profit_factor"] = result.get("profitFactor", result.get("profit_factor"))
         if include_result:
             item["result"] = _normalize_backtest_result(result, item)
         return item

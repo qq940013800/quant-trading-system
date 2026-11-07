@@ -1,4 +1,5 @@
 import copy
+import json
 import unittest
 from unittest.mock import patch
 
@@ -192,6 +193,42 @@ class StrategyV2StorageCompatibilityTests(unittest.TestCase):
             "legacyInsolventContinuation",
             restored["compatibility"]["backfilledFields"],
         )
+
+    def test_hydrate_expands_sharpe_drawdown_profit_factor_to_top_level(self):
+        row = {
+            "result_json": json.dumps({
+                "totalReturn": 30.1179,
+                "winRate": 0.0,
+                "totalTrades": 58,
+                "totalExecutions": 125,
+                "resultStatus": "completed_trades",
+                "sharpeRatio": 0.2527,
+                "maxDrawdown": -32.915,
+                "profitFactor": 0.0,
+            }),
+            "params_json": "{}",
+            "manifest_json": "{}",
+        }
+
+        item = StrategyBacktestRepository._hydrate(row, include_result=False)
+
+        self.assertAlmostEqual(item["total_return"], 30.1179)
+        self.assertAlmostEqual(item["win_rate"], 0.0)
+        self.assertEqual(item["total_trades"], 58)
+        self.assertAlmostEqual(item["sharpe"], 0.2527)
+        self.assertAlmostEqual(item["max_drawdown"], -32.915)
+        self.assertAlmostEqual(item["profit_factor"], 0.0)
+
+    def test_hydrate_missing_result_leaves_derived_fields_none_without_raising(self):
+        row = {"result_json": "", "params_json": "", "manifest_json": ""}
+
+        item = StrategyBacktestRepository._hydrate(row, include_result=False)
+
+        self.assertIsNone(item["total_return"])
+        self.assertIsNone(item["win_rate"])
+        self.assertIsNone(item["sharpe"])
+        self.assertIsNone(item["max_drawdown"])
+        self.assertIsNone(item["profit_factor"])
 
 
 if __name__ == "__main__":
