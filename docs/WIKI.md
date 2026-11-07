@@ -316,6 +316,21 @@ qd_strategy_review_reports  ── GET /api/strategies/review-report/history 历
 - **区分噪音与失效**：样本期内的回撤先核对样本量、成本与数据质量，不因短期结果直接改决策规则（规则须在实验前冻结）。
 - **复盘留痕**：每次复盘归档可回溯记录，支持跨周期对比策略是否衰减，服务生命周期监控与自动退役判断。
 
+### 日志中心：交易 / 决策 / 系统日志（复盘归因素材）
+
+日志中心为 AI 复盘与决策透明度提供同源留痕，三类口径与来源如下：
+
+| 类别 | 来源 / 端点 | 落库表 | 字段口径 |
+|---|---|---|---|
+| 决策日志 | `GET /api/strategies/logs?id=<sid>` | `qd_strategy_logs` | `level`（`error/info/warning`，含 `SIGNAL` 等后端原样级别）、`message`、`timestamp`（ISO UTC） |
+| 交易日志 | `GET /api/strategies/trades?id=<sid>` | `qd_strategy_trades` | 成交事件 `symbol/type/price/amount/profit(net_pnl)/close_reason/created_at`（秒级时间戳） |
+| 系统日志 | 前端运行期内存 `debugLogs` | 不落库 | API 请求/响应、价格更新等终端运行记录 |
+
+- **只读边界**：决策/交易日志是后端只读归因素材，前端不提供清空（仅系统内存日志可清空）；日志页面不触发下单、平仓、改仓位或任何资金动作，交易路由、风控 gate、资金计算不在日志链路内。
+- **空态纪律**：未选策略时提示先选择策略；后端空数组、未登录或接口异常走真实空态与错误提示，不编演示值；缺失数值显示 `--`。
+- **口径注意**：demo 平仓成交当前落在 `qd_quick_trades`，不在 `qd_strategy_trades`，因此交易日志在部分策略下为空属真实空态；决策/交易日志与复盘服务 `samples.recent_logs / recent_trades` 同源。
+- **级别归一**：后端 `warning` 前端归一为 `warn`；时间字段兼容数字秒级时间戳与 ISO 字符串；成交方向 `buy/long→多`、`sell/short→空`、`close/exit/flat→平仓`。
+
 ---
 
 **AI 复盘与经验回灌 已纳入 WIKI（2026-11-08）**

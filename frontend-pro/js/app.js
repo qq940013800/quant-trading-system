@@ -135,6 +135,16 @@
                 return this.request(`/strategies/review-report/history?id=${encodeURIComponent(strategyId)}&limit=${limit}`);
             },
 
+            // 日志中心：策略决策/运行日志（只读归因素材）
+            getStrategyLogs(strategyId, limit = 200) {
+                return this.request(`/strategies/logs?id=${encodeURIComponent(strategyId)}&limit=${limit}`);
+            },
+
+            // 日志中心：策略成交事件（交易日志，只读归因素材）
+            getStrategyTrades(strategyId) {
+                return this.request(`/strategies/trades?id=${encodeURIComponent(strategyId)}`);
+            },
+
             getPositions() {
                 return this.request('/portfolio/positions');
             },
@@ -617,10 +627,11 @@
                         }, 100);
                     }
                     
-                    // 切换到日志页时刷新日志列表
+                    // 切换到日志页时刷新决策/交易/系统日志
                     if (page === 'logs') {
                         setTimeout(() => {
-                            if (window.renderLogList) window.renderLogList();
+                            if (window.refreshLogCenter) window.refreshLogCenter();
+                            else if (window.renderLogList) window.renderLogList();
                         }, 100);
                     }
                     
@@ -1128,55 +1139,253 @@
 
         // ========== 日志中心 ==========
         function initLogCenter() {
-            // 渲染日志列表
+            // 日志中心三类：decision 决策日志 / trade 交易日志 / system 系统日志
+            let logKind = 'decision';
+            let logStrategyId = '';
+            let decisionLogs = [];
+            let tradeLogs = [];
+            let logError = '';
+
+            const LOG_LEVEL_COLORS = {
+                error: '#f6465d', warn: '#f0b90b', warning: '#f0b90b',
+                info: '#8b5cf6', success: '#0ecb81'
+            };
+
+            function _logFmtTime(ts) {
+                if (ts == null || ts === '') return '--';
+                const d = new Date(typeof ts === 'number' ? ts * 1000 : ts);
+                if (isNaN(d.getTime())) return String(ts);
+                return d.toLocaleString('zh-CN', { hour12: false });
+            }
+            function _logSideLabel(t) {
+                const v = String(t || '').toLowerCase();
+                if (v === 'buy' || v === 'long') return '多';
+                if (v === 'sell' || v === 'short') return '空';
+                if (v === 'close' || v === 'exit' || v === 'flat') return '平仓';
+                return v || '--';
+            }
+            function _normLevel(level) {
+                const s = String(level || 'info').toLowerCase();
+                return s === 'warning' ? 'warn' : s;
+            }
+            function _logNum(v) { const n = parseFloat(v); return isNaN(n) ? null : n; }
+
+            async function loadLogStrategies() {
+                const sel = document.getElementById('log-strategy-select');
+                if (!sel) return;
+                const res = await ApiService.getStrategies();
+                let list = [];
+                if (res && Array.isArray(res.data)) list = res.data;
+                else if (res && res.data && Array.isArray(res.data.items)) list = res.data.items;
+                if (!list.length) { sel.innerHTML = '<option value="">暂无可用策略</option>'; return; }
+                sel.innerHTML = '<option value="">请选择策略</option>' + list.map(s => {
+                    const id = s.id;
+                    const name = s.strategy_name || s.name || '未命名策略';
+                    return `<option value="${id}">${name}</option>`;
+                }).join('');
+            }
+
+            async function refreshKindLogs() {
+                if (logKind === 'system') { renderLogList(); return; }
+                if (!logStrategyId) {
+                    decisionLogs = []; tradeLogs = []; logError = ''; renderLogList(); return;
+                }
+                logError = '';
+                if (logKind === 'decision') {
+                    const res = await ApiService.getStrategyLogs(logStrategyId, 200);
+                    if (res && res._unauthorized) { decisionLogs = []; renderLogList(); return; }
+                    if (!res || res.code !== 1 || res._error) {
+                        logError = (res && res.msg) || '决策日志加载失败'; decisionLogs = []; renderLogList(); return;
+                    }
+                    decisionLogs = Array.isArray(res.data) ? res.data : [];
+                } else {
+                    const res = await ApiService.getStrategyTrades(logStrategyId);
+                    if (res && res._unauthorized) { tradeLogs = []; renderLogList(); return; }
+                    const arr = (res && res.data && (res.data.trades || res.data.items)) || [];
+                    if (!res || res.code !== 1 || res._error) {
+                        logError = (res && res.msg) || '交易日志加载失败'; tradeLogs = []; renderLogList(); return;
+                    }
+                    tradeLogs = Array.isArray(arr) ? arr : [];
+                }
+                renderLogList();
+            }
+
+            function _currentEntries() {
+                if (logKind === 'decision') return decisionLogs;
+                if (logKind === 'trade') return tradeLogs;
+                return window.debugLogs || [];
+            }
+
+            function _filterEntries(entries, filter, search) {
+                let out = entries.slice();
+                if (filter !== 'all') {
+                    out = out.filter(e => {
+                        const lv = logKind === 'system' ? String(e.type || '').toLowerCase() : _normLevel(e.level);
+                        return lv === filter;
+                    });
+                }
+                if (search) {
+                    const s = search.toLowerCase();
+                    out = out.filter(e => {
+                        let text;
+                        if (logKind === 'system') text = String(e.msg || '');
+                        else if (logKind === 'trade') text = `${e.symbol||''} ${e.type||''} ${e.close_reason||''} ${e.price||''} ${e.amount||''}`;
+                        else text = String(e.message || '');
+                        return text.toLowerCase().includes(s);
+                    });
+                }
+                return out;
+            }
+
+            function _renderHeader() {
+                const header = document.getElementById('log-list-header');
+                if (!header) return;
+                if (logKind === 'trade') {
+                    header.innerHTML = `
+                        <div style="width:150px;">时间</div>
+                        <div style="width:70px;margin-left:16px;">方向</div>
+                        <div style="width:130px;margin-left:16px;">品种</div>
+                        <div style="width:110px;margin-left:16px;">价格</div>
+                        <div style="width:100px;margin-left:16px;">数量</div>
+                        <div style="width:110px;margin-left:16px;">盈亏</div>
+                        <div style="flex:1;margin-left:16px;">平仓原因</div>`;
+                } else if (logKind === 'decision') {
+                    header.innerHTML = `
+                        <div style="width:150px;">时间</div>
+                        <div style="width:70px;margin-left:16px;">级别</div>
+                        <div style="flex:1;margin-left:16px;">决策消息</div>`;
+                } else {
+                    header.innerHTML = `
+                        <div style="width:150px;">时间</div>
+                        <div style="width:70px;margin-left:16px;">级别</div>
+                        <div style="flex:1;margin-left:16px;">消息内容</div>`;
+                }
+            }
+
+            function _renderDecisionRow(e) {
+                const lv = _normLevel(e.level);
+                const color = LOG_LEVEL_COLORS[lv] || '#848e9c';
+                return `
+                    <div style="padding:8px 12px;border-bottom:1px solid var(--bg-border);display:flex;align-items:center;">
+                        <div style="width:150px;color:var(--text-secondary);">${_logFmtTime(e.timestamp)}</div>
+                        <div style="width:70px;margin-left:16px;">
+                            <span style="padding:2px 6px;background:${color}20;color:${color};border-radius:3px;font-size:11px;font-weight:600;">${lv.toUpperCase()}</span>
+                        </div>
+                        <div style="flex:1;margin-left:16px;color:var(--text-primary);">${e.message || '--'}</div>
+                    </div>`;
+            }
+
+            function _renderTradeRow(e) {
+                const pnl = (e.net_pnl != null) ? _logNum(e.net_pnl) : _logNum(e.profit);
+                const pnlTxt = pnl === null ? '--' : ((pnl >= 0 ? '+' : '') + pnl.toFixed(2));
+                const pnlColor = pnl === null ? 'var(--text-secondary)' : (pnl >= 0 ? '#0ecb81' : '#f6465d');
+                const price = _logNum(e.price);
+                const amount = _logNum(e.amount);
+                return `
+                    <div style="padding:8px 12px;border-bottom:1px solid var(--bg-border);display:flex;align-items:center;">
+                        <div style="width:150px;color:var(--text-secondary);">${_logFmtTime(e.created_at)}</div>
+                        <div style="width:70px;margin-left:16px;">${_logSideLabel(e.type)}</div>
+                        <div style="width:130px;margin-left:16px;color:var(--text-primary);">${e.symbol || '--'}</div>
+                        <div style="width:110px;margin-left:16px;">${price === null ? '--' : price.toLocaleString()}</div>
+                        <div style="width:100px;margin-left:16px;">${amount === null ? '--' : amount}</div>
+                        <div style="width:110px;margin-left:16px;color:${pnlColor};">${pnlTxt}</div>
+                        <div style="flex:1;margin-left:16px;color:var(--text-secondary);">${e.close_reason || '--'}</div>
+                    </div>`;
+            }
+
+            function _renderSystemRow(log) {
+                const color = LOG_LEVEL_COLORS[log.type] || '#848e9c';
+                return `
+                    <div style="padding:8px 12px;border-bottom:1px solid var(--bg-border);display:flex;align-items:center;">
+                        <div style="width:150px;color:var(--text-secondary);">${log.time}</div>
+                        <div style="width:70px;margin-left:16px;">
+                            <span style="padding:2px 6px;background:${color}20;color:${color};border-radius:3px;font-size:11px;font-weight:600;">${String(log.type||'').toUpperCase()}</span>
+                        </div>
+                        <div style="flex:1;margin-left:16px;color:var(--text-primary);">${log.msg}</div>
+                    </div>`;
+            }
+
+            function _updateStats(all) {
+                const lvOf = e => logKind === 'system' ? String(e.type||'').toLowerCase() : _normLevel(e.level);
+                document.getElementById('log-total').textContent = all.length;
+                document.getElementById('log-error-count').textContent = all.filter(e => lvOf(e) === 'error').length;
+                document.getElementById('log-warn-count').textContent = all.filter(e => lvOf(e) === 'warn').length;
+                const apiCount = document.getElementById('log-api-count');
+                const apiLabel = document.getElementById('log-api-label');
+                if (logKind === 'system') {
+                    apiCount.textContent = all.filter(l => String(l.msg || '').includes('API')).length;
+                    apiLabel.textContent = 'API请求数';
+                } else if (logKind === 'decision') {
+                    apiCount.textContent = all.length;
+                    apiLabel.textContent = '决策记录';
+                } else {
+                    apiCount.textContent = all.length;
+                    apiLabel.textContent = '成交笔数';
+                }
+            }
+
             window.renderLogList = function(filter = 'all', search = '') {
                 const logList = document.getElementById('log-list');
                 if (!logList) return;
-                
-                let logs = window.debugLogs || [];
-                
-                // 过滤级别
-                if (filter !== 'all') {
-                    logs = logs.filter(l => l.type === filter);
-                }
-                
-                // 搜索
-                if (search) {
-                    const s = search.toLowerCase();
-                    logs = logs.filter(l => l.msg.toLowerCase().includes(s));
-                }
-                
-                // 更新统计
-                document.getElementById('log-total').textContent = window.debugLogs.length;
-                document.getElementById('log-error-count').textContent = window.debugLogs.filter(l => l.type === 'error').length;
-                document.getElementById('log-warn-count').textContent = window.debugLogs.filter(l => l.type === 'warn').length;
-                document.getElementById('log-api-count').textContent = window.debugLogs.filter(l => l.msg.includes('API')).length;
-                
-                // 渲染列表
-                if (logs.length === 0) {
-                    logList.innerHTML = '<div style="padding: 8px 12px; color: var(--text-secondary); text-align: center;">暂无日志</div>';
+                const all = _currentEntries();
+                const filtered = _filterEntries(all, filter, search);
+                _renderHeader();
+                _updateStats(all);
+
+                if (logError) {
+                    logList.innerHTML = `<div style="padding:12px;color:#f6465d;text-align:center;font-size:13px;">${logError}</div>`;
                     return;
                 }
-                
-                const typeColors = {
-                    error: '#f6465d',
-                    warn: '#f0b90b',
-                    info: '#8b5cf6',
-                    success: '#0ecb81'
-                };
-                
-                logList.innerHTML = logs.slice().reverse().map(log => `
-                    <div style="padding: 8px 12px; border-bottom: 1px solid var(--bg-border); display: flex; align-items: center;">
-                        <div style="width: 80px; color: var(--text-secondary);">${log.time}</div>
-                        <div style="width: 60px; margin-left: 16px;">
-                            <span style="padding: 2px 6px; background: ${typeColors[log.type] || '#848e9c'}20; color: ${typeColors[log.type] || '#848e9c'}; border-radius: 3px; font-size: 11px; font-weight: 600;">${log.type.toUpperCase()}</span>
-                        </div>
-                        <div style="flex: 1; margin-left: 16px; color: var(--text-primary);">${log.msg}</div>
-                    </div>
-                `).join('');
+                if (logKind !== 'system' && !logStrategyId) {
+                    logList.innerHTML = '<div style="padding:8px 12px;color:var(--text-secondary);text-align:center;">请选择策略后查看决策 / 交易日志</div>';
+                    return;
+                }
+                if (filtered.length === 0) {
+                    logList.innerHTML = '<div style="padding:8px 12px;color:var(--text-secondary);text-align:center;">暂无日志</div>';
+                    return;
+                }
+                const rows = filtered.slice().reverse();
+                if (logKind === 'decision') logList.innerHTML = rows.map(_renderDecisionRow).join('');
+                else if (logKind === 'trade') logList.innerHTML = rows.map(_renderTradeRow).join('');
+                else logList.innerHTML = rows.map(_renderSystemRow).join('');
             };
-            
-            // 过滤事件
+
+            function _syncKindUI() {
+                const tabs = document.querySelectorAll('#log-kind-tabs button');
+                tabs.forEach(b => {
+                    const active = b.dataset.kind === logKind;
+                    b.style.background = active ? '#f0b90b' : 'var(--bg-secondary)';
+                    b.style.color = active ? '#0b0e11' : 'var(--text-primary)';
+                    b.style.borderColor = active ? '#f0b90b' : 'var(--bg-border)';
+                });
+                const sel = document.getElementById('log-strategy-select');
+                if (sel) sel.style.display = logKind === 'system' ? 'none' : '';
+                const clearBtn = document.getElementById('log-clear');
+                if (clearBtn) {
+                    clearBtn.disabled = logKind !== 'system';
+                    clearBtn.style.opacity = logKind === 'system' ? '1' : '0.5';
+                }
+            }
+
+            window.refreshLogCenter = refreshKindLogs;
+
+            const tabs = document.querySelectorAll('#log-kind-tabs button');
+            tabs.forEach(btn => {
+                btn.onclick = function() {
+                    logKind = btn.dataset.kind;
+                    _syncKindUI();
+                    refreshKindLogs();
+                };
+            });
+
+            const strategySel = document.getElementById('log-strategy-select');
+            if (strategySel) {
+                strategySel.onchange = function() {
+                    logStrategyId = this.value;
+                    refreshKindLogs();
+                };
+            }
+
             const filterSelect = document.getElementById('log-level-filter');
             if (filterSelect) {
                 filterSelect.onchange = function() {
@@ -1184,8 +1393,7 @@
                     window.renderLogList(this.value, search);
                 };
             }
-            
-            // 搜索事件
+
             const searchInput = document.getElementById('log-search');
             if (searchInput) {
                 searchInput.oninput = function() {
@@ -1193,32 +1401,44 @@
                     window.renderLogList(filter, this.value);
                 };
             }
-            
-            // 清空日志
+
             const clearBtn = document.getElementById('log-clear');
             if (clearBtn) {
                 clearBtn.onclick = function() {
+                    if (logKind !== 'system') return;
                     window.debugLogs = [];
                     window.renderLogList();
                     debugLog('日志已清空', 'info');
                 };
             }
-            
-            // 导出日志
+
             const exportBtn = document.getElementById('log-export');
             if (exportBtn) {
                 exportBtn.onclick = function() {
-                    const text = window.debugLogs.map(l => `[${l.time}] [${l.type.toUpperCase()}] ${l.msg}`).join('\n');
+                    const filter = document.getElementById('log-level-filter').value;
+                    const search = document.getElementById('log-search').value;
+                    const entries = _filterEntries(_currentEntries(), filter, search);
+                    let text;
+                    if (logKind === 'trade') {
+                        text = entries.map(e => `[${_logFmtTime(e.created_at)}] [${_logSideLabel(e.type)}] ${e.symbol||''} px=${e.price||''} amt=${e.amount||''} pnl=${e.net_pnl!=null?e.net_pnl:e.profit} reason=${e.close_reason||''}`).join('\n');
+                    } else if (logKind === 'decision') {
+                        text = entries.map(e => `[${_logFmtTime(e.timestamp)}] [${_normLevel(e.level).toUpperCase()}] ${e.message||''}`).join('\n');
+                    } else {
+                        text = entries.map(l => `[${l.time}] [${String(l.type||'').toUpperCase()}] ${l.msg}`).join('\n');
+                    }
                     const blob = new Blob([text], { type: 'text/plain' });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = `quantdinger-logs-${new Date().toISOString().slice(0,10)}.txt`;
+                    a.download = `quantdinger-${logKind}-logs-${new Date().toISOString().slice(0,10)}.txt`;
                     a.click();
                     URL.revokeObjectURL(url);
                     debugLog('日志已导出', 'success');
                 };
             }
+
+            _syncKindUI();
+            loadLogStrategies();
         }
 
         // ========== 数据加载 ==========

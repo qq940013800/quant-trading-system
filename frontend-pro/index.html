@@ -1444,9 +1444,24 @@
 
             <!-- 日志中心页面 -->
             <div class="page-view" id="page-logs" style="padding: 24px;">
-                <!-- 顶部工具栏 -->
-                <div style="display: flex; gap: 12px; margin-bottom: 24px; align-items: center;">
-                    <h3 style="font-size: 18px; font-weight: 600; margin: 0;">系统日志中心</h3>
+                <!-- 标题与说明 -->
+                <div style="margin-bottom: 16px;">
+                    <h3 style="font-size: 18px; font-weight: 600; margin: 0 0 6px;">日志中心 · 交易 / 决策 / 系统日志</h3>
+                    <p style="font-size: 12px; color: var(--text-secondary); margin: 0; line-height: 1.7;">
+                        交易日志记录成交事件，决策日志记录策略运行与判断留痕，二者作为 AI 复盘归因的同源素材；均为只读展示，不触发下单、平仓或资金调整。
+                    </p>
+                </div>
+
+                <!-- 类型切换 + 策略选择 -->
+                <div style="display: flex; gap: 12px; margin-bottom: 16px; align-items: center; flex-wrap: wrap;">
+                    <div id="log-kind-tabs" style="display: flex; gap: 8px;">
+                        <button data-kind="decision" style="padding: 7px 14px; background: var(--bg-secondary); border: 1px solid var(--bg-border); border-radius: 6px; color: var(--text-primary); font-size: 13px; cursor: pointer;">决策日志</button>
+                        <button data-kind="trade" style="padding: 7px 14px; background: var(--bg-secondary); border: 1px solid var(--bg-border); border-radius: 6px; color: var(--text-primary); font-size: 13px; cursor: pointer;">交易日志</button>
+                        <button data-kind="system" style="padding: 7px 14px; background: var(--bg-secondary); border: 1px solid var(--bg-border); border-radius: 6px; color: var(--text-primary); font-size: 13px; cursor: pointer;">系统日志</button>
+                    </div>
+                    <select id="log-strategy-select" style="padding: 8px 12px; background: var(--bg-secondary); border: 1px solid var(--bg-border); border-radius: 6px; color: var(--text-primary); font-size: 13px;">
+                        <option value="">请选择策略</option>
+                    </select>
                     <div style="flex: 1;"></div>
                     <select id="log-level-filter" style="padding: 8px 12px; background: var(--bg-secondary); border: 1px solid var(--bg-border); border-radius: 6px; color: var(--text-primary); font-size: 13px;">
                         <option value="all">全部级别</option>
@@ -1455,7 +1470,7 @@
                         <option value="info">信息</option>
                         <option value="success">成功</option>
                     </select>
-                    <input type="text" id="log-search" placeholder="搜索日志..." style="padding: 8px 12px; background: var(--bg-secondary); border: 1px solid var(--bg-border); border-radius: 6px; color: var(--text-primary); font-size: 13px; width: 240px;" />
+                    <input type="text" id="log-search" placeholder="搜索日志..." style="padding: 8px 12px; background: var(--bg-secondary); border: 1px solid var(--bg-border); border-radius: 6px; color: var(--text-primary); font-size: 13px; width: 220px;" />
                     <button id="log-clear" style="padding: 8px 16px; background: var(--bg-secondary); border: 1px solid var(--bg-border); border-radius: 6px; color: var(--text-primary); font-size: 13px; cursor: pointer;">清空日志</button>
                     <button id="log-export" style="padding: 8px 16px; background: #f0b90b; border: none; border-radius: 6px; color: #0b0e11; font-size: 13px; font-weight: 600; cursor: pointer;">导出日志</button>
                 </div>
@@ -1475,16 +1490,16 @@
                         <div style="font-size: 24px; font-weight: 700; color: #f0b90b;" id="log-warn-count">0</div>
                     </div>
                     <div style="background: var(--bg-secondary); border-radius: 8px; padding: 16px;">
-                        <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">API请求数</div>
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;" id="log-api-label">API请求数</div>
                         <div style="font-size: 24px; font-weight: 700; color: #8b5cf6;" id="log-api-count">0</div>
                     </div>
                 </div>
 
                 <!-- 日志列表 -->
                 <div style="background: var(--bg-secondary); border-radius: 12px; padding: 16px;">
-                    <div style="display: flex; font-size: 12px; color: var(--text-secondary); padding: 8px 12px; border-bottom: 1px solid var(--bg-border); margin-bottom: 8px; font-weight: 600;">
-                        <div style="width: 80px;">时间</div>
-                        <div style="width: 60px; margin-left: 16px;">级别</div>
+                    <div id="log-list-header" style="display: flex; font-size: 12px; color: var(--text-secondary); padding: 8px 12px; border-bottom: 1px solid var(--bg-border); margin-bottom: 8px; font-weight: 600;">
+                        <div style="width: 150px;">时间</div>
+                        <div style="width: 70px; margin-left: 16px;">级别</div>
                         <div style="flex: 1; margin-left: 16px;">消息内容</div>
                     </div>
                     <div id="log-list" style="max-height: 500px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 12px;">
@@ -2466,6 +2481,6 @@
         </div>
     </div>
     
-    <script src="js/app.js?v=20261108x"></script>
+    <script src="js/app.js?v=20261108y"></script>
 </body>
 </html>
