@@ -863,9 +863,9 @@
                                     <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">PBO 概率回测过拟合</div>
                                     <div style="font-size: 11px; color: var(--text-secondary);">Probability of Backtest Overfitting</div>
                                 </div>
-                                <span style="padding: 3px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">低风险</span>
+                                <span style="padding: 3px 8px; background: var(--bg-active); color: var(--text-secondary); border-radius: 4px; font-size: 11px;">待评估</span>
                             </div>
-                            <div style="font-size: 32px; font-weight: 700; color: #0ecb81; margin-bottom: 12px;" id="pbo-value">0.15</div>
+                            <div style="font-size: 32px; font-weight: 700; color: var(--text-secondary); margin-bottom: 12px;" id="pbo-value">--</div>
                             <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">
                                 PBO < 0.2 = 低风险<br>
                                 PBO 0.2-0.4 = 中等风险<br>
@@ -880,9 +880,9 @@
                                     <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">CPCV 组合交叉验证</div>
                                     <div style="font-size: 11px; color: var(--text-secondary);">Combinatorial Purged Cross-Validation</div>
                                 </div>
-                                <span style="padding: 3px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">通过</span>
+                                <span style="padding: 3px 8px; background: var(--bg-active); color: var(--text-secondary); border-radius: 4px; font-size: 11px;">待评估</span>
                             </div>
-                            <div style="font-size: 32px; font-weight: 700; color: #0ecb81; margin-bottom: 12px;" id="cpcv-value">8/10</div>
+                            <div style="font-size: 32px; font-weight: 700; color: var(--text-secondary); margin-bottom: 12px;" id="cpcv-value">--</div>
                             <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">
                                 样本外胜率 > 60% = 通过<br>
                                 10折组合交叉验证<br>
@@ -897,9 +897,9 @@
                                     <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">DSR 夏普比率衰减</div>
                                     <div style="font-size: 11px; color: var(--text-secondary);">Deflated Sharpe Ratio</div>
                                 </div>
-                                <span style="padding: 3px 8px; background: rgba(240, 185, 11, 0.1); color: #f0b90b; border-radius: 4px; font-size: 11px;">中等</span>
+                                <span style="padding: 3px 8px; background: var(--bg-active); color: var(--text-secondary); border-radius: 4px; font-size: 11px;">待评估</span>
                             </div>
-                            <div style="font-size: 32px; font-weight: 700; color: #f0b90b; margin-bottom: 12px;" id="dsr-value">1.23</div>
+                            <div style="font-size: 32px; font-weight: 700; color: var(--text-secondary); margin-bottom: 12px;" id="dsr-value">--</div>
                             <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">
                                 DSR > 1.5 = 优秀<br>
                                 DSR 1.0-1.5 = 合格<br>
@@ -2144,6 +2144,6 @@
         </div>
     </div>
     
-    <script src="js/app.js?v=20261108d"></script>
+    <script src="js/app.js?v=20261108e"></script>
 </body>
 </html>
