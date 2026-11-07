@@ -976,6 +976,7 @@
                     updateAccountsList([], false);
                     updateDashboardStats({}, false);
                     updateStrategiesList([], false);
+                    updateTradesList([], false);
                     return;
                 }
 
@@ -986,13 +987,15 @@
                 updateDashboardStats(summaryRes.data || {}, !summaryRes._error && summaryRes.code === 1);
                 updateStrategiesList(strategiesRes.data || [], !strategiesRes._error && strategiesRes.code === 1);
                 updatePositionsList(positionsRes.data || [], !positionsRes._error && positionsRes.code === 1);
-                
+                updateTradesList((summaryRes.data || {}).recent_trades || [], !summaryRes._error && summaryRes.code === 1);
+
                 updateSystemStatus('online');
             } catch (e) {
                 console.error('加载数据失败:', e);
                 updateSystemStatus('offline');
                 updateAccountsList([], false);
                 updateDashboardStats({}, false);
+                updateTradesList([], false);
             }
         }
 
@@ -1070,10 +1073,56 @@
                 document.getElementById('daily-pnl').style.color = 'var(--up-color)';
             }
 
-            document.getElementById('stat-winrate').textContent = (summary.win_rate || 66.7) + '%';
-            document.getElementById('stat-sharpe').textContent = summary.sharpe || '1.85';
-            document.getElementById('stat-trades').textContent = summary.total_trades || '12';
-            document.getElementById('stat-drawdown').textContent = '-' + (summary.max_drawdown || 3.2) + '%';
+            // 交易/胜率/盈亏比/回撤/夏普均来自后端 performance 嵌套字段；
+            // 真实模式下 0 或缺失显示真实 0 / "--"，禁止用演示占位数字顶替（E001/E003 教训）。
+            const perf = summary.performance || {};
+
+            const tradesEl = document.getElementById('stat-trades');
+            if (perf.total_trades !== undefined && perf.total_trades !== null) {
+                tradesEl.textContent = perf.total_trades;
+            } else if (!isReal) {
+                tradesEl.textContent = '12';
+            } else {
+                tradesEl.textContent = '0';
+            }
+
+            const winEl = document.getElementById('stat-winrate');
+            if (perf.win_rate !== undefined && perf.win_rate !== null) {
+                winEl.textContent = Number(perf.win_rate).toFixed(1) + '%';
+            } else if (!isReal) {
+                winEl.textContent = '66.7%';
+            } else {
+                winEl.textContent = '--';
+            }
+
+            const plEl = document.getElementById('stat-plratio');
+            if (perf.profit_factor !== undefined && perf.profit_factor !== null) {
+                plEl.textContent = Number(perf.profit_factor).toFixed(2);
+            } else if (!isReal) {
+                plEl.textContent = '1.85';
+            } else {
+                plEl.textContent = '--';
+            }
+
+            const ddEl = document.getElementById('stat-drawdown');
+            if (perf.max_drawdown_pct !== undefined && perf.max_drawdown_pct !== null) {
+                const ddVal = Number(perf.max_drawdown_pct);
+                ddEl.textContent = ddVal > 0 ? '-' + ddVal.toFixed(2) + '%' : '0.00%';
+            } else if (!isReal) {
+                ddEl.textContent = '-3.2%';
+            } else {
+                ddEl.textContent = '--';
+            }
+
+            // 夏普：后端样本不足/零波动返回 null，前端展示 "--"，不编占位 1.85
+            const sharpeEl = document.getElementById('stat-sharpe');
+            if (perf.sharpe !== undefined && perf.sharpe !== null) {
+                sharpeEl.textContent = Number(perf.sharpe).toFixed(2);
+            } else if (!isReal) {
+                sharpeEl.textContent = '1.85';
+            } else {
+                sharpeEl.textContent = '--';
+            }
         }
 
         function updateStrategiesList(strategies, isReal = false) {
@@ -1159,6 +1208,60 @@
                     </div>
                 </div>
             `).join('');
+        }
+
+        function updateTradesList(trades, isReal = false) {
+            const el = document.getElementById('trades-list');
+            if (!el) return;
+            // 真实空态就是空，不编造示例成交（E001/E003 教训：模拟数据=对接失败）
+            if (!trades || trades.length === 0) {
+                el.innerHTML = '<div style="padding: 8px; color: var(--text-tertiary); font-size: 12px;">暂无成交</div>';
+                return;
+            }
+
+            const fmtTime = (ts) => {
+                const n = Number(ts) || 0;
+                if (n <= 0) return '--';
+                const d = new Date(n * (n < 1e12 ? 1000 : 1));
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                const hh = String(d.getHours()).padStart(2, '0');
+                const mi = String(d.getMinutes()).padStart(2, '0');
+                return `${mm}-${dd} ${hh}:${mi}`;
+            };
+            const sideLabel = (t) => {
+                const v = String(t || '').toLowerCase();
+                if (v === 'buy' || v === 'long') return '多';
+                if (v === 'sell' || v === 'short') return '空';
+                if (v === 'close' || v === 'exit' || v === 'flat') return '平仓';
+                return v || '--';
+            };
+
+            el.innerHTML = trades.map(t => {
+                const pnl = (t.net_pnl !== undefined && t.net_pnl !== null) ? Number(t.net_pnl)
+                          : (t.profit !== undefined && t.profit !== null ? Number(t.profit) : null);
+                const pnlCls = pnl === null ? '' : (pnl >= 0 ? 'up' : 'down');
+                const pnlTxt = pnl === null ? '--' : ((pnl >= 0 ? '+' : '') + pnl.toFixed(2));
+                const sym = t.symbol || '--';
+                const price = Number(t.price) || 0;
+                const amount = Number(t.amount) || 0;
+                const strat = t.strategy_name || '';
+                return `
+                    <div class="position-item">
+                        <div class="position-header">
+                            <span class="position-symbol">${sym}</span>
+                            <span class="position-pnl ${pnlCls}">${pnlTxt}</span>
+                        </div>
+                        <div class="position-details">
+                            <span>${sideLabel(t.type)} · ${amount}</span>
+                            <span>$${price.toLocaleString()}</span>
+                        </div>
+                        <div class="position-details" style="margin-top:2px;">
+                            <span style="color: var(--text-tertiary);">${strat || '--'}</span>
+                            <span style="color: var(--text-tertiary);">${fmtTime(t.created_at)}</span>
+                        </div>
+                    </div>`;
+            }).join('');
         }
 
         // ========== 窗口大小调整 ==========
