@@ -1054,7 +1054,10 @@
                 <div class="account-option ${idx === 0 ? 'selected' : ''}" style="padding: 10px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; ${idx === 0 ? 'background: var(--bg-hover);' : ''}">
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <span style="padding: 3px 6px; border-radius: 4px; background: var(--brand-primary); color: var(--bg-primary); font-size: 10px; font-weight: 700; text-transform: uppercase;">${cred.exchange_id}</span>
-                        <span style="font-size: 13px;">${cred.name}</span>
+                        <div>
+                            <div style="font-size: 13px;">${cred.name}</div>
+                            <div style="font-size: 11px; color: var(--text-secondary);">${cred.api_key_hint || '已连接'}</div>
+                        </div>
                     </div>
                     <div class="status-dot" style="width: 6px; height: 6px;"></div>
                 </div>
