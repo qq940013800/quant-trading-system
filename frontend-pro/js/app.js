@@ -1593,8 +1593,8 @@
                     debugLog(`风险数据加载成功`, 'success');
                 }
             } catch (err) {
-                debugLog(`风险API暂不可用，使用内置数据: ${err.message}`, 'warn');
-                // API不可用时保留现有硬编码数据
+                debugLog(`风险API暂不可用: ${err.message}`, 'warn');
+                // API不可用时保留空态 --，不回填演示哨兵数字
             }
             // 更新时间
             const now = new Date();
@@ -1622,7 +1622,7 @@
             if (data.avg_correlation) {
                 document.getElementById('risk-correlation').textContent = data.avg_correlation.toFixed(2);
             }
-            if (data.daily_drawdown) {
+            if (data.daily_drawdown != null) {
                 const el = document.getElementById('risk-daily-drawdown');
                 el.textContent = data.daily_drawdown.toFixed(1) + '%';
             }

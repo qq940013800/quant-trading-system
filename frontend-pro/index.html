@@ -613,22 +613,22 @@
                     <div class="risk-dashboard">
                         <div class="risk-card safe">
                             <div class="risk-label">账户总风险敞口</div>
-                            <div class="risk-value" id="risk-total-exposure" style="color: var(--up-color);">12.5%</div>
+                            <div class="risk-value" id="risk-total-exposure" style="color: var(--text-secondary);">--</div>
                             <div class="risk-threshold">限额: 20%</div>
                         </div>
                         <div class="risk-card warning">
                             <div class="risk-label">单策略最大风险</div>
-                            <div class="risk-value" id="risk-max-strategy" style="color: var(--warning-color);">8.2%</div>
+                            <div class="risk-value" id="risk-max-strategy" style="color: var(--text-secondary);">--</div>
                             <div class="risk-threshold">限额: 10%</div>
                         </div>
                         <div class="risk-card safe">
                             <div class="risk-label">平均相关性</div>
-                            <div class="risk-value" id="risk-correlation" style="color: var(--up-color);">0.35</div>
+                            <div class="risk-value" id="risk-correlation" style="color: var(--text-secondary);">--</div>
                             <div class="risk-threshold">阈值: 0.7</div>
                         </div>
                         <div class="risk-card danger">
                             <div class="risk-label">当日最大回撤</div>
-                            <div class="risk-value" id="risk-daily-drawdown" style="color: var(--down-color);">-4.2%</div>
+                            <div class="risk-value" id="risk-daily-drawdown" style="color: var(--text-secondary);">--</div>
                             <div class="risk-threshold">熔断线: -5%</div>
                         </div>
                     </div>
@@ -640,11 +640,11 @@
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                                 <div style="padding: 12px; background: var(--bg-primary); border-radius: 6px;">
                                     <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">VaR (日)</div>
-                                    <div style="font-size: 18px; font-weight: 700; color: var(--warning-color);" id="risk-var">-1.85%</div>
+                                    <div style="font-size: 18px; font-weight: 700; color: var(--text-secondary);" id="risk-var">--</div>
                                 </div>
                                 <div style="padding: 12px; background: var(--bg-primary); border-radius: 6px;">
                                     <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">CVaR (期望损失)</div>
-                                    <div style="font-size: 18px; font-weight: 700; color: var(--down-color);" id="risk-cvar">-2.64%</div>
+                                    <div style="font-size: 18px; font-weight: 700; color: var(--text-secondary);" id="risk-cvar">--</div>
                                 </div>
                             </div>
                         </div>
@@ -2145,6 +2145,6 @@
         </div>
     </div>
     
-    <script src="js/app.js?v=20261108b"></script>
+    <script src="js/app.js?v=20261108c"></script>
 </body>
 </html>
