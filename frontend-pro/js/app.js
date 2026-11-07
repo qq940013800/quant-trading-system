@@ -1891,7 +1891,7 @@
                 p2SetMetrics('journal',
                     p2Metric('周期', d.period || '-') +
                     p2Metric('总交易', String(trades), P2_LAMP.green) +
-                    p2Metric('胜率', ((d.win_rate || 0) * 100).toFixed(1) + '%') +
+                    p2Metric('胜率', Number(d.win_rate || 0).toFixed(1) + '%') +
                     p2Metric('净利', (d.total_pnl || 0).toFixed(2)) +
                     p2Metric('盈亏比', (d.profit_factor || 0).toFixed(2))
                 );
