@@ -94,7 +94,7 @@
                     });
                     
                     if (response.status === 401) {
-                        console.warn('未登录或Token过期');
+                        debugLog('未登录或Token过期', 'warn');
                         return { code: 401, msg: '未登录', data: null, _unauthorized: true };
                     }
                     
@@ -104,7 +104,7 @@
                     if (latencyEl) latencyEl.textContent = latency + 'ms';
                     return data;
                 } catch (e) {
-                    console.error('API Error:', path, e);
+                    debugLog(`API 请求失败: ${path} - ${e.message}`, 'error');
                     return { code: 0, msg: e.message, data: null, _error: true };
                 }
             },
@@ -283,7 +283,7 @@
                     showDataSourceBadge('mock');
                 }
             } catch (e) {
-                console.warn('K线API失败，使用模拟数据:', e);
+                debugLog(`K线API失败，使用模拟数据: ${e.message}`, 'warn');
                 generateMockKlineData();
                 showDataSourceBadge('mock');
             } finally {
@@ -336,7 +336,7 @@
         let lastPrice = 0;
 
         function initRealtimeWebSocket() {
-            debugLog('info', '初始化WebSocket实时推送...');
+            debugLog('初始化WebSocket实时推送...', 'info');
             
             // 连接Binance公共行情WebSocket（免费、稳定、无需API key）
             connectPriceWebSocket();
@@ -357,7 +357,7 @@
                 priceSocket = new WebSocket(wsUrl);
                 
                 priceSocket.onopen = function() {
-                    debugLog('success', 'WebSocket行情连接成功');
+                    debugLog('WebSocket行情连接成功', 'success');
                     updateWsStatus('connected');
                 };
                 
@@ -366,23 +366,23 @@
                         const data = JSON.parse(event.data);
                         handlePriceUpdate(data);
                     } catch (e) {
-                        console.warn('WebSocket消息解析失败:', e);
+                        debugLog(`WebSocket消息解析失败: ${e.message}`, 'warn');
                     }
                 };
                 
                 priceSocket.onerror = function(error) {
-                    debugLog('error', 'WebSocket行情错误: ' + error);
+                    debugLog('WebSocket行情错误: ' + error, 'error');
                     updateWsStatus('error');
                 };
                 
                 priceSocket.onclose = function() {
-                    debugLog('warn', 'WebSocket行情断开，5秒后重连...');
+                    debugLog('WebSocket行情断开，5秒后重连...', 'warn');
                     updateWsStatus('disconnected');
                     // 自动重连
                     wsReconnectTimer = setTimeout(connectPriceWebSocket, 5000);
                 };
             } catch (e) {
-                debugLog('error', 'WebSocket初始化失败: ' + e.message);
+                debugLog('WebSocket初始化失败: ' + e.message, 'error');
                 updateWsStatus('error');
             }
         }
@@ -415,7 +415,7 @@
             
             // 更新最后价格到日志
             if (Math.random() < 0.05) { // 每20条记录一条，避免刷屏
-                debugLog('info', '实时价格: $' + price.toFixed(2));
+                debugLog('实时价格: $' + price.toFixed(2), 'info');
             }
         }
 
@@ -431,7 +431,7 @@
                 orderbookSocket = new WebSocket(wsUrl);
                 
                 orderbookSocket.onopen = function() {
-                    debugLog('success', 'WebSocket订单簿连接成功');
+                    debugLog('WebSocket订单簿连接成功', 'success');
                 };
                 
                 orderbookSocket.onmessage = function(event) {
@@ -439,20 +439,20 @@
                         const data = JSON.parse(event.data);
                         handleOrderbookUpdate(data);
                     } catch (e) {
-                        console.warn('订单簿WebSocket解析失败:', e);
+                        debugLog(`订单簿WebSocket解析失败: ${e.message}`, 'warn');
                     }
                 };
                 
                 orderbookSocket.onerror = function(error) {
-                    debugLog('error', '订单簿WebSocket错误: ' + error);
+                    debugLog('订单簿WebSocket错误: ' + error, 'error');
                 };
                 
                 orderbookSocket.onclose = function() {
-                    debugLog('warn', '订单簿WebSocket断开，5秒后重连...');
+                    debugLog('订单簿WebSocket断开，5秒后重连...', 'warn');
                     setTimeout(connectOrderbookWebSocket, 5000);
                 };
             } catch (e) {
-                debugLog('warn', '订单簿WebSocket初始化失败: ' + e.message);
+                debugLog('订单簿WebSocket初始化失败: ' + e.message, 'warn');
             }
         }
 
@@ -780,7 +780,7 @@
             // 显示弹窗
             document.getElementById('strategyDetailModal').classList.add('active');
             
-            debugLog('info', '打开策略详情: ' + (strategy.name || '未知'));
+            debugLog('打开策略详情: ' + (strategy.name || '未知'), 'info');
         }
 
         function closeStrategyDetail() {
@@ -795,7 +795,7 @@
             
             if (confirm(`确定要${action}策略 "${currentDetailStrategy.name}" 吗？`)) {
                 showToast(`策略已${action}（模拟）`, 'success');
-                debugLog('success', `${action}策略: ${currentDetailStrategy.name}`);
+                debugLog(`${action}策略: ${currentDetailStrategy.name}`, 'success');
                 
                 // 更新状态
                 currentDetailStrategy.status = isRunning ? 'stopped' : 'running';
@@ -837,7 +837,7 @@
                 const firstAccount = document.querySelector('.credential-option');
                 const credentialId = firstAccount ? parseInt(firstAccount.dataset.id || 1) : 1;
                 
-                debugLog('info', `提交订单: ${side} ${amount} USDT ${symbol}`);
+                debugLog(`提交订单: ${side} ${amount} USDT ${symbol}`, 'info');
                 
                 // 7. 调用真实API
                 const orderData = {
@@ -859,7 +859,7 @@
                 
                 if (result.code === 1 || result.code === 200) {
                     showToast(`订单提交成功！${side === 'buy' ? '买入' : '卖出'} ${amount} USDT ${symbol}`, 'success');
-                    debugLog('success', '下单成功: ' + JSON.stringify(result.data || result));
+                    debugLog('下单成功: ' + JSON.stringify(result.data || result), 'success');
                     
                     // 刷新持仓和资产
                     setTimeout(() => {
@@ -867,12 +867,11 @@
                     }, 1000);
                 } else {
                     showToast('下单失败: ' + (result.msg || result.message || '未知错误'), 'error');
-                    debugLog('error', '下单失败: ' + JSON.stringify(result));
+                    debugLog('下单失败: ' + JSON.stringify(result), 'error');
                 }
             } catch (e) {
-                console.error('下单错误:', e);
                 showToast('下单错误: ' + e.message, 'error');
-                debugLog('error', '下单异常: ' + e.message);
+                debugLog('下单异常: ' + e.message, 'error');
             }
         }
 
@@ -1475,7 +1474,7 @@
 
                 updateSystemStatus('online');
             } catch (e) {
-                console.error('加载数据失败:', e);
+                debugLog(`数据加载失败: ${e.message}`, 'error');
                 updateSystemStatus('offline');
                 updateAccountsList([], false);
                 updateDashboardStats({}, false);
@@ -1496,27 +1495,57 @@
             el.style.color = s.color;
         }
 
+        function _credEnvLabel(cred) {
+            const env = String(cred.environment || '').toLowerCase();
+            if (env === 'demo') return '模拟盘';
+            if (env === 'live') return '实盘';
+            return cred.enable_demo_trading ? '模拟盘' : '已连接';
+        }
+
         function updateAccountsList(credentials, isReal = false) {
             const accountsList = document.getElementById('accounts-list');
             const modalAccountsList = document.getElementById('modal-accounts-list');
 
-            // 不是真实数据时，使用演示数据并标注
-            if (!isReal || credentials.length === 0) {
-                credentials = [{
+            // 仅未登录 / 接口全挂（非真实）时保留演示兜底；真实模式空凭证走空态，不编演示哨兵
+            let demoFallback = [];
+            if (!isReal) {
+                demoFallback = [{
                     id: 1,
                     name: 'OKX-DEMO',
                     exchange_id: 'okx',
-                    api_key_hint: '8a12...0cf2'
+                    api_key_hint: '8a12...0cf2',
+                    environment: 'demo'
                 }];
+            }
+            const emptyHtml = '<div style="padding:8px;color:var(--text-tertiary);font-size:12px;">暂无已连接交易账户</div>';
+
+            if (!credentials || credentials.length === 0) {
+                const showDemo = !isReal && demoFallback.length;
+                const list = showDemo ? demoFallback : [];
+                const render = (cred) => `
+                    <div class="account-option" style="padding:10px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;${showDemo ? 'background:var(--bg-hover);' : ''}">
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <span style="padding:3px 6px;border-radius:4px;background:var(--brand-primary);color:var(--bg-primary);font-size:10px;font-weight:700;text-transform:uppercase;">${cred.exchange_id || '--'}</span>
+                            <div>
+                                <div style="font-size:13px;">${cred.name || '--'}</div>
+                                <div style="font-size:11px;color:var(--text-secondary);">${cred.api_key_hint || _credEnvLabel(cred)}</div>
+                            </div>
+                        </div>
+                        <div class="status-dot" style="width:6px;height:6px;"></div>
+                    </div>`;
+                const html = list.length ? list.map(render).join('') : emptyHtml;
+                if (accountsList) accountsList.innerHTML = html;
+                if (modalAccountsList) modalAccountsList.innerHTML = html;
+                return;
             }
 
             accountsList.innerHTML = credentials.map((cred, idx) => `
                 <div class="account-option ${idx === 0 ? 'selected' : ''}" style="padding: 10px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; ${idx === 0 ? 'background: var(--bg-hover);' : ''}">
                     <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="padding: 3px 6px; border-radius: 4px; background: var(--brand-primary); color: var(--bg-primary); font-size: 10px; font-weight: 700; text-transform: uppercase;">${cred.exchange_id}</span>
+                        <span style="padding: 3px 6px; border-radius: 4px; background: var(--brand-primary); color: var(--bg-primary); font-size: 10px; font-weight: 700; text-transform: uppercase;">${cred.exchange_id || '--'}</span>
                         <div>
-                            <div style="font-size: 13px;">${cred.name}</div>
-                            <div style="font-size: 11px; color: var(--text-secondary);">${cred.api_key_hint || '已连接'}</div>
+                            <div style="font-size: 13px;">${cred.name || '--'}</div>
+                            <div style="font-size: 11px; color: var(--text-secondary);">${cred.api_key_hint || _credEnvLabel(cred)}</div>
                         </div>
                     </div>
                     <div class="status-dot" style="width: 6px; height: 6px;"></div>
@@ -1526,10 +1555,10 @@
             modalAccountsList.innerHTML = credentials.map((cred, idx) => `
                 <div class="credential-option ${idx === 0 ? 'selected' : ''}" style="padding: 12px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; ${idx === 0 ? 'background: var(--bg-active);' : ''}">
                     <div style="display: flex; align-items: center; gap: 12px;">
-                        <span style="padding: 4px 8px; border-radius: 4px; background: var(--brand-primary); color: var(--bg-primary); font-size: 11px; font-weight: 700; text-transform: uppercase;">${cred.exchange_id}</span>
+                        <span style="padding: 4px 8px; border-radius: 4px; background: var(--brand-primary); color: var(--bg-primary); font-size: 11px; font-weight: 700; text-transform: uppercase;">${cred.exchange_id || '--'}</span>
                         <div>
-                            <div style="font-weight: 600; font-size: 14px;">${cred.name}</div>
-                            <div style="font-size: 11px; color: var(--text-secondary);">${cred.api_key_hint || '已连接'}</div>
+                            <div style="font-weight: 600; font-size: 14px;">${cred.name || '--'}</div>
+                            <div style="font-size: 11px; color: var(--text-secondary);">${cred.api_key_hint || _credEnvLabel(cred)}</div>
                         </div>
                     </div>
                     <div class="status-dot" style="width: 8px; height: 8px;"></div>
@@ -2858,15 +2887,12 @@
             }
         }
 
-        function loadAccountsList() {
-            const container = document.getElementById('accounts-list');
-            // 演示数据
-            container.innerHTML = `
-                <div style="padding: 8px; background: rgba(14,203,129,0.05); border-radius: 6px; margin-bottom: 8px; cursor: pointer; border: 1px solid rgba(14,203,129,0.3);">
-                    <div style="font-size: 12px; font-weight: 600; color: #0ecb81;">🟢 OKX-DEMO</div>
-                    <div style="font-size: 10px; color: var(--text-tertiary); margin-top: 2px;">已连接 · 模拟盘</div>
-                </div>
-            `;
+        async function loadAccountsList() {
+            const res = await ApiService.getCredentials();
+            const data = res.data || [];
+            const list = Array.isArray(data) ? data : (Array.isArray(data.items) ? data.items : []);
+            const isReal = !res._error && res.code === 1;
+            updateAccountsList(list, isReal);
         }
 
         // 绑定添加账户按钮
