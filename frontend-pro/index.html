@@ -2012,7 +2012,7 @@
                 <div style="margin-bottom: 28px;">
                     <h1 style="font-size: 28px; font-weight: 700; margin-bottom: 8px; color: #f0b90b;">📚 内部 Wiki · 知识与避坑规则</h1>
                     <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.7;">
-                        本页为只读镜像，沉淀系统宪法、工程/风控/数据铁律、踩坑经验与当前阻塞项；规则与待办的单一事实源在仓库
+                        本页为只读镜像，沉淀第一性原理框架、系统宪法、工程/风控/数据铁律、可复制经验、机构对标、踩坑经验与当前阻塞项；规则与待办的单一事实源在仓库
                         <code style="background: var(--bg-primary); padding: 2px 6px; border-radius: 4px; color: #f0b90b;">docs/RULES.md</code> 与
                         <code style="background: var(--bg-primary); padding: 2px 6px; border-radius: 4px; color: #f0b90b;">docs/TODO.md</code>，修改请改文档并随版本同步，不在页面内另写一套口径。
                     </p>
@@ -2033,6 +2033,41 @@
                         <div style="background: var(--bg-primary); border-radius: 8px; padding: 18px; border-left: 3px solid #0ecb81;">
                             <div style="font-weight: 600; margin-bottom: 8px;">阈值来自分布</div>
                             <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.7;">阈值由 CLEAN 集分布校准，不由绩效网格搜索产生；决策规则实验前冻结。</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 第一性原理推导框架 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 24px; margin-bottom: 24px;">
+                    <h2 style="font-size: 18px; margin-bottom: 16px; color: #8b5cf6;">🧭 第一性原理推导框架</h2>
+                    <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px 18px; margin-bottom: 16px; font-size: 15px; line-height: 1.8;">
+                        稳定盈利 = <strong style="color: #eaecef;">正期望值</strong> × <strong style="color: #eaecef;">大数定律</strong> × <strong style="color: #eaecef;">不爆仓</strong>；三者缺一项，长期复利都不成立。
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">
+                        <span style="background: var(--bg-primary); padding: 6px 12px; border-radius: 6px;">数据输入</span><span>→</span>
+                        <span style="background: var(--bg-primary); padding: 6px 12px; border-radius: 6px;">信号生成</span><span>→</span>
+                        <span style="background: var(--bg-primary); padding: 6px 12px; border-radius: 6px;">组合构建</span><span>→</span>
+                        <span style="background: var(--bg-primary); padding: 6px 12px; border-radius: 6px;">订单执行</span><span>→</span>
+                        <span style="background: var(--bg-primary); padding: 6px 12px; border-radius: 6px;">风控监控</span><span>→</span>
+                        <span style="background: var(--bg-primary); padding: 6px 12px; border-radius: 6px;">绩效反馈</span>
+                        <span style="color: #0ecb81;">↑ 反馈闭环回灌信号与风控</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; font-size: 13px; line-height: 1.7;">
+                        <div>
+                            <div style="color: var(--text-secondary); margin-bottom: 8px;">Alpha 四分类（收益来源先归类）</div>
+                            <div>· 行为偏差：处置效应、羊群效应 → 反转 / 动量</div>
+                            <div>· 信息优势：更快获取与处理信息 → 高频新闻交易</div>
+                            <div>· 统计偏差：数据中的伪规律 → 统计套利 / 配对</div>
+                            <div>· 结构红利：市场规则创造的机会 → 做市 / 再平衡</div>
+                        </div>
+                        <div>
+                            <div style="color: #f6465d; margin-bottom: 8px;">逆向清单：先想怎么会死（致死模式）</div>
+                            <div>· 不止损、死扛等回本 → 一次大亏回到解放前</div>
+                            <div>· 仓位太重 → 一次假突破就爆仓</div>
+                            <div>· 过拟合：回测好看实盘亏 → 数据挖掘偏差</div>
+                            <div>· 策略失效仍在做 → Alpha 衰减未识别</div>
+                            <div>· 前视偏差：用未来数据 → 回测假阳性</div>
+                            <div>· 杠杆过高 / 全仓单一策略 → 失效即全损</div>
                         </div>
                     </div>
                 </div>
