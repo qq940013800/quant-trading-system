@@ -111,6 +111,13 @@
 - **遗留/未验证**：① K 线 `generateMockKlineData()` 人造蜡烛（42000 起）仅在接口空/异常的失败降级分支调用，当前真实链路走 LIVE，本轮保留为遗留候选，未改降级为空态；② 绑定弹窗保存凭证 payload `environment: 'demo'` 写死，弹窗无 live/demo 选择控件，属凭证提交参数、边界外，未决；③ 未登录分支 demo 兜底路径未跑未登录实测。
 - **提交**：Gitee
 
+### 45. 系统简介页补技术架构与数据流说明 ✅ 已完成
+- **完成时间**：2026-11-08
+- **内容**：简介页原有「五层闭环」为概念职责分层，缺真实技术栈/部署拓扑/组件职责与数据流。在五层闭环后新增两块只读说明：①「技术架构与部署拓扑」六层条——浏览器前端（原生静态站 + ApiService + Bearer token）、接入层（静态服务 :8899，`/api/*` 反代后端 :5001）、后端路由层（Flask 蓝图按领域拆分，auth/credentials/dashboard/portfolio/risk/strategy*/backtest/kline/indicator/p1_modules/p2_modules/validation/quick_trade）、后端服务层（回测/组合风控/策略运行时/live_trading 工厂/因子/通知）、数据源层（factory 路由 crypto/forex/us_stock/cn_stock/hk_stock/asia_stock/futures/moex/tencent，带缓存/熔断/限流）、存储与外部连接（PostgreSQL，凭证 Fernet 加密，凭证库 → live_trading.factory → 交易所客户端）；②「关键数据流与前后端分工」三卡（行情与指标、凭证与交易、决策审计）+ 分工边界条（后端计算风控/仓位/信号/回测，前端只展示确认，止损风控后端强制执行）。模块名/端口/数据源均核对真实目录与 `scripts/serve_frontend_pro.py`，未编性能指标或不存在的接口。
+- **验证**：全文件 div 开闭配平 1061/1061；浏览器登录态切到「系统简介」，两块新卡片六层条、三卡与分工条完整上屏，控制台 0 报错；纯静态文案，未改 JS/后端/交易路由/风控/资金链路。
+- **未验证**：架构说明为当前代码库快照口径，后续后端新增路由/数据源时需同步本页文案；未在未登录态复核展示（纯静态，不依赖登录态）。
+- **提交**：Gitee
+
 ### 42. 日志中心接入交易日志 / 决策日志（复盘归因素材）✅ 已完成
 - **完成时间**：2026-11-08
 - **内容**：前端日志中心新增「决策日志 / 交易日志 / 系统日志」三类切换。决策日志接 `GET /api/strategies/logs?id=<sid>`（表 `qd_strategy_logs`），交易日志接 `GET /api/strategies/trades?id=<sid>`（表 `qd_strategy_trades`），系统日志沿用前端内存 `debugLogs`；按所选策略拉取，级别/关键词筛选、当前过滤结果导出。决策/交易日志为后端只读，禁用清空；未选策略、空数组、接口异常走真实空态与错误提示，缺值 `--`，不编演示值。只读归因，不触发下单/平仓/资金动作。

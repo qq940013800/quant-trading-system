@@ -2024,6 +2024,67 @@
                     </div>
                 </div>
 
+                <!-- 技术架构与部署拓扑 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 32px; margin-bottom: 24px;">
+                    <h2 style="font-size: 20px; margin-bottom: 16px; color: #0ecb81;">🔧 技术架构与部署拓扑</h2>
+                    <p style="color: var(--text-secondary); font-size: 13px; line-height: 1.8; margin-bottom: 20px;">
+                        自上而下六层：浏览器前端 → 接入反代 → 后端路由 → 后端服务 → 数据源 → 存储与外部连接；各层职责单一、可独立替换，研究路径与交易执行路径物理分离。
+                    </p>
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-left: 4px solid #f0b90b;">
+                            <div style="font-weight: 600; margin-bottom: 4px;">🖥️ 浏览器前端</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.7;">原生静态站（<code>index.html</code> / <code>js/app.js</code> / <code>css/main.css</code>），单页导航；<code>ApiService</code> 统一封装 REST 请求，Bearer token 存于 localStorage，前端只做展示与确认。</div>
+                        </div>
+                        <div style="text-align: center; color: var(--text-secondary);">↓</div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-left: 4px solid #848e9c;">
+                            <div style="font-weight: 600; margin-bottom: 4px;">🔌 接入层</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.7;">本地静态服务监听 <code>:8899</code>，<code>/api/*</code> 反代到自建后端 <code>:5001</code>；浏览器不直连交易所或数据库。</div>
+                        </div>
+                        <div style="text-align: center; color: var(--text-secondary);">↓</div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-left: 4px solid #f6465d;">
+                            <div style="font-weight: 600; margin-bottom: 4px;">🧭 后端路由层（Flask 蓝图，按领域拆分）</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.7;">认证 auth、凭证 credentials、仪表盘 dashboard、组合 portfolio、风控 risk、策略 strategy*、回测 backtest、K线 kline、指标 indicator、P1/P2 模块 p1_modules/p2_modules、AI 验证 validation、快捷交易 quick_trade 等；认证与授权前置检查，统一错误格式 code + msg + data。</div>
+                        </div>
+                        <div style="text-align: center; color: var(--text-secondary);">↓</div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-left: 4px solid #0ecb81;">
+                            <div style="font-weight: 600; margin-bottom: 4px;">⚙️ 后端服务层</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.7;">回测执行、组合与风控、策略运行时、live_trading 工厂、因子计算、通知等领域服务；风控、仓位、信号、回测等计算全部在后端完成。</div>
+                        </div>
+                        <div style="text-align: center; color: var(--text-secondary);">↓</div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-left: 4px solid #f0b90b;">
+                            <div style="font-weight: 600; margin-bottom: 4px;">📡 数据源层</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.7;">工厂按市场路由 crypto / forex / us_stock / cn_stock / hk_stock / asia_stock / futures / moex / tencent；统一带缓存、熔断器与限流器，数据源可插拔、切换不改策略代码。</div>
+                        </div>
+                        <div style="text-align: center; color: var(--text-secondary);">↓</div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-left: 4px solid #eaecef;">
+                            <div style="font-weight: 600; margin-bottom: 4px;">🗄️ 存储与外部连接</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.7;">PostgreSQL 存放凭证、策略、成交与日志；凭证密钥 Fernet 加密入库。外部交易所与行情经凭证库 → live_trading.factory → 交易所客户端，不并行第二份凭证存储。</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 关键数据流与前后端分工 -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 32px; margin-bottom: 24px;">
+                    <h2 style="font-size: 20px; margin-bottom: 20px; color: #f0b90b;">🔁 关键数据流与前后端分工</h2>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;">
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 18px; border-top: 3px solid #0ecb81;">
+                            <div style="font-weight: 600; margin-bottom: 8px; color: #0ecb81;">行情与指标</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.7;">数据源 OHLCV → 服务层特征/指标 → 路由 REST → ApiService → 前端 K 线、订单簿与信号面板。</div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 18px; border-top: 3px solid #f6465d;">
+                            <div style="font-weight: 600; margin-bottom: 8px; color: #f6465d;">凭证与交易</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.7;">绑定弹窗 → <code>/api/credentials/*</code> 加密入库；探测/下单经工厂 → 交易所客户端；风控 gate 在后端前置拦截，订单发出前完成校验。</div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 18px; border-top: 3px solid #f0b90b;">
+                            <div style="font-weight: 600; margin-bottom: 8px; color: #f0b90b;">决策审计</div>
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.7;">后端写决策/交易日志 → 日志中心只读回显；事后复盘结论回灌知识沉淀，形成系统自我进化闭环。</div>
+                        </div>
+                    </div>
+                    <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; border-left: 3px solid #848e9c; font-size: 13px; color: var(--text-secondary); line-height: 1.8;">
+                        <strong style="color: #eaecef;">前后端分工边界：</strong>后端负责计算（风控、仓位、信号、回测），前端只负责展示与确认；止损与风控在后端强制执行，不靠前端提醒，也不靠人工手动平仓。
+                    </div>
+                </div>
+
                 <!-- 全球最佳实践对标 -->
                 <div style="background: var(--bg-secondary); border-radius: 12px; padding: 32px; margin-bottom: 24px;">
                     <h2 style="font-size: 20px; margin-bottom: 20px; color: #f0b90b;">🌍 全球顶级机构对标</h2>
