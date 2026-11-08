@@ -197,3 +197,61 @@ class TestEngineBoundary:
             equity=100_000, atr=2.5,
         )
         assert pos is not None
+
+
+class TestExecuteSignalGuard:
+    def _run(self, **kw):
+        engine = ExecutionEngine()
+        return engine.execute_signal(**kw)
+
+    def _base(self, **over):
+        base = dict(symbol="XAUUSD", side=OrderSide.BUY,
+                    signal_strength=0.8, equity=100_000, atr=2.5)
+        base.update(over)
+        return base
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf"), 0.0, -1.0])
+    def test_equity_rejects_nonfinite_or_nonpositive(self, bad):
+        with pytest.raises(ValueError):
+            self._run(**self._base(equity=bad))
+
+    @pytest.mark.parametrize("bad", [float("nan"), 0.0, -2.5])
+    def test_atr_rejects_nonfinite_or_nonpositive(self, bad):
+        with pytest.raises(ValueError):
+            self._run(**self._base(atr=bad))
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf"), 2.0, -0.1])
+    def test_signal_strength_rejects_nonfinite_or_out_of_range(self, bad):
+        with pytest.raises(ValueError):
+            self._run(**self._base(signal_strength=bad))
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf"), 1.5, -0.01])
+    def test_risk_pct_rejects_nonfinite_or_out_of_range(self, bad):
+        with pytest.raises(ValueError):
+            self._run(**self._base(risk_pct=bad))
+
+    @pytest.mark.parametrize("bad", [float("nan"), 0.0, -100.0])
+    def test_point_value_rejects_nonfinite_or_nonpositive(self, bad):
+        with pytest.raises(ValueError):
+            self._run(**self._base(point_value=bad))
+
+    @pytest.mark.parametrize("bad", [float("nan"), 0.0, -0.01])
+    def test_min_lot_and_lot_step_reject_nonfinite_or_nonpositive(self, bad):
+        with pytest.raises(ValueError):
+            self._run(**self._base(min_lot=bad))
+        with pytest.raises(ValueError):
+            self._run(**self._base(lot_step=bad))
+
+    def test_side_rejects_non_enum(self):
+        with pytest.raises(ValueError):
+            self._run(**self._base(side="BUY"))
+
+    @pytest.mark.parametrize("bad_retries", [1.5, -1, True])
+    def test_config_rejects_bad_retries(self, bad_retries):
+        with pytest.raises(ValueError):
+            ExecutionConfig(max_retries=bad_retries)
+
+    @pytest.mark.parametrize("bad_timeout", [float("nan"), 0.0, -5.0])
+    def test_config_rejects_bad_timeout(self, bad_timeout):
+        with pytest.raises(ValueError):
+            ExecutionConfig(order_timeout_seconds=bad_timeout)

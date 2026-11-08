@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import uuid
 
 import numpy as np
@@ -40,6 +41,28 @@ from core.execution.reconcile import (
 )
 
 logger = logging.getLogger("core.execution")
+
+
+def _finite(name: str, val: float, *, positive: bool = False,
+            nonneg: bool = False, lo: float | None = None,
+            hi: float | None = None) -> float:
+    v = float(val)
+    if not math.isfinite(v):
+        raise ValueError({"layer": "execution.engine", "detail":
+                          f"{name} must be finite, got {val!r}"})
+    if positive and v <= 0:
+        raise ValueError({"layer": "execution.engine", "detail":
+                          f"{name} must be > 0, got {v}"})
+    if nonneg and v < 0:
+        raise ValueError({"layer": "execution.engine", "detail":
+                          f"{name} must be >= 0, got {v}"})
+    if lo is not None and v < lo:
+        raise ValueError({"layer": "execution.engine", "detail":
+                          f"{name} must be >= {lo}, got {v}"})
+    if hi is not None and v > hi:
+        raise ValueError({"layer": "execution.engine", "detail":
+                          f"{name} must be <= {hi}, got {v}"})
+    return v
 
 
 # ------------------------------------------------------------------
@@ -110,6 +133,19 @@ class ExecutionConfig:
     max_slippage_bps: float = 10.0      # 最大滑点（基点）
     allow_partial_fill: bool = True     # 是否允许部分成交
     order_timeout_seconds: float = 30.0 # 订单超时
+
+    def __post_init__(self):
+        if isinstance(self.max_retries, bool) \
+                or not isinstance(self.max_retries, int) or self.max_retries < 0:
+            raise ValueError({"layer": "execution.engine", "detail":
+                              f"max_retries must be an int >= 0, "
+                              f"got {self.max_retries!r}"})
+        self.retry_delay_seconds = _finite(
+            "retry_delay_seconds", self.retry_delay_seconds, nonneg=True)
+        self.max_slippage_bps = _finite(
+            "max_slippage_bps", self.max_slippage_bps, nonneg=True)
+        self.order_timeout_seconds = _finite(
+            "order_timeout_seconds", self.order_timeout_seconds, positive=True)
 
 
 # ------------------------------------------------------------------
@@ -193,6 +229,19 @@ class ExecutionEngine:
             新建持仓，失败返回None
         """
         decision_id = f"exec-{uuid.uuid4().hex[:12]}"
+
+        # 入参边界守卫：非法/非有限值在开仓前显式失败，不进仓位/止损计算。
+        if not isinstance(side, OrderSide):
+            raise ValueError({"layer": "execution.engine", "detail":
+                              f"side must be OrderSide, got {side!r}"})
+        signal_strength = _finite("signal_strength", signal_strength,
+                                  lo=0.0, hi=1.0)
+        equity = _finite("equity", equity, positive=True)
+        atr = _finite("atr", atr, positive=True)
+        risk_pct = _finite("risk_pct", risk_pct, lo=0.0, hi=1.0)
+        point_value = _finite("point_value", point_value, positive=True)
+        min_lot = _finite("min_lot", min_lot, positive=True)
+        lot_step = _finite("lot_step", lot_step, positive=True)
 
         # 0. 控制面守卫：KillSwitch 已触发 -> 禁止新开仓（平仓路径不受影响）
         if self.kill_switch is not None and self.kill_switch.is_armed():
