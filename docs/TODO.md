@@ -200,6 +200,7 @@
 | T3 | 飞书云文档/Wiki同步 | ⏳ 待做 | 文档只在本地和Gitee |
 | T4 | 数据库真实K线数据导入 | ⏳ 待做 | PostgreSQL还没导入历史数据 |
 | T5 | 下单失败原因排查 | ⏳ 待做 | "All operations failed"，需查OKX现货参数 |
+| T6 | core 纯函数有限性守卫旁路 | ⏳ 待接线 | 已加固风控/仓位/路由/撮合/组合/止损/选择器/策略/模型/成本/执行引擎活路径（#185–#197）：NaN/inf/负/0 在边界显式失败。未加固旁路：lifecycle `WatchThresholds`/`LaunchCriteria` 与 metrics 容错、verification_middleware 阈值、drift_monitor、stress_test、容错归一 pretrade_gate——适配器未接线（#154/#155），非法值当前 fail-closed 或仅影响建议、不放大敞口；待适配器接线时在适配器/冻结配置层补 finite/区间校验 |
 
 ---
 
