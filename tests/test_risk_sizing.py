@@ -51,3 +51,50 @@ def test_invalid_inputs_raise():
         target_lots(0, 0.01, 2.0, 100, 0.01, 0.01, 1.0)
     with pytest.raises(ValueError):
         quantile_threshold([], 0.5)
+
+
+def test_target_lots_rejects_nonpositive_atr0():
+    with pytest.raises(ValueError):
+        target_lots(10_000, 0.01, 0.0, 100, 0.01, 0.01, 1.0)
+
+
+def test_target_lots_rejects_nonpositive_point_value():
+    with pytest.raises(ValueError):
+        target_lots(10_000, 0.01, 2.0, 0.0, 0.01, 0.01, 1.0)
+
+
+def test_target_lots_rejects_nonpositive_lot_step():
+    with pytest.raises(ValueError):
+        target_lots(10_000, 0.01, 2.0, 100, 0.01, 0.0, 1.0)
+
+
+def test_max_lot_caps_output():
+    # 理论手数远超 max_lot，必须被保护上限裁断
+    lots = target_lots(1_000_000, 0.05, 1.0, 100, 0.01, 0.01, 1.0,
+                       max_lot=5.0)
+    assert lots == pytest.approx(5.0)
+
+
+def test_zero_risk_pct_returns_zero():
+    lots = target_lots(10_000, 0.0, 2.0, 100, 0.01, 0.01, 1.0)
+    assert lots == 0.0
+
+
+def test_quantile_rejects_q_out_of_range():
+    for bad in (-0.1, 1.1):
+        with pytest.raises(ValueError):
+            quantile_threshold([1.0, 2.0, 3.0], bad)
+
+
+def test_quantile_single_sample_returns_value():
+    assert quantile_threshold([7.0], 0.5) == pytest.approx(7.0)
+
+
+def test_vol_target_rejects_nonpositive_inputs():
+    for realized, target in ((0.0, 0.1), (-0.1, 0.1), (0.1, 0.0), (-0.1, -0.1)):
+        with pytest.raises(ValueError):
+            vol_target_scale(realized, target)
+
+
+def test_vol_target_equal_vol_is_one():
+    assert vol_target_scale(0.15, 0.15) == 1.0

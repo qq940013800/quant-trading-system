@@ -233,3 +233,91 @@ class TestEvaluateStops:
         assert should_exit is False
         assert new_stop is None
         assert stop_type == StopType.PRICE_ATR
+
+
+# ------------------------------------------------------------------
+# 边界 / 状态迁移 / 异常路径补充
+# ------------------------------------------------------------------
+class TestStopsBoundary:
+    def test_breakeven_branch_updates_stop(self):
+        """R 介于保本线与跟踪激活线之间：走保本分支，返回 PRICE_ATR。"""
+        state = StopState(
+            entry_price=100.0, direction=+1,
+            entry_atr=2.0, entry_dist=2.0,
+            current_stop=98.0, bars_held=5, max_favorable_r=1.5,
+        )
+        config = StopConfig(breakeven_r=1.0, breakeven_offset_r=0.1,
+                            trailing_activation_r=2.0)
+        should_exit, new_stop, stop_type = evaluate_stops(
+            state, config, current_price=101.0,
+        )
+        assert should_exit is False
+        assert stop_type == StopType.PRICE_ATR
+        # 保本价 = entry + 0.1R × entry_dist = 100.2
+        assert new_stop == pytest.approx(100.2)
+        assert state.current_stop == pytest.approx(100.2)
+
+    def test_evaluate_refreshes_max_favorable_r(self):
+        """当前价更有利时，max_favorable_r 被推高（状态迁移可审计）。"""
+        state = StopState(
+            entry_price=100.0, direction=+1,
+            entry_atr=2.0, entry_dist=2.0,
+            current_stop=98.0, bars_held=5, max_favorable_r=0.0,
+        )
+        evaluate_stops(state, StopConfig(), current_price=104.0)
+        # (104-100)/2 = 2.0R
+        assert state.max_favorable_r == pytest.approx(2.0)
+
+    def test_short_breakeven_stop_sign(self):
+        state = StopState(
+            entry_price=100.0, direction=-1,
+            entry_atr=2.0, entry_dist=2.0,
+            current_stop=102.0, max_favorable_r=1.5,
+        )
+        config = StopConfig(breakeven_r=1.0, breakeven_offset_r=0.1)
+        # 空头保本价 = entry - 0.1R × dist = 99.8
+        assert update_breakeven_stop(state, config) == pytest.approx(99.8)
+
+    def test_breakeven_triggers_at_exact_boundary(self):
+        """R 恰好等于 breakeven_r 即触发（>= 口径）。"""
+        state = StopState(
+            entry_price=100.0, direction=+1,
+            entry_atr=2.0, entry_dist=2.0,
+            current_stop=98.0, max_favorable_r=1.0,
+        )
+        config = StopConfig(breakeven_r=1.0)
+        assert update_breakeven_stop(state, config) is not None
+
+    def test_trailing_triggers_at_exact_boundary(self):
+        state = StopState(
+            entry_price=100.0, direction=+1,
+            entry_atr=2.0, entry_dist=2.0,
+            current_stop=98.0, max_favorable_r=2.0,
+        )
+        config = StopConfig(trailing_activation_r=2.0)
+        assert update_trailing_stop(state, config) is not None
+
+    def test_compute_r_short_loss_is_negative(self):
+        # 空头价格上涨 = 亏损，R 为负
+        assert compute_current_r(100.0, -1, 101.0, 2.0) == pytest.approx(-0.5)
+
+    def test_state_current_r_is_not_implemented(self):
+        state = StopState(100.0, +1, 2.0, 2.0, 98.0)
+        with pytest.raises(NotImplementedError):
+            state.current_r()
+
+    def test_update_stop_rejects_invalid_direction(self):
+        with pytest.raises(ValueError):
+            update_stop(100.0, 99.0, 0)
+
+    def test_widen_error_carries_full_context(self):
+        with pytest.raises(StopWideningError) as ei:
+            update_stop(100.0, 99.0, +1, symbol="XAUUSD",
+                        ts_utc="2021-01-04 09:30:00")
+        ctx = ei.value.context
+        assert ctx["layer"] == "risk.stops"
+        assert ctx["symbol"] == "XAUUSD"
+        assert ctx["ts_utc"] == "2021-01-04 09:30:00"
+        assert ctx["current_stop"] == 100.0
+        assert ctx["new_stop"] == 99.0
+        assert "widened" in ctx["detail"]

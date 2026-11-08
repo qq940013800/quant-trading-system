@@ -219,3 +219,91 @@ class TestActionRecommendation:
 
         # 健康策略的建议应该是保持或轻微调整
         assert "暂停" not in rec["action"] or rec["health_score"] > 40
+
+
+# ------------------------------------------------------------------
+# 边界 / 异常路径补充
+# ------------------------------------------------------------------
+class TestDriftBoundary:
+    def test_window_size_cap(self):
+        monitor = DriftMonitor(window_size=10)
+        monitor.update([0.01] * 15)
+        assert len(monitor.recent_returns) == 10
+
+    def test_zero_variance_significance_guard(self):
+        """零方差序列：显著性检验走异常分支，不除零崩溃。"""
+        monitor = DriftMonitor()
+        monitor.update([0.0] * 30)
+        result = monitor.significance_test()
+        assert result["significant"] is False
+        assert result["t_stat"] == 0.0
+        assert result["p_value"] == 1.0
+        assert "零方差" in result["conclusion"]
+
+    def test_significance_insufficient_at_29_samples(self):
+        monitor = DriftMonitor()
+        monitor.update([0.01] * 29)
+        result = monitor.significance_test()
+        assert result["significant"] is False
+        assert "样本不足" in result["conclusion"]
+
+    def test_severity_levels_boundaries(self):
+        monitor = DriftMonitor()
+        # threshold=0.3, critical=2.0；1.5×threshold=0.45
+        assert monitor._severity(0.2, 0.3, 2.0) == "low"
+        assert monitor._severity(0.3, 0.3, 2.0) == "medium"
+        assert monitor._severity(0.45, 0.3, 2.0) == "high"
+        assert monitor._severity(2.0, 0.3, 2.0) == "critical"
+
+    def test_check_drift_rebuilds_alerts_not_accumulates(self):
+        monitor = DriftMonitor(baseline_win_rate=0.9)
+        monitor.update([0.01 if i % 4 == 0 else -0.003 for i in range(30)])
+        first = monitor.check_drift()
+        second = monitor.check_drift()
+        # 重复调用重建告警列表，不在上一次基础上堆积
+        assert len(second) == len(first)
+
+    def test_zero_baseline_guards_do_not_crash(self):
+        monitor = DriftMonitor(baseline_sharpe=0.0, baseline_max_dd=0.0)
+        monitor.update([0.01, -0.005] * 15)
+        alerts = monitor.check_drift()
+        assert isinstance(alerts, list)
+        status = monitor.status()
+        assert 0 <= status["health_score"] <= 100
+
+    def test_drift_type_insufficient_at_49_samples(self):
+        monitor = DriftMonitor()
+        monitor.update([0.001] * 49)
+        assert monitor.drift_type() == "insufficient_data"
+
+    def test_sudden_failure_classification(self):
+        monitor = DriftMonitor(baseline_sharpe=1.0, baseline_win_rate=0.55,
+                               baseline_max_dd=0.1)
+        # 前半段稳定盈利，后半段大幅亏损 -> 前后均值断裂
+        monitor.update([0.01] * 25 + [-0.02] * 25)
+        assert monitor.drift_type() == "sudden_failure"
+
+    def test_healthy_action_keeps_position(self):
+        monitor = DriftMonitor(baseline_sharpe=1.0, baseline_win_rate=0.55,
+                               baseline_max_dd=0.15)
+        monitor.update([0.005 if i % 2 == 0 else 0.002 for i in range(60)])
+        rec = monitor.action_recommendation()
+        assert rec["health_score"] >= 80
+        assert rec["action"] == "保持当前仓位"
+
+    def test_critical_action_suspends(self):
+        monitor = DriftMonitor(baseline_sharpe=1.0, baseline_win_rate=0.9,
+                               baseline_max_dd=0.05)
+        monitor.update([-0.01] * 60)
+        rec = monitor.action_recommendation()
+        assert rec["health_score"] < 40
+        assert "暂停" in rec["action"]
+
+    def test_status_dict_keys(self):
+        monitor = DriftMonitor()
+        monitor.update([0.001] * 30)
+        status = monitor.status()
+        assert set(status.keys()) == {
+            "current_sharpe", "current_win_rate", "current_max_dd",
+            "n_alerts", "critical_alerts", "health_score",
+        }

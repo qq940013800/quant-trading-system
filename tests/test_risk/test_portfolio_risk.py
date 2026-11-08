@@ -110,3 +110,81 @@ class TestPortfolioRiskManager:
         assert "strategies" in report
         assert len(report["strategies"]) == 1
         assert report["strategies"][0]["id"] == "s1"
+
+
+class TestPortfolioRiskBoundary:
+    def setup_method(self):
+        self.config = PortfolioRiskConfig(
+            max_total_exposure=0.05,
+            max_exposure_per_cluster=0.03,
+            daily_loss_limit=0.03,
+            max_strategies=3,
+        )
+
+    def test_empty_manager_aggregates_zero(self):
+        mgr = PortfolioRiskManager(self.config)
+        assert mgr.total_exposure() == 0.0
+        assert mgr.cluster_exposure(0) == 0.0
+        assert mgr.total_daily_pnl() == 0.0
+
+    def test_empty_manager_allows_open(self):
+        mgr = PortfolioRiskManager(self.config)
+        allowed, reason = mgr.can_open_new_position("ghost", 0.01)
+        assert allowed is True
+        assert "允许" in reason
+
+    def test_remove_missing_strategy_does_not_raise(self):
+        mgr = PortfolioRiskManager(self.config)
+        mgr.remove_strategy("not_registered")  # pop 默认 None，不抛异常
+
+    def test_total_exposure_exact_limit_allowed(self):
+        """current + planned == max_total 走严格 > 口径，恰好等于允许。"""
+        cfg = PortfolioRiskConfig(max_total_exposure=0.05,
+                                  max_exposure_per_cluster=0.10,
+                                  daily_loss_limit=0.03, max_strategies=3)
+        mgr = PortfolioRiskManager(cfg)
+        mgr.add_strategy(StrategyRisk("s1", current_exposure=0.04,
+                                      correlation_cluster=0))
+        allowed, _ = mgr.can_open_new_position("s1", planned_risk=0.01)
+        assert allowed is True
+
+    def test_total_exposure_over_limit_denied(self):
+        cfg = PortfolioRiskConfig(max_total_exposure=0.05,
+                                  max_exposure_per_cluster=0.10,
+                                  daily_loss_limit=0.03, max_strategies=3)
+        mgr = PortfolioRiskManager(cfg)
+        mgr.add_strategy(StrategyRisk("s1", current_exposure=0.04,
+                                      correlation_cluster=0))
+        allowed, reason = mgr.can_open_new_position("s1", planned_risk=0.011)
+        assert allowed is False
+        assert "总敞口" in reason
+
+    def test_daily_pnl_exact_limit_triggers(self):
+        """当日亏损恰好等于 -limit（<= 口径）即熔断。"""
+        mgr = PortfolioRiskManager()
+        mgr.add_strategy(StrategyRisk("a", daily_pnl=-0.03))
+        allowed, reason = mgr.can_open_new_position("a", planned_risk=0.01)
+        assert allowed is False
+        assert "熔断" in reason
+
+    def test_unknown_strategy_skips_cluster_check(self):
+        """未注册策略不做聚类敞口检查（无聚类归属）。"""
+        cfg = PortfolioRiskConfig(max_exposure_per_cluster=0.01)
+        mgr = PortfolioRiskManager(cfg)
+        mgr.add_strategy(StrategyRisk("known", current_exposure=0.009,
+                                      correlation_cluster=7))
+        allowed, _ = mgr.can_open_new_position("ghost", planned_risk=0.02)
+        assert allowed is True
+
+    def test_report_structure(self):
+        mgr = PortfolioRiskManager(self.config)
+        mgr.set_equity(50_000)
+        report = mgr.risk_report()
+        assert report["equity"] == 50_000
+        assert report["strategy_count"] == 0
+        assert report["total_exposure"] == 0.0
+        assert report["total_daily_pnl"] == 0.0
+        assert set(report["config"].keys()) == {
+            "max_total_exposure", "max_exposure_per_cluster",
+            "daily_loss_limit", "max_strategies",
+        }

@@ -108,3 +108,92 @@ class TestClosePosition:
         order = engine.close_position("XAUUSD")
         assert order is not None
         assert len(engine.get_open_positions()) == 0
+
+
+# ------------------------------------------------------------------
+# 边界 / 异常路径补充
+# ------------------------------------------------------------------
+class TestEngineBoundary:
+    def test_sell_position_stop_above_entry(self):
+        engine = ExecutionEngine()
+        pos = engine.execute_signal(
+            symbol="XAUUSD", side=OrderSide.SELL, signal_strength=0.8,
+            equity=100_000, atr=2.5,
+        )
+        assert pos is not None
+        assert pos.side == OrderSide.SELL
+        # 空头止损在入场价上方
+        assert pos.stop_loss > pos.entry_price
+
+    def test_risk_check_rejection_leaves_no_position(self):
+        engine = ExecutionEngine(
+            risk_check_fn=lambda s, side, q, p: (False, "risk deny"))
+        pos = engine.execute_signal(
+            symbol="XAUUSD", side=OrderSide.BUY, signal_strength=0.8,
+            equity=100_000, atr=2.5,
+        )
+        assert pos is None
+        assert engine.positions == {}
+
+    def test_order_rejected_leaves_no_position(self):
+        def reject(order):
+            order.status = OrderStatus.REJECTED
+            order.error_message = "no liquidity"
+            return order
+
+        engine = ExecutionEngine(order_fn=reject)
+        pos = engine.execute_signal(
+            symbol="XAUUSD", side=OrderSide.BUY, signal_strength=0.8,
+            equity=100_000, atr=2.5,
+        )
+        assert pos is None
+        assert engine.orders[0].status == OrderStatus.REJECTED
+        assert engine.orders[0].error_message == "no liquidity"
+
+    def test_order_exception_retries_then_succeeds(self):
+        calls = {"n": 0}
+
+        def flaky(order):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise RuntimeError("network down")
+            order.status = OrderStatus.FILLED
+            order.filled_quantity = order.quantity
+            order.avg_fill_price = 2000.0
+            return order
+
+        engine = ExecutionEngine(order_fn=flaky)
+        pos = engine.execute_signal(
+            symbol="XAUUSD", side=OrderSide.BUY, signal_strength=0.8,
+            equity=100_000, atr=2.5,
+        )
+        assert pos is not None
+        assert calls["n"] == 2  # 首次异常后重试一次成功
+
+    def test_sell_stop_can_only_move_down(self):
+        engine = ExecutionEngine()
+        pos = engine.execute_signal(
+            symbol="XAUUSD", side=OrderSide.SELL, signal_strength=0.8,
+            equity=100_000, atr=2.5,
+        )
+        # 空头止损下移（盈利方向）允许
+        assert engine.update_stop_loss("XAUUSD", pos.stop_loss - 1.0) is True
+        # 空头止损上移（放宽风险）拒绝
+        assert engine.update_stop_loss("XAUUSD", pos.stop_loss + 1.0) is False
+
+    def test_update_stop_missing_symbol_returns_false(self):
+        engine = ExecutionEngine()
+        assert engine.update_stop_loss("EURUSD", 1.0) is False
+
+    def test_close_missing_position_returns_none(self):
+        engine = ExecutionEngine()
+        assert engine.close_position("EURUSD") is None
+
+    def test_signal_strength_boundary_03_passes(self):
+        """signal_strength 恰好 0.3 达到过滤下限，允许继续。"""
+        engine = ExecutionEngine()
+        pos = engine.execute_signal(
+            symbol="XAUUSD", side=OrderSide.BUY, signal_strength=0.3,
+            equity=100_000, atr=2.5,
+        )
+        assert pos is not None
