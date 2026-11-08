@@ -117,7 +117,7 @@
   - 前端详情弹窗交易对行新增研究信号标注「研究信号·不可实盘成交」（`research_only===true || symbol_kind==='pool' || execution_mode==='signal'` 显隐）；`.detail-value-wrap` / `.detail-hint` 样式；css/js 版本号破缓存。
 - **验证**：新单测 `tests/test_strategy_symbol_normalization.py` 8 passed；策略相关子集 34 passed（v2_routes/v2_storage/v2_service/lifecycle/secret_handling/deployment_payload/normalization）；容器内探针直连 `StrategyService.list_strategies(user_id=1)` 返回 5 行，1/2/3 为 crypto/spot/live/cred 2，4/5 为 pool/signal/research_only；浏览器登录态复验：id5 详情显示 `universe:POOL:sp500` + 研究信号标注，id1 详情显示 `BTC/USDT` 且无标注。
 - **未验证 / 遗留（阻塞待拍板）**：V2 实盘会话候选品种由编译脚本 manifest 解析（`trading_executor.resolve_candidates(manifest=program.manifest)`），不由 DB 顶层 symbol 驱动。1/2/3 引用的历史版本 pk15/11/19 合约仍为 `set_universe(pool="sp500")` + `set_benchmark("USStock:SPY")`，与顶层 crypto 快照本就不一致；要让这三条在 OKX 现货真实成交，需把对应脚本合约改为 crypto 单品种并重编译版本、更新部署引用——属合约层改动，按 AGENTS.md 停止条件待人工确认。实盘下单成交未验证：demo 账户 `acctLv=1` 简单账户仅现货可成交，永续开仓被 `OKX_SWAP_ACCOUNT_MODE_REQUIRED` 阻塞。
-- **提交**：本地（哈希回填）。
+- **提交**：本地 `2f8f35d`。
 
 ### 43. 账户列表去演示哨兵并接入真实凭证端点 + 日志签名错位修复 ✅ 已完成
 - **完成时间**：2026-11-08
