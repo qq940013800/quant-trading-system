@@ -3,7 +3,7 @@
 > 评估对象：飞书文档附件《11.1 主推荐方案：双栈异构架构》分层选型图（L4/L2/L3/L1/L5 + 基础设施）。
 > 方法论：第一性原理拆解各层本质约束 → 对照全球机构可复制实践 → 结合本项目阶段基线裁决。
 > 证据等级：**confirmed**（代码/依赖实测）｜**inferred**（由延迟预算与阶段推导）｜**unknown**（未压测/未读到源文档论证）。
-> 版本：v1.0（2026-11-08）｜ 状态：设计评估，未改动运行时、配置与实盘资金路径。
+> 版本：v1.1（2026-11-08，新增 §4bis 外部基准与案例对照）｜ 状态：设计评估，未改动运行时、配置与实盘资金路径。
 
 ---
 
@@ -117,6 +117,36 @@
 
 ---
 
+## 4bis. 外部基准与可复制案例对照（2026-11-08 检索核实）
+
+### 4bis.1 框架性能基准：TechEmpower Round 23
+- 基准：Round 23 基准日 2025-02-24，官方博客 2025-03-17；测 Web 应用平台/全栈框架/微框架在通用 HTTP 场景的吞吐与延迟。【confirmed 官方页面】
+- **口径警示**：① 榜单测的是通用 Web 请求处理，**不是**量化交易热路径（风控/撮合/订单路由）；② 结果对服务器、网络、内存分配器与连接池配置极敏感——官方博客记录同一框架 update 测试在配置调整后出现数百到上万的量级变化；③ 社区转述的 Fortunes 场景 req/s 名次（C# ASP.NET、Go Fiber、Rust Actix、Java Spring 等）受环境影响，**只能看相对量级，不能作为本系统语言选型依据**。【inferred + 官方博客】
+- 对本系统含义：框架吞吐排名与 M5 中频决策链路无直接因果；选型仍以 §1.1 延迟预算与生态约束为准。
+
+### 4bis.2 框架/语言定位对照（公开官方文档）
+
+| 名称 | 定位 | 内置/优势 | 对本系统的判断 |
+|---|---|---|---|
+| go-zero | 云原生 Go web+rpc 框架 | 内置熔断/限流/自适应卸载/超时、服务发现/负载均衡、goctl 代码生成、零分配路由 | 未来抽独立 Go 风控/执行服务时的候选框架；当前无 Go 服务，不引入 |
+| Spring Cloud Alibaba | Java 微服务全家桶（Nacos 注册/配置、Sentinel 熔断限流、Seata 事务等） | 企业级治理生态完整 | 单服务阶段过重；多服务拆分且团队为 Java 背景时再评估 |
+| FastAPI | Python 异步 Web 框架 | 类型注解、自动 OpenAPI、原生异步 | 同语言内 Flask 的可选升级方向；不构成新栈 |
+| Ray Serve | Ray 生态分布式模型推理编排 | 多模型弹性伸缩、分布式服务化 | 单实例小题过重；规模化多模型服务时再评估 |
+| NestJS | Node.js/TypeScript 服务端框架 | 模块化、依赖注入、TypeScript 类型体系 | 与 Python 研究生态不互通；仅 BFF/管理后台备选，当前不引入 |
+| Axum | Rust 异步 Web 框架（tokio 生态） | 高性能、类型安全、并发安全 | 接入层高吞吐解码瓶颈出现且团队具备 Rust 能力时再评估 |
+
+### 4bis.3 跨语言分层与性能案例（参照形态，非目标指标）
+- **业界分层形态**：行情网关（Go/C++）— 策略引擎（Python）— 执行引擎（C++/Rust），层间以 gRPC/Protobuf 传数据；印证 §3.1「先定职责面与契约，再按层选语言」。【行业共识】
+- **低延迟案例口径**：USENIX SRE'23 一篇 Java+Golang 超低延迟交易系统报告 RTT 中位 <50μs、撮合峰值 300k/s；另有 Go 报价服务 2–10ms 缓存报价的工程案例。【外部案例·confirmed 检索到公开材料】
+- **不可外推**：上述数字属极端低延迟/高吞吐场景（做市/撮合/HFT 邻近），依赖直连/colocation 与专用工程；**不得作为本系统的延迟或吞吐目标**。本系统零售 M5 中频预算见 §1.1，当前无任何一环需要微秒级。【inferred】
+- **加密平台案例**：Go 执行核心 + Python 策略引擎、宣称千级 orders/s、亚毫秒级的公开架构案例存在；其前提是高并发撮合/网关规模，与单人 demo 阶段不匹配，仅作阶段 2 抽离执行服务时的形态参照。【外部案例·口径未独立复核，unknown】
+
+### 4bis.4 机构工程实践（已核实公开表述）
+- **Two Sigma「Data as Code」**：把版本控制、自动测试、可复现、CI/CD 应用到数据管理；基础设施以 Terraform 声明式定义。可复制点：数据/特征定义像代码一样纳入版本与测试；Feature Store 保持训练/服务同一代码路径、单一真相源。【confirmed 官网文章】
+- **Jane Street 技术栈**：OCaml 为主开发平台（静态类型函数式），OxCaml 为其开源扩展集，底层用 FPGA 加速并自研 Hardcaml 硬件设计库。可复制点是强类型/函数式带来的正确性与工具链纪律；**语言本身与其做市业务形态强绑定，不可照搬**。【confirmed 官网 technology / performance-engineering 页】
+
+---
+
 ## 5. 本项目现状基线（2026-11-08 勘察，confirmed）
 
 | 维度 | 现状 | 证据 |
@@ -162,6 +192,8 @@
 - 截图方案的来源文档未在本仓库与当前飞书文档（`SSfWd31X9oBkkHxcuCccXeWE67c`）关键词命中；逐层理解以附件图为准，**未读到其完整论证与取舍记录**【unknown】。
 - 本评估为设计判断，**未新建服务/中间件，未改动运行时、配置与实盘资金路径**。
 - 阶段 2 的 Go/Rust 选择是条件性预案；是否进入阶段 2 以上述实测触发条件为准，不以架构蓝图偏好为准。
+- 线索 8《Quant 2.0: The Modern Quant Trading Stack》原文未单独检索；其 Feature Store / MLOps 角色要点已并入 §4bis.4 与 §3.3 对照，未引用该文具体论断【unknown】。
+- 线索 10「Go 执行核心 + Python 策略引擎、1000+ orders/s、<5ms」的直接对应公开案例未定位到可复核来源；相邻低延迟/撮合案例见 §4bis.3，其性能口径不得折算为本系统目标【unknown】。
 
 ## 8. 证据与来源
 
@@ -169,3 +201,15 @@
 - `docs/knowledge/08_system_blueprint.md` §2 十条设计原则、§3 目标架构、§5 策略边界、§6 ML 落地规格。
 - `docs/knowledge/01_institutions.md` 机构技术栈与可复制/不可复制边界。
 - 本地实测：`backend_api_python/requirements.txt`、`frontend-pro/` 文件清单、`core/` 测试基线（857 passed）。
+
+### 外部来源（2026-11-08 检索）
+- TechEmpower Framework Benchmarks Round 23：https://www.techempower.com/benchmarks/ ；官方博客 https://www.techempower.com/blog/2025/03/17/framework-benchmarks-round-23/
+- go-zero 官方文档：https://go-zero.dev/ ；仓库 zeromicro/go-zero（GitHub）
+- FastAPI 文档：https://fastapi.tiangolo.com/ ；Ray / Ray Serve 文档：https://docs.ray.io/
+- NestJS 文档：https://docs.nestjs.com/ ；Axum 文档：https://docs.rs/axum
+- Spring Cloud Alibaba / Nacos / Sentinel：各自 GitHub 仓库与官方文档（注册配置、熔断限流、事务治理定位）
+- Two Sigma《Treating Data as Code》：https://www.twosigma.com/articles/treating-data-as-code-at-two-sigma/
+- Jane Street Technology / Performance Engineering：https://www.janestreet.com/technology/ ；https://www.janestreet.com/performance-engineering/
+- 低延迟交易系统案例（Java+Golang，USENIX SRE'23）：https://www.usenix.org/sites/default/files/conference/protected-files/sre23amer_slides_sun.pdf
+
+> 外部案例的性能数字为其各自场景口径，未在本系统本机复现；引用时不得折算为本系统延迟/吞吐目标。仓库星数、版本号以官方仓库当时为准，本评估未逐项复核星标。
