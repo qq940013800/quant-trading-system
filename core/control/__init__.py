@@ -15,10 +15,13 @@ from .kill_switch import (
     KillSwitchError,
     KillSwitchState,
 )
+from .dual_review import DualReviewResult, evaluate_dual_review
 
 __all__ = [
     "KillSwitch",
     "KillSwitchArmed",
     "KillSwitchError",
     "KillSwitchState",
+    "DualReviewResult",
+    "evaluate_dual_review",
 ]
