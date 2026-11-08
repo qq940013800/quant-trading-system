@@ -454,6 +454,7 @@ Decision(decision_uid)
 | U7 | 全量测试 | **未执行** | 本轮未跑 `pytest -q`；仅静态阅读 core/audit 骨架与既有测试文件名 |
 | U8 | 实盘/模拟冒烟 | **未验证** | 未连接任何交易所；四段回填在真实部分成交、费用口径下的正确性未跑过 |
 | U9 | 决策审计段与 `qd_strategy_logs`、`qd_analysis_memory` 的去重边界 | **unknown** | 三类记录并存时的归属与展示口径需前后端联合评审 |
+| U10 | 知识管道后端 API 真实 DB 读写与 HTTP 冒烟 | **未验证** | 服务层/路由已落地并经容器内 smoke 断言；pytest 未在容器内运行（镜像无 pytest），未走登录态真实 HTTP 请求与真实表读写抽样（§8.7） |
 
 ### 8.5 剩余风险
 
@@ -472,3 +473,32 @@ Decision(decision_uid)
 - [ ] Playbook 表 DDL 与故障/实验表 reproducibility 列评审（§8.2）。
 - [ ] 向量检索二期前置条件评估（U3）。
 - [ ] 三入口审计接线顺序与账本合并口径（U5、闸门草案 §2.4）。
+
+### 8.7 后端接线落地状态（切片 #176，2026-11-08）
+
+> 范围：仅知识/审计表的后端服务层、路由与 OpenAPI 装配；**不含**实盘决策四段写入、下单、仓位与风控阈值参数（§8.3 边界）。
+
+**已落地（本地仓库，未提交）**
+
+| 层 | 落点 | 覆盖接口 |
+|---|---|---|
+| 服务层 | `backend_api_python/app/services/knowledge_service.py`（`KnowledgeService` 单例） | 读：`list_faults / list_experiments / list_playbooks / get_stats / get_lessons`；写：`register_fault / start_experiment / end_experiment / register_post_mortem / upsert_playbook` |
+| 路由 | `backend_api_python/app/routes/knowledge.py`（`knowledge_blp`，`@login_required`） | `GET /api/knowledge/faults · experiments · playbooks · stats · lessons`；`POST /api/knowledge/faults · experiments/start · experiments/<uid>/end · post-mortems · playbooks` |
+| 装配 | `app/openapi/register.py`（注册 `/api/knowledge` 前缀 + tag 映射）；`app/openapi/tags.py`（`Knowledge` tag） | — |
+| 单测 | `backend_api_python/tests/test_knowledge_pipeline.py` | 服务层 fail-open / 校验守卫 / 枚举归一 / 归一辅助；路由层包络与 400 校验 |
+
+**接线口径（confirmed 代码现状）**
+
+- 后端容器不携带 `core` 包（`ModuleNotFoundError: No module named 'core'`），服务层通过后端连接池 `get_db_connection()`（`DATABASE_URL` → RealDictCursor）直连知识表，**不 import `core.audit`**；过滤/归一口径在后端侧做最小等价实现：故障默认 `verified=true` 检索、复盘默认 `status='closed'` 检索。若后续把 `core` 挂载进后端镜像，检索谓词需与 `core/audit/knowledge_retriever.py` 对齐。
+- 写接口以业务 uid 幂等：故障/实验/复盘 `ON CONFLICT (uid) DO NOTHING`；Playbook `ON CONFLICT (uid) DO UPDATE` 并递增 `version`。
+- 实验收口守卫：`end_experiment` 先回读既有行 `decision_rule_frozen`；`promote_to_production` 仅允许规则已冻结的实验，未冻结拒绝 `rule_not_frozen`，uid 不存在拒绝 `experiment_not_found`（对齐 A5 / AGENTS 规则 11：决策规则须在实验前冻结）。Playbook upsert 后回读库内真实 `version` 返回，响应不恒为 1。
+- fail-open：读失败返空集合；写失败返 `written=False` + 失败归类；异常记日志，不抛入交易路径。
+- `qd_playbooks` 无仓库迁移 DDL，服务层 `_ensure_playbook_table()` 以 `CREATE TABLE IF NOT EXISTS` 运行时兜底；是否另落受控迁移脚本待评审（§8.2b）。
+- 枚举白名单固化于服务层：实验决策 `promote_to_production/pivot/abandon`；实验类型 `backtest/ab_test/parameter_tuning/new_strategy/feature_test/parameter_search`；故障分类 `data/code/config/network/market/exchange/system`；严重度 `P0–P3`；Playbook 状态 `draft/active/archived`。
+
+**验证证据与未验证项**
+
+- 容器 `qdpro-backend` 内 smoke 断言 **25 项 PASS**（导入/路由注册/校验守卫/枚举归一/fail-open/读包络/400 校验/冻结守卫/未命中拒绝/Playbook version 回读），末行硬标记 `ALL SMOKE CHECKS PASSED`。
+- **pytest 未在容器内运行**：后端镜像未安装 pytest；宿主 Python312 缺 flask/psycopg2 等后端依赖。`test_knowledge_pipeline.py` 按 pytest 规范书写，仅经容器内 smoke 直跑等价断言，**不等同于 pytest 通过**；后端新增接口尚未跑真实 HTTP 冒烟与真实 DB 读写抽样（见 U10）。
+- 决策四段写入接口（§6.3 `POST /knowledge/decisions` 及 `execution/outcome` 回填）属实盘决策链路，本轮**未接**；`get_stats` 暂不含 `decisions` 计数，待决策链路接线后补齐。
+

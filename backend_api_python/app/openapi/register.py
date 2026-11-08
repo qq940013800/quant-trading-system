@@ -39,6 +39,7 @@ _PREFIX_TAGS: list[tuple[str, str]] = [
     ("/api/fast-analysis", "FastAnalysis"),
     ("/api/billing", "Billing"),
     ("/api/quick-trade", "QuickTrade"),
+    ("/api/knowledge", "Knowledge"),
 ]
 
 
@@ -80,6 +81,7 @@ def register_human_blueprints(api: Api) -> None:
     from app.routes.fast_analysis import fast_analysis_blp
     from app.routes.billing import billing_blp
     from app.routes.quick_trade import quick_trade_blp
+    from app.routes.knowledge import knowledge_blp
     from app.routes.validation import validation_bp
     from app.routes.risk import risk_bp
     from app.routes.tca import tca_bp
@@ -113,6 +115,7 @@ def register_human_blueprints(api: Api) -> None:
         (fast_analysis_blp, "/api/fast-analysis"),
         (billing_blp, "/api/billing"),
         (quick_trade_blp, "/api/quick-trade"),
+        (knowledge_blp, "/api/knowledge"),
         (validation_bp, "/api/validation"),
         (risk_bp, "/api/risk"),
         (tca_bp, "/api/tca"),
