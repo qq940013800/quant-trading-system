@@ -19,6 +19,19 @@ import numpy as np
 
 logger = logging.getLogger("core.risk.portfolio")
 
+_DEFAULT_HIGH_CORR = 0.7
+
+
+def _high_corr_threshold(value: float) -> float:
+    """相关性阈值守卫：非法/越界回退默认 0.7；合法区间 (0, 1]。"""
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return _DEFAULT_HIGH_CORR
+    if v != v or v in (float("inf"), float("-inf")) or not (0.0 < v <= 1.0):
+        return _DEFAULT_HIGH_CORR
+    return v
+
 
 class PortfolioAnalyzer:
     """组合层面风险诊断器。
@@ -36,16 +49,19 @@ class PortfolioAnalyzer:
 
     def analyze_portfolio(self,
                          strategy_returns: Dict[str, List[float]],
-                         strategy_weights: Dict[str, float]) -> Dict:
+                         strategy_weights: Dict[str, float],
+                         high_corr_threshold: float = _DEFAULT_HIGH_CORR) -> Dict:
         """分析组合风险。
 
         Args:
             strategy_returns: 各策略收益率序列
             strategy_weights: 各策略资金权重
+            high_corr_threshold: 高相关判定阈值，默认 0.7；越界/非法回退默认
 
         Returns:
             组合风险分析报告
         """
+        threshold = _high_corr_threshold(high_corr_threshold)
         strategies = list(strategy_returns.keys())
         n = len(strategies)
 
@@ -74,7 +90,7 @@ class PortfolioAnalyzer:
         high_corr_pairs = []
         for i in range(n):
             for j in range(i+1, n):
-                if corr_matrix[i][j] > 0.7:
+                if corr_matrix[i][j] > threshold:
                     high_corr_pairs.append({
                         "pair": f"{strategies[i]} vs {strategies[j]}",
                         "correlation": round(float(corr_matrix[i][j]), 2),
