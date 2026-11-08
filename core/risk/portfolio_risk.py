@@ -14,6 +14,7 @@
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -50,6 +51,20 @@ class PortfolioRiskConfig:
     max_exposure_per_cluster: float = 0.03
     daily_loss_limit: float = 0.03
     max_strategies: int = 5
+
+    def __post_init__(self) -> None:
+        for name in ("max_total_exposure", "max_exposure_per_cluster", "daily_loss_limit"):
+            v = getattr(self, name)
+            if not math.isfinite(float(v)) or v < 0:
+                raise ValueError(
+                    f"{name} 必须为非负有限数: {v!r}"
+                )
+        if (isinstance(self.max_strategies, bool)
+                or not isinstance(self.max_strategies, int)
+                or self.max_strategies < 0):
+            raise ValueError(
+                f"max_strategies 必须为非负整数: {self.max_strategies!r}"
+            )
 
 
 class PortfolioRiskManager:
@@ -114,6 +129,11 @@ class PortfolioRiskManager:
         Returns:
             (是否允许, 原因说明)
         """
+        planned_risk = float(planned_risk)
+        if not math.isfinite(planned_risk) or planned_risk < 0:
+            raise ValueError({"layer": "risk.portfolio_risk", "detail":
+                              f"planned_risk 必须为非负有限数: {planned_risk!r}"})
+
         # 1. 检查组合当日熔断
         daily_pnl = self.total_daily_pnl()
         if daily_pnl <= -self.config.daily_loss_limit:

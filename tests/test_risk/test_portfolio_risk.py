@@ -188,3 +188,21 @@ class TestPortfolioRiskBoundary:
             "max_total_exposure", "max_exposure_per_cluster",
             "daily_loss_limit", "max_strategies",
         }
+
+
+class TestPortfolioRiskGuard:
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf"), -0.01])
+    def test_rejects_bad_planned_risk(self, bad):
+        mgr = PortfolioRiskManager()
+        with pytest.raises(ValueError):
+            mgr.can_open_new_position("ghost", planned_risk=bad)
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf"), -0.01])
+    def test_rejects_nonfinite_config_threshold(self, bad):
+        with pytest.raises(ValueError):
+            PortfolioRiskConfig(max_total_exposure=bad)
+
+    @pytest.mark.parametrize("bad", [True, 1.5, -1, "3"])
+    def test_rejects_invalid_max_strategies(self, bad):
+        with pytest.raises(ValueError):
+            PortfolioRiskConfig(max_strategies=bad)
