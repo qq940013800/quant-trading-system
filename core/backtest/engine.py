@@ -24,7 +24,8 @@ from ..audit.record import Decision, write_decision
 from ..risk.circuit import CircuitBreaker
 from ..risk.sizing import target_lots, vol_target_scale
 from ..risk.state import RiskState
-from ..risk.stops import StopWideningError, initial_stop, update_stop
+from ..risk.stops import (StopWideningError, compute_current_r,
+                          initial_stop, update_stop)
 from .broker import simulate_fill
 from .costs import CostModel, is_news_time, slippage_points, spread_at
 from .metrics import compute_metrics
@@ -51,6 +52,7 @@ class Position:
     atr0: float             # 入场冻结
     entry_dist: float        # 入场冻结，R 倍数分母
     stop_price: float
+    peak_price: float        # 多头记最高价峰值 / 空头记最低价谷值（跟踪止损基准）
     entry_ts: pd.Timestamp
     decision_id: str
 
@@ -83,6 +85,15 @@ class _Signal:
     l1_in_zone: bool
     regime_weights: dict
     meta_p: Optional[float]
+
+
+def _trailing_candidate(peak_price: float, direction: int,
+                        offset_r: float, entry_dist: float) -> float:
+    """峰值跟踪止损候选：自峰值回撤 offset_r × entry_dist（冻结距离，规则 4）。
+
+    多头 direction=+1：peak - offset×dist；空头 direction=-1：peak + offset×dist。
+    """
+    return float(peak_price) - float(direction) * float(offset_r) * float(entry_dist)
 
 
 def _wilder_atr(history: list, n: int = 14) -> float:
@@ -167,7 +178,10 @@ def run_backtest(bars: list, strategy: Strategy,
     vol_lookback = int(cfg.get("vol_lookback", 60))
     trail_enable = bool(cfg.get("trail_enable", True))
     trail_after_r = float(cfg.get("trail_after_r", 1.0))
-    trail_to_r = float(cfg.get("trail_to_r", 0.0))
+    # 峰值跟踪回撤 R：止损自峰值回撤 trail_offset_r × entry_dist；兼容旧键 trail_to_r。
+    trail_offset_r = float(cfg.get("trail_offset_r", 1.0))
+    if "trail_to_r" in cfg:
+        trail_offset_r = float(cfg["trail_to_r"])
     news_window = list(cfg.get("news_window", []) or [])
     audit_path = cfg.get("audit_path")
     bars_per_year = int(cfg.get("bars_per_year", 74880))
@@ -237,12 +251,19 @@ def run_backtest(bars: list, strategy: Strategy,
             })
         positions = kept
 
-        # 1b. 移动止损（trailing）：强制 update_stop 单调（放宽即抛 StopWideningError）
+        # 1b. 峰值跟踪止损（trailing）：止损自峰值回撤固定 R；强制 update_stop 单调（放宽即抛 StopWideningError）
         if trail_enable:
             for pos in positions:
-                adv_r = (float(bar.close) - pos.entry_price) * pos.direction / pos.entry_dist
+                # 更新峰值：多头记 bar.high 峰值，空头记 bar.low 谷值（已收盘 bar 的保守口径，规则 5）
+                if pos.direction == +1:
+                    pos.peak_price = max(pos.peak_price, float(bar.high))
+                else:
+                    pos.peak_price = min(pos.peak_price, float(bar.low))
+                adv_r = compute_current_r(pos.entry_price, pos.direction,
+                                          float(bar.close), pos.entry_dist)
                 if adv_r >= trail_after_r:
-                    cand = pos.entry_price + trail_to_r * pos.entry_dist * pos.direction
+                    cand = _trailing_candidate(pos.peak_price, pos.direction,
+                                               trail_offset_r, pos.entry_dist)
                     try:
                         new_stop = update_stop(pos.stop_price, cand, pos.direction,
                                               symbol=pos.symbol, ts_utc=str(ts))
@@ -268,6 +289,7 @@ def run_backtest(bars: list, strategy: Strategy,
                     symbol=getattr(bar, "symbol", "XAUUSD"), direction=sig.direction,
                     entry_price=fill.fill_price, lots=dec.final_signed_lots,
                     atr0=sig.atr0, entry_dist=sig.entry_dist, stop_price=stop,
+                    peak_price=fill.fill_price,
                     entry_ts=ts, decision_id=dec.decision_id))
             pending = None
 

@@ -7,7 +7,8 @@ import pandas as pd
 import pytest
 
 from core.backtest.costs import CostModel
-from core.backtest.engine import DemoBreakoutStrategy, run_backtest
+from core.backtest.engine import (DemoBreakoutStrategy, _trailing_candidate,
+                                  run_backtest)
 
 
 def _flat_with_drop():
@@ -101,3 +102,29 @@ def test_stop_out_trade_recorded_with_r():
     t = res.trades[0]
     assert t["direction"] == +1
     assert t["r_multiple"] < 0          # 止损单亏损，R 为负
+
+
+def test_trailing_candidate_long_short_symmetric():
+    # 多头：自峰值回撤 offset×dist；空头：自谷值上抬 offset×dist（冻结 entry_dist）
+    assert _trailing_candidate(102.0, +1, 1.0, 2.0) == pytest.approx(100.0)
+    assert _trailing_candidate(98.0, -1, 1.0, 2.0) == pytest.approx(100.0)
+    # 零偏移：候选即峰值/谷值本身
+    assert _trailing_candidate(102.0, +1, 0.0, 2.0) == pytest.approx(102.0)
+    assert _trailing_candidate(98.0, -1, 0.0, 2.0) == pytest.approx(98.0)
+
+
+def test_trailing_lock_profit_after_uptrend_pullback():
+    # 先冲高后回撤：峰值跟踪应锁定盈利出场，而不是在保本/固定 R 位被扫出
+    prices = [1800.0] * 11 + [1802.0, 1804.0, 1806.0, 1806.0,
+                              1805.0, 1803.0, 1801.0, 1799.0, 1799.0]
+    bars = H.make_bars(prices)
+    strat = _StubLongAt(at_idx=10)
+    res = run_backtest(bars, strat, _cost(),
+                       {"initial_equity": 10_000, "daily_loss_limit": 0.5,
+                        "trail_enable": True, "trail_after_r": 1.0,
+                        "trail_offset_r": 1.0})
+    assert len(res.trades) == 1
+    t = res.trades[0]
+    assert t["direction"] == +1
+    assert t["exit_price"] > t["entry_price"]
+    assert t["r_multiple"] > 0

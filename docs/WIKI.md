@@ -407,7 +407,7 @@ qd_strategy_review_reports  ── GET /api/strategies/review-report/history 历
 |---|---|---|---|
 | 保本止损 | `core/risk/stops.py::update_breakeven_stop`：R ≥ `breakeven_r` 后移到 `entry + direction × breakeven_offset_r × entry_dist` | `risk_engine.py::_update_breakeven_stop`：R ≥ `breakeven_activation_r` 移到入场价 + `breakeven_buffer` | confirmed（研究层 + 服务层均有实现）；具体 R/缓冲阈值须分布校准 |
 | 分批止盈 | —（研究层未见分批落袋模块） | `risk_engine.py::_check_scale_out`：按 `scale_out_levels`/`scale_out_ratios` 分批减仓，`remaining_ratio` 递减，调 `_reduce_position_callback` | confirmed（服务层）；研究/回测侧分批语义在 `strategy_v2/protection.py` 未提供分批，属口径待对齐 |
-| 跟踪止损 | `core/risk/stops.py::update_trailing_stop`：R ≥ `trailing_activation_r` 后在最大有利位置后退 `trailing_offset_r × entry_dist` | `risk_engine.py::_update_trailing_stop`：R ≥ `trailing_activation_r` 激活，距峰值 `trailing_atr_mult × atr_at_entry` | confirmed；`strategy_v2/protection.py::_trailing_trigger` 按价格峰值 + 激活百分比实现跟踪 |
+| 跟踪止损 | `core/risk/stops.py::update_trailing_stop`：R ≥ `trailing_activation_r` 后在最大有利位置后退 `trailing_offset_r × entry_dist`；`core/backtest/engine.py::_trailing_candidate`：激活后自峰值（多头 high/空头 low）回撤 `trail_offset_r × entry_dist`，经 `update_stop` 单调守卫写回 | `risk_engine.py::_update_trailing_stop`：R ≥ `trailing_activation_r` 激活，距峰值 `trailing_atr_mult × atr_at_entry` | confirmed；`strategy_v2/protection.py::_trailing_trigger` 按价格峰值 + 激活百分比实现跟踪 |
 | 吊灯止损 | —（研究层未见吊灯模块） | `risk_engine.py::_update_chandelier_exit`：激活跟踪后，峰值回撤 `chandelier_atr_mult × atr_at_entry` | confirmed（服务层）；研究层对等实现属目标态 |
 | 利润回吐保护 | — | `risk_engine.py::_check_profit_retracement`：盈利 >1R 后，自峰值利润回撤达 `profit_retracement_pct` 平剩余仓位 | confirmed（服务层）；研究层对等实现属目标态 |
 | 时限出场 | `core/risk/stops.py::check_time_stop`：超 `max_holding_bars` 且未达保本 R | `strategy_v2/protection.py`：`time_limit_seconds` 触发 `time_limit` 决策 | confirmed |
@@ -420,7 +420,7 @@ qd_strategy_review_reports  ── GET /api/strategies/review-report/history 历
 
 ### 2.4 口径缺口与目标态（不得写成现状）
 
-- **研究-服务层止盈语义对齐**：吊灯、分批、回吐目前主要在 `risk_engine.py` 服务层；`core/risk/stops.py` 研究层对等模块不全，回测与实盘的右尾口径尚需逐机制对齐（关联研究-生产一致性规约）。
+- **研究-服务层止盈语义对齐**：吊灯、分批、回吐目前主要在 `risk_engine.py` 服务层；`core/risk/stops.py` 研究层对等模块不全，回测与实盘的右尾口径尚需逐机制对齐（关联研究-生产一致性规约）。回测 `core/backtest/engine.py` 当前主链仅激活价格止损 + 峰值跟踪；时间止损、信号止损、保本止损四级体系尚未在回测主链接线，属待对齐缺口。
 - **阈值分布校准**：`trailing_activation_r`、`breakeven_r`、`scale_out_levels`、`chandelier_atr_mult`、`profit_retracement_pct` 等当前为 dataclass 默认值/配置项；上线前须在 CLEAN 集做分布校准，禁止按回测绩效挑参数。
 - **跟踪参数的 ATR 基**：服务层跟踪/吊灯距离用冻结 `atr_at_entry`；与研究层 `entry_dist`（R 倍数）两种基口径需在同一套决策规则版本下明确换算关系。
 - **原生跟踪一致性**：交易所侧跟踪单与本地跟踪/吊灯并行时以谁为准、如何对账，属目标态；当前未核验实盘一致性。
