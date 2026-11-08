@@ -279,13 +279,22 @@
                     if (volumeSeries) volumeSeries.setData(volumeData);
                     showDataSourceBadge('live');
                 } else {
+                    // 真实登录态：接口空返回走真实空态，不用人造蜡烛顶替；仅未登录（非真实）才保留 mock 兜底
+                    if (Auth.isLoggedIn()) {
+                        _clearKlinePanel();
+                    } else {
+                        generateMockKlineData();
+                        showDataSourceBadge('mock');
+                    }
+                }
+            } catch (e) {
+                debugLog(`K线API失败: ${e.message}`, 'warn');
+                if (Auth.isLoggedIn()) {
+                    _clearKlinePanel();
+                } else {
                     generateMockKlineData();
                     showDataSourceBadge('mock');
                 }
-            } catch (e) {
-                debugLog(`K线API失败，使用模拟数据: ${e.message}`, 'warn');
-                generateMockKlineData();
-                showDataSourceBadge('mock');
             } finally {
                 showKlineLoading(false);
             }
@@ -294,6 +303,16 @@
         function showKlineLoading(show) {
             const el = document.getElementById('kline-loading');
             if (el) el.style.display = show ? 'flex' : 'none';
+        }
+
+        // 真实登录态 K 线空态：清空蜡烛/成交量/价格，不留 42000 起的人造行情
+        function _clearKlinePanel() {
+            if (candlestickSeries) candlestickSeries.setData([]);
+            if (volumeSeries) volumeSeries.setData([]);
+            const priceEl = document.getElementById('chart-price');
+            if (priceEl) { priceEl.textContent = '--'; delete priceEl.dataset.lastPrice; }
+            const badgeEl = document.getElementById('data-source-badge');
+            if (badgeEl) badgeEl.innerHTML = '<span style="color: var(--text-tertiary); font-size: 10px; font-weight: 600;">○ 暂无真实行情</span>';
         }
 
         function showDataSourceBadge(type) {
@@ -323,8 +342,8 @@
             }
 
             candlestickSeries.setData(data);
-            document.getElementById('chart-price').textContent = 
-                '$' + data[data.length - 1].close.toLocaleString();
+            const priceEl = document.getElementById('chart-price');
+            if (priceEl) priceEl.textContent = '$' + data[data.length - 1].close.toLocaleString();
         }
 
         // ========== WebSocket 实时推送 ==========
@@ -466,6 +485,14 @@
             const spreadEl = document.getElementById('orderbook-spread');
             if (!asksEl || !bidsEl) return;
 
+            // 真实登录态且推送为空/断流：走真实空态，不留静态演示档位
+            if (Auth.isLoggedIn() && asks.length === 0 && bids.length === 0) {
+                asksEl.textContent = '';
+                bidsEl.textContent = '';
+                if (spreadEl) spreadEl.textContent = '--';
+                return;
+            }
+
             const num = (x) => parseFloat(x) || 0;
             const allAmt = bids.map(b => num(b[1])).concat(asks.map(a => num(a[1])));
             const maxAmt = Math.max(1, ...allAmt);
@@ -534,41 +561,6 @@
                 width: (container && container.clientWidth) || fallbackW,
                 height: (container && container.clientHeight) || fallbackH
             };
-        }
-
-        function initVolumeChart() {
-            const container = document.getElementById('volume-chart');
-            if (!container || !mainChart) return;
-            
-            volumeSeries = mainChart.addHistogramSeries({
-                priceFormat: {
-                    type: 'volume',
-                },
-                priceScaleId: '',
-            });
-            
-            volumeSeries.priceScale().applyOptions({
-                scaleMargins: {
-                    top: 0.7,
-                    bottom: 0,
-                },
-            });
-
-            // 生成模拟成交量数据
-            const data = [];
-            const now = Math.floor(Date.now() / 1000);
-            const intervalSeconds = 3600;
-            
-            for (let i = 200; i >= 0; i--) {
-                const time = now - i * intervalSeconds;
-                data.push({
-                    time,
-                    value: Math.random() * 100 + 20,
-                    color: Math.random() > 0.5 ? 'rgba(14, 203, 129, 0.5)' : 'rgba(246, 70, 93, 0.5)'
-                });
-            }
-
-            volumeSeries.setData(data);
         }
 
         function initEquityChart(points) {
@@ -748,8 +740,8 @@
             document.getElementById('detail-strategy-id').textContent = strategy.id || '--';
             document.getElementById('detail-strategy-status').textContent = 
                 (strategy.status === 'running' || strategy.status === 'active') ? '运行中' : '已停止';
-            document.getElementById('detail-strategy-symbol').textContent = strategy.symbol || 'BTC/USDT';
-            document.getElementById('detail-strategy-created').textContent = strategy.created_at || '2026-01-01';
+            document.getElementById('detail-strategy-symbol').textContent = strategy.symbol || '--';
+            document.getElementById('detail-strategy-created').textContent = strategy.created_at || '--';
             
             // 绩效指标：优先取策略携带字段，后端未返回时显示 --，不编演示数字
             document.getElementById('detail-total-return').textContent = '--';
@@ -1186,6 +1178,10 @@
 
             async function refreshKindLogs() {
                 if (logKind === 'system') { renderLogList(); return; }
+                // 风控事件：无结构化事件源（G1/G2/G3，C-LOG-01），固定空态，不拉取演示数据
+                if (logKind === 'risk') {
+                    decisionLogs = []; tradeLogs = []; logError = ''; renderLogList(); return;
+                }
                 if (!logStrategyId) {
                     decisionLogs = []; tradeLogs = []; logError = ''; renderLogList(); return;
                 }
@@ -1212,6 +1208,7 @@
             function _currentEntries() {
                 if (logKind === 'decision') return decisionLogs;
                 if (logKind === 'trade') return tradeLogs;
+                if (logKind === 'risk') return [];
                 return window.debugLogs || [];
             }
 
@@ -1253,6 +1250,11 @@
                         <div style="width:150px;">时间</div>
                         <div style="width:70px;margin-left:16px;">级别</div>
                         <div style="flex:1;margin-left:16px;">决策消息</div>`;
+                } else if (logKind === 'risk') {
+                    header.innerHTML = `
+                        <div style="width:150px;">时间</div>
+                        <div style="width:70px;margin-left:16px;">级别</div>
+                        <div style="flex:1;margin-left:16px;">风控事件 / 拦截原因</div>`;
                 } else {
                     header.innerHTML = `
                         <div style="width:150px;">时间</div>
@@ -1317,6 +1319,9 @@
                 } else if (logKind === 'decision') {
                     apiCount.textContent = all.length;
                     apiLabel.textContent = '决策记录';
+                } else if (logKind === 'risk') {
+                    apiCount.textContent = 0;
+                    apiLabel.textContent = '风控事件';
                 } else {
                     apiCount.textContent = all.length;
                     apiLabel.textContent = '成交笔数';
@@ -1333,6 +1338,10 @@
 
                 if (logError) {
                     logList.innerHTML = `<div style="padding:12px;color:#f6465d;text-align:center;font-size:13px;">${logError}</div>`;
+                    return;
+                }
+                if (logKind === 'risk') {
+                    logList.innerHTML = '<div style="padding:12px;color:var(--text-secondary);text-align:center;font-size:12px;line-height:1.8;">暂无结构化风控事件：后端无独立风控事件表、拒单原因未结构化、无拦截计数落库（缺口 G1/G2/G3，契约 C-LOG-01 / C-RISK-03）；违规码仅落在 pending_orders.last_error 与决策日志 message 文本，落地前不解析文本猜测违规码。</div>';
                     return;
                 }
                 if (logKind !== 'system' && !logStrategyId) {
@@ -1358,7 +1367,7 @@
                     b.style.borderColor = active ? '#f0b90b' : 'var(--bg-border)';
                 });
                 const sel = document.getElementById('log-strategy-select');
-                if (sel) sel.style.display = logKind === 'system' ? 'none' : '';
+                if (sel) sel.style.display = (logKind === 'system' || logKind === 'risk') ? 'none' : '';
                 const clearBtn = document.getElementById('log-clear');
                 if (clearBtn) {
                     clearBtn.disabled = logKind !== 'system';
@@ -1422,6 +1431,8 @@
                         text = entries.map(e => `[${_logFmtTime(e.created_at)}] [${_logSideLabel(e.type)}] ${e.symbol||''} px=${e.price||''} amt=${e.amount||''} pnl=${e.net_pnl!=null?e.net_pnl:e.profit} reason=${e.close_reason||''}`).join('\n');
                     } else if (logKind === 'decision') {
                         text = entries.map(e => `[${_logFmtTime(e.timestamp)}] [${_normLevel(e.level).toUpperCase()}] ${e.message||''}`).join('\n');
+                    } else if (logKind === 'risk') {
+                        text = '暂无结构化风控事件（缺口 G1/G2/G3，契约 C-LOG-01 / C-RISK-03）';
                     } else {
                         text = entries.map(l => `[${l.time}] [${String(l.type||'').toUpperCase()}] ${l.msg}`).join('\n');
                     }
@@ -1454,6 +1465,7 @@
                 const anyUnauthorized = credentialsRes._unauthorized || summaryRes._unauthorized;
                 if (anyUnauthorized) {
                     updateSystemStatus('unauthorized');
+                    _setDemoGlobalBadge(true);
                     showToast('请先登录系统', 'warning');
                     // 未登录时使用演示数据
                     updateAccountsList([], false);
@@ -1472,14 +1484,25 @@
                 updatePositionsList(positionsRes.data || [], !positionsRes._error && positionsRes.code === 1);
                 updateTradesList((summaryRes.data || {}).recent_trades || [], !summaryRes._error && summaryRes.code === 1);
 
+                // 登录态下任一核心接口非真实（全挂/异常）才挂演示哨兵；全部真实回填则隐藏
+                const coreReal = !credentialsRes._error && credentialsRes.code === 1 &&
+                    !summaryRes._error && summaryRes.code === 1;
+                _setDemoGlobalBadge(!coreReal);
                 updateSystemStatus('online');
             } catch (e) {
                 debugLog(`数据加载失败: ${e.message}`, 'error');
+                _setDemoGlobalBadge(true);
                 updateSystemStatus('offline');
                 updateAccountsList([], false);
                 updateDashboardStats({}, false);
                 updateTradesList([], false);
             }
+        }
+
+        // 全局演示数据哨兵：仅未登录 / 接口全挂（非真实）时上屏；真实登录态一律隐藏
+        function _setDemoGlobalBadge(show) {
+            const el = document.getElementById('demo-global-badge');
+            if (el) el.style.display = show ? 'inline-block' : 'none';
         }
 
         function updateSystemStatus(status) {
@@ -1505,6 +1528,7 @@
         function updateAccountsList(credentials, isReal = false) {
             const accountsList = document.getElementById('accounts-list');
             const modalAccountsList = document.getElementById('modal-accounts-list');
+            const navEl = document.getElementById('nav-account-name');
 
             // 仅未登录 / 接口全挂（非真实）时保留演示兜底；真实模式空凭证走空态，不编演示哨兵
             let demoFallback = [];
@@ -1522,6 +1546,8 @@
             if (!credentials || credentials.length === 0) {
                 const showDemo = !isReal && demoFallback.length;
                 const list = showDemo ? demoFallback : [];
+                // 顶栏账户名：真实模式无凭证显示 --，不残留写死的「OKX-DEMO 已连接」
+                if (navEl) navEl.textContent = list.length ? 'OKX-DEMO 已连接' : '--';
                 const render = (cred) => `
                     <div class="account-option" style="padding:10px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;${showDemo ? 'background:var(--bg-hover);' : ''}">
                         <div style="display:flex;align-items:center;gap:10px;">
@@ -1564,6 +1590,8 @@
                     <div class="status-dot" style="width: 8px; height: 8px;"></div>
                 </div>
             `).join('');
+
+            if (navEl) navEl.textContent = credentials[0] ? `${credentials[0].name || '--'} ${_credEnvLabel(credentials[0])}` : '--';
         }
 
         function updateDashboardStats(summary, isReal = false) {
@@ -1587,6 +1615,9 @@
             } else if (!isReal) {
                 document.getElementById('daily-pnl').textContent = '+123.45';
                 document.getElementById('daily-pnl').style.color = 'var(--up-color)';
+            } else {
+                const el = document.getElementById('daily-pnl');
+                if (el) { el.textContent = '--'; el.style.color = ''; }
             }
 
             // 交易/胜率/盈亏比/回撤/夏普均来自后端 performance 嵌套字段；
@@ -1599,7 +1630,7 @@
             } else if (!isReal) {
                 tradesEl.textContent = '12';
             } else {
-                tradesEl.textContent = '0';
+                tradesEl.textContent = '--';
             }
 
             const winEl = document.getElementById('stat-winrate');
@@ -1860,6 +1891,7 @@
                         this.setToken(data.data.token);
                         this.setUser(data.data.userinfo);
                         debugLog(`登录成功: ${data.data.userinfo.username}`, 'success');
+                        _setDemoGlobalBadge(false);
                         this.showMain();
                         loadAllData();
                         return true;
@@ -2216,18 +2248,107 @@
                     // 后端暂无策略级风险预算，真实模式清空静态演示占比
                     _clearRiskBudget();
                     renderRiskDashboard(data.data);
+                    renderRiskThreshold(data.data);
                     debugLog(`风险数据加载成功`, 'success');
                 } else {
                     riskIsReal = false;
+                    _clearRiskThreshold();
                 }
             } catch (err) {
                 riskIsReal = false;
                 debugLog(`风险API暂不可用: ${err.message}`, 'warn');
                 // API不可用时保留空态 --，不回填演示哨兵数字
+                _clearRiskThreshold();
             }
+            // 风控引擎内存告警（独立只读请求，失败不阻塞组合快照）
+            loadRiskAlerts();
             // 更新时间
             const now = new Date();
             document.getElementById('risk-update-time').textContent = '更新于 ' + now.toLocaleTimeString();
+        }
+
+        function _clearRiskThreshold() {
+            ['risk-dd-current', 'risk-dd-limit', 'risk-equity', 'risk-daily-loss-limit'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = '--';
+            });
+            const bar = document.getElementById('risk-dd-bar');
+            if (bar) { bar.style.width = '0%'; bar.style.background = '#0ecb81'; }
+        }
+
+        // 账户回撤 / 亏损阈值可视化：仅回填 /api/risk/portfolio 已透出的真实字段
+        function renderRiskThreshold(data) {
+            if (!data) { _clearRiskThreshold(); return; }
+            const num = v => (v == null || isNaN(Number(v))) ? null : Number(v);
+            const dd = num(data.current_drawdown_pct);
+            const limit = num(data.max_drawdown_limit_pct);
+            const eq = num(data.current_equity);
+            const peak = num(data.peak_equity);
+
+            const ddEl = document.getElementById('risk-dd-current');
+            if (ddEl) ddEl.textContent = dd == null ? '--' : dd.toFixed(1) + '%';
+            const limEl = document.getElementById('risk-dd-limit');
+            if (limEl) limEl.textContent = limit == null ? '--' : limit.toFixed(1) + '%';
+            const eqEl = document.getElementById('risk-equity');
+            if (eqEl) {
+                eqEl.textContent = (eq == null ? '--' : eq.toFixed(2)) + (peak != null ? ' / ' + peak.toFixed(2) : '');
+            }
+            // 单日亏损限额后端未透出（C-RISK-01），保持空态，不用配置默认值冒充
+            const dlEl = document.getElementById('risk-daily-loss-limit');
+            if (dlEl) dlEl.textContent = '--';
+
+            const bar = document.getElementById('risk-dd-bar');
+            if (bar) {
+                let pct = 0;
+                if (dd != null && limit != null && limit > 0) pct = Math.min(100, Math.max(0, dd / limit * 100));
+                bar.style.width = pct + '%';
+                bar.style.background = pct >= 80 ? '#f6465d' : pct >= 50 ? '#f0b90b' : '#0ecb81';
+            }
+        }
+
+        const RISK_ALERT_COLORS = { error: '#f6465d', warn: '#f0b90b', warning: '#f0b90b', info: '#8b5cf6', success: '#0ecb81' };
+
+        async function loadRiskAlerts() {
+            const listEl = document.getElementById('risk-alert-list');
+            const countEl = document.getElementById('risk-alert-count');
+            if (!listEl) return;
+            const emptyHtml = '<div style="padding:12px;color:var(--text-secondary);text-align:center;font-size:12px;">暂无风控告警 / 拦截事件</div>';
+            try {
+                const res = await fetch('/api/risk/alerts', {
+                    headers: { 'Authorization': 'Bearer ' + Auth.getToken() }
+                });
+                if (!res.ok) throw new Error('API返回' + res.status);
+                const body = await res.json();
+                const alerts = (body && body.success && Array.isArray(body.data)) ? body.data : [];
+                if (countEl) countEl.textContent = alerts.length ? `共 ${alerts.length} 条` : '';
+                if (!alerts.length) { listEl.innerHTML = emptyHtml; return; }
+                listEl.innerHTML = alerts.map(a => {
+                    const lv = String(a.level || 'info').toLowerCase();
+                    const color = RISK_ALERT_COLORS[lv] || '#848e9c';
+                    const meta = [a.symbol, a.position_id != null ? `#${a.position_id}` : '', a.action_required ? `动作: ${a.action_required}` : ''].filter(Boolean).join(' · ');
+                    return `
+                        <div style="padding:12px;background:var(--bg-primary);border-left:3px solid ${color};border-radius:8px;">
+                            <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px;">
+                                <span style="padding:2px 6px;background:${color}20;color:${color};border-radius:3px;font-size:11px;font-weight:600;">${lv.toUpperCase()}</span>
+                                <span style="font-size:12px;font-weight:600;color:#eaecef;">${a.alert_type || a.type || '风控告警'}</span>
+                                <span style="flex:1;"></span>
+                                <span style="font-size:11px;color:var(--text-secondary);">${_riskAlertTime(a.timestamp)}</span>
+                            </div>
+                            <div style="font-size:12px;color:var(--text-secondary);line-height:1.6;">${a.message || '--'}</div>
+                            ${meta ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">${meta}</div>` : ''}
+                        </div>`;
+                }).join('');
+            } catch (err) {
+                debugLog(`风控告警接口暂不可用: ${err.message}`, 'warn');
+                listEl.innerHTML = emptyHtml;
+                if (countEl) countEl.textContent = '';
+            }
+        }
+
+        function _riskAlertTime(ts) {
+            if (ts == null || ts === '') return '--';
+            const d = new Date(typeof ts === 'number' ? ts * 1000 : ts);
+            return isNaN(d.getTime()) ? String(ts) : d.toLocaleString('zh-CN', { hour12: false });
         }
         
         function renderRiskDashboard(data) {
@@ -2424,7 +2545,16 @@
             return '#0ecb81';
         }
 
+        // 归因统计：后端暂无亏损根因分类 / 止损触发 / 过早止盈字段（C-REVIEW-01/02/03），固定空态 --
+        function _clearReviewAttribution() {
+            ['review-rootcause', 'review-stoploss', 'review-premature-tp'].forEach(id => {
+                const el = _reviewEl(id);
+                if (el) el.textContent = '--';
+            });
+        }
+
         function renderReviewReport(report) {
+            _clearReviewAttribution();
             const meta = _reviewEl('review-strategy-meta');
             const m = report.strategy || {};
             meta.style.display = 'block';
@@ -2537,6 +2667,7 @@
             }
             const lookback = parseInt(_reviewEl('review-lookback').value, 10) || 30;
             const includeAi = _reviewEl('review-include-ai').checked;
+            _clearReviewAttribution();
             status.textContent = '正在生成复盘报告…';
             status.style.color = 'var(--text-secondary)';
             if (btn) btn.disabled = true;
@@ -2982,6 +3113,7 @@
                 authed = ok;
             }
             if (authed) {
+                _setDemoGlobalBadge(false);
                 Auth.showMain();
                 initMainChart();
                 initLogCenter();

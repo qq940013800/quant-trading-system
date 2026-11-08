@@ -61,11 +61,12 @@
             <div class="nav-right">
                 <div class="account-badge">
                     <div class="status-dot"></div>
-                    <span id="nav-account-name">OKX-DEMO 已连接</span>
+                    <span id="nav-account-name">--</span>
                 </div>
                 <span id="ws-status">
                     <span style="color: #848e9c; font-size: 11px; margin-left: 8px;">○ WS 未连接</span>
                 </span>
+                <span id="demo-global-badge" style="display:none; margin-left: 10px; padding: 2px 10px; background: rgba(240,185,11,0.12); border: 1px solid rgba(240,185,11,0.35); color: #f0b90b; border-radius: 4px; font-size: 11px; font-weight: 600;">⚠️ 演示数据</span>
             </div>
         </header>
 
@@ -182,75 +183,14 @@
                         <div class="orderbook">
                             <div class="orderbook-title">订单簿 - BTC/USDT</div>
                             <div id="orderbook-asks">
-                                <!-- 卖盘（ask）从高到低；兜底演示样例，真实 WS 推送成功时由 JS 覆盖 -->
-                                <div class="orderbook-row ask">
-                                    <span class="orderbook-price ask">42,150.50</span>
-                                    <span class="orderbook-amount">0.234</span>
-                                    <span class="orderbook-total">12.45</span>
-                                    <div class="amount-bar" style="width: 45%;"></div>
-                                </div>
-                                <div class="orderbook-row ask">
-                                    <span class="orderbook-price ask">42,148.20</span>
-                                    <span class="orderbook-amount">0.567</span>
-                                    <span class="orderbook-total">11.22</span>
-                                    <div class="amount-bar" style="width: 60%;"></div>
-                                </div>
-                                <div class="orderbook-row ask">
-                                    <span class="orderbook-price ask">42,145.00</span>
-                                    <span class="orderbook-amount">1.234</span>
-                                    <span class="orderbook-total">10.65</span>
-                                    <div class="amount-bar" style="width: 80%;"></div>
-                                </div>
-                                <div class="orderbook-row ask">
-                                    <span class="orderbook-price ask">42,142.80</span>
-                                    <span class="orderbook-amount">0.891</span>
-                                    <span class="orderbook-total">9.42</span>
-                                    <div class="amount-bar" style="width: 55%;"></div>
-                                </div>
-                                <div class="orderbook-row ask">
-                                    <span class="orderbook-price ask">42,140.00</span>
-                                    <span class="orderbook-amount">0.456</span>
-                                    <span class="orderbook-total">8.53</span>
-                                    <div class="amount-bar" style="width: 35%;"></div>
-                                </div>
+                                <!-- 真实 WS 推送成功时由 JS 覆盖；真实链路断连/未登录前保持空态占位 -->
                             </div>
                             
                             <div class="orderbook-spread" id="orderbook-spread">
-                                42,138.50 ↓ 价差: $1.50 (0.004%)
+                                --
                             </div>
                             
                             <div id="orderbook-bids">
-                                <!-- 买盘（bid）从低到高；兜底演示样例，真实 WS 推送成功时由 JS 覆盖 -->
-                                <div class="orderbook-row bid">
-                                    <span class="orderbook-price bid">42,137.00</span>
-                                    <span class="orderbook-amount">0.345</span>
-                                    <span class="orderbook-total">8.07</span>
-                                    <div class="amount-bar" style="width: 40%;"></div>
-                                </div>
-                                <div class="orderbook-row bid">
-                                    <span class="orderbook-price bid">42,135.50</span>
-                                    <span class="orderbook-amount">0.678</span>
-                                    <span class="orderbook-total">7.72</span>
-                                    <div class="amount-bar" style="width: 55%;"></div>
-                                </div>
-                                <div class="orderbook-row bid">
-                                    <span class="orderbook-price bid">42,133.00</span>
-                                    <span class="orderbook-amount">1.567</span>
-                                    <span class="orderbook-total">7.04</span>
-                                    <div class="amount-bar" style="width: 85%;"></div>
-                                </div>
-                                <div class="orderbook-row bid">
-                                    <span class="orderbook-price bid">42,130.20</span>
-                                    <span class="orderbook-amount">0.789</span>
-                                    <span class="orderbook-total">5.47</span>
-                                    <div class="amount-bar" style="width: 50%;"></div>
-                                </div>
-                                <div class="orderbook-row bid">
-                                    <span class="orderbook-price bid">42,128.00</span>
-                                    <span class="orderbook-amount">0.234</span>
-                                    <span class="orderbook-total">4.68</span>
-                                    <div class="amount-bar" style="width: 30%;"></div>
-                                </div>
                             </div>
                         </div>
 
@@ -270,11 +210,11 @@
                             </div>
                             <div class="form-group">
                                 <label class="form-label">价格 (USDT)</label>
-                                <input type="number" class="form-input" id="order-price" value="42000.00">
+                                <input type="number" class="form-input" id="order-price" value="">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">数量 (BTC)</label>
-                                <input type="number" class="form-input" id="order-amount" value="0.1">
+                                <input type="number" class="form-input" id="order-amount" value="">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">订单类型</label>
@@ -536,18 +476,18 @@
                                 <div class="heatmap-header" style="text-align:center;">12月</div>
                                 
                                 <div class="heatmap-header">2024</div>
-                                <div class="heatmap-cell positive">+3.2</div>
-                                <div class="heatmap-cell positive">+5.1</div>
-                                <div class="heatmap-cell negative">-1.8</div>
-                                <div class="heatmap-cell positive">+4.5</div>
-                                <div class="heatmap-cell positive">+2.3</div>
-                                <div class="heatmap-cell negative">-0.9</div>
-                                <div class="heatmap-cell positive">+6.7</div>
-                                <div class="heatmap-cell positive">+3.4</div>
-                                <div class="heatmap-cell negative">-2.1</div>
-                                <div class="heatmap-cell positive">+4.8</div>
-                                <div class="heatmap-cell positive">+5.6</div>
-                                <div class="heatmap-cell positive">+2.9</div>
+                                <div class="heatmap-cell">--</div>
+                                <div class="heatmap-cell">--</div>
+                                <div class="heatmap-cell">--</div>
+                                <div class="heatmap-cell">--</div>
+                                <div class="heatmap-cell">--</div>
+                                <div class="heatmap-cell">--</div>
+                                <div class="heatmap-cell">--</div>
+                                <div class="heatmap-cell">--</div>
+                                <div class="heatmap-cell">--</div>
+                                <div class="heatmap-cell">--</div>
+                                <div class="heatmap-cell">--</div>
+                                <div class="heatmap-cell">--</div>
                             </div>
                         </div>
                         
@@ -569,34 +509,34 @@
                                 </thead>
                                 <tbody id="comparison-table-body">
                                     <tr>
-                                        <td>ML增强趋势</td>
-                                        <td style="color: var(--up-color);">+67.97%</td>
-                                        <td>+52.3%</td>
-                                        <td>1.85</td>
-                                        <td style="color: var(--down-color);">-15.2%</td>
-                                        <td>55.6%</td>
-                                        <td>1.85</td>
-                                        <td>45</td>
+                                        <td>--</td>
+                                        <td>--</td>
+                                        <td>--</td>
+                                        <td>--</td>
+                                        <td>--</td>
+                                        <td>--</td>
+                                        <td>--</td>
+                                        <td>--</td>
                                     </tr>
                                     <tr>
-                                        <td>均值回归</td>
-                                        <td style="color: var(--up-color);">+23.45%</td>
-                                        <td>+18.7%</td>
-                                        <td>1.23</td>
-                                        <td style="color: var(--down-color);">-8.5%</td>
-                                        <td>62.3%</td>
-                                        <td>1.42</td>
-                                        <td>128</td>
+                                        <td>--</td>
+                                        <td>--</td>
+                                        <td>--</td>
+                                        <td>--</td>
+                                        <td>--</td>
+                                        <td>--</td>
+                                        <td>--</td>
+                                        <td>--</td>
                                     </tr>
                                     <tr>
-                                        <td>突破策略</td>
-                                        <td style="color: var(--up-color);">+45.67%</td>
-                                        <td>+35.2%</td>
-                                        <td>1.56</td>
-                                        <td style="color: var(--down-color);">-18.7%</td>
-                                        <td>48.9%</td>
-                                        <td>2.13</td>
-                                        <td>67</td>
+                                        <td>--</td>
+                                        <td>--</td>
+                                        <td>--</td>
+                                        <td>--</td>
+                                        <td>--</td>
+                                        <td>--</td>
+                                        <td>--</td>
+                                        <td>--</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -687,6 +627,68 @@
                         </div>
                     </div>
                     
+                    <!-- 账户回撤 / 亏损阈值可视化（真实字段：GET /api/risk/portfolio） -->
+                    <div style="background: var(--bg-secondary); border-radius: 12px; padding: 20px; margin-bottom: 16px;">
+                        <div style="display: flex; align-items: center; margin-bottom: 14px;">
+                            <h4 style="font-size: 14px; margin: 0; color: var(--text-primary);">账户回撤 / 亏损阈值</h4>
+                            <div style="flex: 1;"></div>
+                            <span style="font-size: 11px; color: var(--text-secondary);">数据源：risk_engine 组合快照（只读）</span>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 14px;">
+                            <div style="padding: 12px; background: var(--bg-primary); border-radius: 6px;">
+                                <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">当前回撤</div>
+                                <div style="font-size: 18px; font-weight: 700; color: var(--text-secondary);" id="risk-dd-current">--</div>
+                            </div>
+                            <div style="padding: 12px; background: var(--bg-primary); border-radius: 6px;">
+                                <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">回撤限额</div>
+                                <div style="font-size: 18px; font-weight: 700; color: var(--text-secondary);" id="risk-dd-limit">--</div>
+                            </div>
+                            <div style="padding: 12px; background: var(--bg-primary); border-radius: 6px;">
+                                <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">账户权益 / 峰值权益</div>
+                                <div style="font-size: 18px; font-weight: 700; color: var(--text-secondary);" id="risk-equity">--</div>
+                            </div>
+                            <div style="padding: 12px; background: var(--bg-primary); border-radius: 6px;">
+                                <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">单日亏损限额</div>
+                                <div style="font-size: 18px; font-weight: 700; color: var(--text-secondary);" id="risk-daily-loss-limit">--</div>
+                            </div>
+                        </div>
+                        <div style="height: 8px; background: var(--bg-active); border-radius: 4px; overflow: hidden;">
+                            <div id="risk-dd-bar" style="height: 100%; width: 0; background: #0ecb81; border-radius: 4px;"></div>
+                        </div>
+                        <div style="font-size: 11px; color: var(--text-secondary); margin-top: 8px; line-height: 1.7;">
+                            口径：当前回撤 / 回撤限额来自组合快照真实字段；单日亏损限额后端未透出，缺失显示 <code>--</code>，不以配置默认值冒充已生效限额。
+                        </div>
+                    </div>
+
+                    <!-- 策略级回撤监控（无后端只读端点，真实空态；契约 C-RISK-02） -->
+                    <div style="background: var(--bg-secondary); border-radius: 12px; padding: 20px; margin-bottom: 16px;">
+                        <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                            <h4 style="font-size: 14px; margin: 0; color: var(--text-primary);">策略级回撤监控</h4>
+                            <div style="flex: 1;"></div>
+                            <span style="font-size: 11px; color: var(--text-secondary);">待后端逐策略回撤端点（C-RISK-02）</span>
+                        </div>
+                        <div id="strategy-dd-list">
+                            <div style="padding: 16px; background: var(--bg-primary); border-radius: 8px; color: var(--text-secondary); font-size: 12px; line-height: 1.7;">
+                                暂无策略级回撤数据：后端暂无逐策略回撤只读端点；现有持仓监控面向手工持仓，不承载策略净值回撤。字段补齐前保持空态，不展示演示策略与回撤数值。
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 风控告警 / 拦截历史（GET /api/risk/alerts 内存告警；持久化拒单事件缺口 G1/G2/G3，C-RISK-03） -->
+                    <div style="background: var(--bg-secondary); border-radius: 12px; padding: 20px;">
+                        <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                            <h4 style="font-size: 14px; margin: 0; color: var(--text-primary);">风控告警 / 拦截历史</h4>
+                            <div style="flex: 1;"></div>
+                            <span style="font-size: 11px; color: var(--text-secondary);" id="risk-alert-count"></span>
+                        </div>
+                        <div id="risk-alert-list" style="display: flex; flex-direction: column; gap: 10px;">
+                            <div style="padding: 12px; color: var(--text-secondary); text-align: center; font-size: 12px;">暂无风控告警 / 拦截事件</div>
+                        </div>
+                        <div style="font-size: 11px; color: var(--text-secondary); margin-top: 10px; line-height: 1.7;">
+                            说明：上方为风控引擎内存告警（重启清空）；持久化拒单事件无独立风控事件表、违规码未结构化、无拦截计数落库（缺口 G1/G2/G3，契约 C-RISK-03），落地前不解析文本猜测违规码。
+                        </div>
+                    </div>
+
                     <div style="background: var(--bg-secondary); border-radius: 8px; padding: 24px;">
                         <h3 style="margin-bottom: 16px;">风险限额设置</h3>
                         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
@@ -737,58 +739,7 @@
                         </div>
                         
                         <div style="display: flex; flex-direction: column; gap: 12px;" id="validation-modules">
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #8b5cf6;">
-                                <span style="font-size: 13px;">过拟合防御系统 (PBO/DSR/CPCV)</span>
-                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #0ecb81;">
-                                <span style="font-size: 13px;">前视偏差自动检测器</span>
-                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #0ecb81;">
-                                <span style="font-size: 13px;">策略漂移监控（数据+概念）</span>
-                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #f0b90b;">
-                                <span style="font-size: 13px;">AB测试框架（统计显著性）</span>
-                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #f0b90b;">
-                                <span style="font-size: 13px;">决策可解释性（8层追溯）</span>
-                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #f6465d;">
-                                <span style="font-size: 13px;">四层止损体系</span>
-                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #848e9c;">
-                                <span style="font-size: 13px;">BOS/CHoCH市场结构识别</span>
-                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #848e9c;">
-                                <span style="font-size: 13px;">K线形态识别库（24形态）</span>
-                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #848e9c;">
-                                <span style="font-size: 13px;">滑点成本模型</span>
-                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #848e9c;">
-                                <span style="font-size: 13px;">策略生命周期管理</span>
-                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #848e9c;">
-                                <span style="font-size: 13px;">自动策略优化引擎</span>
-                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #848e9c;">
-                                <span style="font-size: 13px;">五层系统诊断框架</span>
-                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 健康</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid #848e9c;">
-                                <span style="font-size: 13px;">QuantDinger API桥接器</span>
-                                <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">✓ 已连接</span>
-                            </div>
+                            <div style="padding: 12px 16px; color: var(--text-tertiary); font-size: 12px;">等待验证模块状态接入</div>
                         </div>
                     </div>
 
@@ -800,11 +751,7 @@
                         </div>
                         
                         <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; font-family: 'Consolas', monospace;" id="audit-logs">
-                            <div style="padding: 8px 12px; background: var(--bg-primary); border-radius: 6px;">
-                                <span style="color: var(--text-secondary);">--:--:--</span>
-                                <span style="margin-left: 8px; color: #f0b90b; font-weight: 600;">INFO</span>
-                                <span style="margin-left: 8px; color: var(--text-secondary);">验证层初始化完成</span>
-                            </div>
+                            <div style="padding: 8px 12px; color: var(--text-tertiary); font-size: 12px;">暂无决策审计日志</div>
                         </div>
                     </div>
                 </div>
@@ -935,53 +882,7 @@
                     
                     <!-- 兜底演示样例：未登录/接口全挂时保留；真实模式由 _clearHealthMonitorCards() 清空为 -- -->
                     <div style="display: flex; flex-direction: column; gap: 12px;" id="strategy-health-list">
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px; background: var(--bg-primary); border-radius: 8px; border-left: 4px solid #0ecb81;">
-                            <div style="flex: 2;">
-                                <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">ML增强趋势策略</div>
-                                <div style="font-size: 11px; color: var(--text-secondary);">运行 47 天 · 累计收益 +23.5%</div>
-                            </div>
-                            <div style="flex: 3; padding: 0 24px;">
-                                <div style="display: flex; gap: 16px; font-size: 11px;">
-                                    <span>夏普: <strong>1.85</strong></span>
-                                    <span>回撤: <strong>-3.2%</strong></span>
-                                    <span>胜率: <strong>65%</strong></span>
-                                    <span>近期表现: <strong style="color: #0ecb81;">稳定</strong></span>
-                                </div>
-                            </div>
-                            <span style="padding: 4px 12px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 12px; font-weight: 600;">🟢 健康</span>
-                        </div>
-                        
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px; background: var(--bg-primary); border-radius: 8px; border-left: 4px solid #f0b90b;">
-                            <div style="flex: 2;">
-                                <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">均值回归策略</div>
-                                <div style="font-size: 11px; color: var(--text-secondary);">运行 32 天 · 累计收益 +8.2%</div>
-                            </div>
-                            <div style="flex: 3; padding: 0 24px;">
-                                <div style="display: flex; gap: 16px; font-size: 11px;">
-                                    <span>夏普: <strong>1.42</strong></span>
-                                    <span>回撤: <strong>-4.8%</strong></span>
-                                    <span>胜率: <strong>58%</strong></span>
-                                    <span>近期表现: <strong style="color: #f0b90b;">衰减中</strong></span>
-                                </div>
-                            </div>
-                            <span style="padding: 4px 12px; background: rgba(240, 185, 11, 0.1); color: #f0b90b; border-radius: 4px; font-size: 12px; font-weight: 600;">🟡 观察</span>
-                        </div>
-                        
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px; background: var(--bg-primary); border-radius: 8px; border-left: 4px solid #f6465d;">
-                            <div style="flex: 2;">
-                                <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">突破策略</div>
-                                <div style="font-size: 11px; color: var(--text-secondary);">运行 21 天 · 累计收益 -2.1%</div>
-                            </div>
-                            <div style="flex: 3; padding: 0 24px;">
-                                <div style="display: flex; gap: 16px; font-size: 11px;">
-                                    <span>夏普: <strong>0.85</strong></span>
-                                    <span>回撤: <strong>-6.5%</strong></span>
-                                    <span>胜率: <strong>42%</strong></span>
-                                    <span>近期表现: <strong style="color: #f6465d;">持续亏损</strong></span>
-                                </div>
-                            </div>
-                            <span style="padding: 4px 12px; background: rgba(246, 70, 93, 0.1); color: #f6465d; border-radius: 4px; font-size: 12px; font-weight: 600;">🔴 警告</span>
-                        </div>
+                        <div style="padding: 16px; color: var(--text-tertiary); font-size: 12px;">暂无策略级健康度绩效数据</div>
                     </div>
                     
                     <!-- 三级状态说明 -->
@@ -1012,27 +913,27 @@
                     <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px;">
                         <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
                             <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">佣金</div>
-                            <div style="font-size: 20px; font-weight: 700; color: #8b5cf6;" id="tca-commission">1.2%</div>
+                            <div style="font-size: 20px; font-weight: 700; color: var(--text-secondary);" id="tca-commission">--</div>
                             <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">固定成本</div>
                         </div>
                         <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
                             <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">点差</div>
-                            <div style="font-size: 20px; font-weight: 700; color: #58a6ff;" id="tca-spread">2.0%</div>
+                            <div style="font-size: 20px; font-weight: 700; color: var(--text-secondary);" id="tca-spread">--</div>
                             <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">买卖价差</div>
                         </div>
                         <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
                             <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">滑点</div>
-                            <div style="font-size: 20px; font-weight: 700; color: #f0b90b;" id="tca-slippage">3.5%</div>
+                            <div style="font-size: 20px; font-weight: 700; color: var(--text-secondary);" id="tca-slippage">--</div>
                             <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">平方根模型</div>
                         </div>
                         <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
                             <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">市场冲击</div>
-                            <div style="font-size: 20px; font-weight: 700; color: #f6465d;" id="tca-impact">1.8%</div>
+                            <div style="font-size: 20px; font-weight: 700; color: var(--text-secondary);" id="tca-impact">--</div>
                             <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">大单冲击</div>
                         </div>
                         <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
                             <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">时机风险</div>
-                            <div style="font-size: 20px; font-weight: 700; color: #0ecb81;" id="tca-timing">0.5%</div>
+                            <div style="font-size: 20px; font-weight: 700; color: var(--text-secondary);" id="tca-timing">--</div>
                             <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">等待成本</div>
                         </div>
                     </div>
@@ -1043,8 +944,8 @@
                             <div style="font-size: 12px; color: var(--text-secondary);">回测vs实盘差距的80%来自成本被低估</div>
                         </div>
                         <div style="text-align: right;">
-                            <div style="font-size: 28px; font-weight: 700; color: #f0b90b;" id="tca-total">8.2 bps</div>
-                            <div style="font-size: 11px; color: #0ecb81;" id="tca-verdict">✅ 成本可控（<10bps）</div>
+                            <div style="font-size: 28px; font-weight: 700; color: var(--text-secondary);" id="tca-total">--</div>
+                            <div style="font-size: 11px; color: var(--text-secondary);" id="tca-verdict">--</div>
                         </div>
                     </div>
                 </div>
@@ -1059,37 +960,37 @@
                     <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px;">
                         <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
                             <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">完整性</div>
-                            <div style="font-size: 24px; font-weight: 700; color: #0ecb81;" id="dq-completeness">98%</div>
+                            <div style="font-size: 24px; font-weight: 700; color: var(--text-secondary);" id="dq-completeness">--</div>
                             <div style="height: 4px; background: var(--bg-border); border-radius: 2px; margin-top: 8px;">
-                                <div id="dq-bar-completeness" style="height: 100%; width: 98%; background: #0ecb81; border-radius: 2px;"></div>
+                                <div id="dq-bar-completeness" style="height: 100%; width: 0%; background: #0ecb81; border-radius: 2px;"></div>
                             </div>
                         </div>
                         <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
                             <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">准确性</div>
-                            <div style="font-size: 24px; font-weight: 700; color: #0ecb81;" id="dq-accuracy">96%</div>
+                            <div style="font-size: 24px; font-weight: 700; color: var(--text-secondary);" id="dq-accuracy">--</div>
                             <div style="height: 4px; background: var(--bg-border); border-radius: 2px; margin-top: 8px;">
-                                <div id="dq-bar-accuracy" style="height: 100%; width: 96%; background: #0ecb81; border-radius: 2px;"></div>
+                                <div id="dq-bar-accuracy" style="height: 100%; width: 0%; background: #0ecb81; border-radius: 2px;"></div>
                             </div>
                         </div>
                         <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
                             <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">一致性</div>
-                            <div style="font-size: 24px; font-weight: 700; color: #f0b90b;" id="dq-consistency">92%</div>
+                            <div style="font-size: 24px; font-weight: 700; color: var(--text-secondary);" id="dq-consistency">--</div>
                             <div style="height: 4px; background: var(--bg-border); border-radius: 2px; margin-top: 8px;">
-                                <div id="dq-bar-consistency" style="height: 100%; width: 92%; background: #f0b90b; border-radius: 2px;"></div>
+                                <div id="dq-bar-consistency" style="height: 100%; width: 0%; background: #f0b90b; border-radius: 2px;"></div>
                             </div>
                         </div>
                         <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
                             <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">及时性</div>
-                            <div style="font-size: 24px; font-weight: 700; color: #0ecb81;" id="dq-timeliness">99%</div>
+                            <div style="font-size: 24px; font-weight: 700; color: var(--text-secondary);" id="dq-timeliness">--</div>
                             <div style="height: 4px; background: var(--bg-border); border-radius: 2px; margin-top: 8px;">
-                                <div id="dq-bar-timeliness" style="height: 100%; width: 99%; background: #0ecb81; border-radius: 2px;"></div>
+                                <div id="dq-bar-timeliness" style="height: 100%; width: 0%; background: #0ecb81; border-radius: 2px;"></div>
                             </div>
                         </div>
                         <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
                             <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">唯一性</div>
-                            <div style="font-size: 24px; font-weight: 700; color: #0ecb81;" id="dq-uniqueness">100%</div>
+                            <div style="font-size: 24px; font-weight: 700; color: var(--text-secondary);" id="dq-uniqueness">--</div>
                             <div style="height: 4px; background: var(--bg-border); border-radius: 2px; margin-top: 8px;">
-                                <div id="dq-bar-uniqueness" style="height: 100%; width: 100%; background: #0ecb81; border-radius: 2px;"></div>
+                                <div id="dq-bar-uniqueness" style="height: 100%; width: 0%; background: #0ecb81; border-radius: 2px;"></div>
                             </div>
                         </div>
                     </div>
@@ -1097,10 +998,10 @@
                     <div style="padding: 16px; background: rgba(14, 203, 129, 0.05); border-radius: 8px; border-left: 3px solid #0ecb81;">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div>
-                                <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">综合质量评分：<span id="dq-overall-label">优秀</span></div>
+                                <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">综合质量评分：<span id="dq-overall-label">--</span></div>
                                 <div style="font-size: 12px; color: var(--text-secondary);">垃圾进垃圾出——数据质量是策略有效性的第一道门</div>
                             </div>
-                            <div style="font-size: 32px; font-weight: 700; color: #0ecb81;" id="dq-overall-score">97</div>
+                            <div style="font-size: 32px; font-weight: 700; color: var(--text-secondary);" id="dq-overall-score">--</div>
                         </div>
                     </div>
                 </div>
@@ -1158,50 +1059,15 @@
                     </div>
 
                     <div id="l1-status-card" style="padding: 20px; background: rgba(14, 203, 129, 0.05); border-radius: 8px; border-left: 4px solid #0ecb81; margin-bottom: 20px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">当前市场状态</div>
-                                <div style="font-size: 24px; font-weight: 700; color: #0ecb81;">🟢 弱上升趋势</div>
-                            </div>
-                            <div style="text-align: right;">
-                                <div style="font-size: 12px; color: var(--text-secondary);">状态置信度</div>
-                                <div style="font-size: 24px; font-weight: 700; color: #0ecb81;">78%</div>
-                            </div>
-                        </div>
+                        <div style="color: var(--text-tertiary); font-size: 12px;">暂无当前市场状态（待接真实行情识别）</div>
                     </div>
 
                     <div id="l1-regime-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
-                        <div style="padding: 12px; background: rgba(14, 203, 129, 0.1); border-radius: 6px; border: 1px solid #0ecb81;">
-                            <div style="font-size: 12px; font-weight: 600; color: #0ecb81; margin-bottom: 4px;">强上升</div>
-                            <div style="font-size: 18px; font-weight: 700; color: #0ecb81;">15%</div>
-                        </div>
-                        <div style="padding: 12px; background: rgba(14, 203, 129, 0.15); border-radius: 6px; border: 2px solid #0ecb81;">
-                            <div style="font-size: 12px; font-weight: 600; color: #0ecb81; margin-bottom: 4px;">弱上升 ← 当前</div>
-                            <div style="font-size: 18px; font-weight: 700; color: #0ecb81;">78%</div>
-                        </div>
-                        <div style="padding: 12px; background: rgba(240, 185, 11, 0.05); border-radius: 6px;">
-                            <div style="font-size: 12px; font-weight: 600; color: #f0b90b; margin-bottom: 4px;">震荡</div>
-                            <div style="font-size: 18px; font-weight: 700; color: #f0b90b;">5%</div>
-                        </div>
-                        <div style="padding: 12px; background: rgba(246, 70, 93, 0.05); border-radius: 6px;">
-                            <div style="font-size: 12px; font-weight: 600; color: #f6465d; margin-bottom: 4px;">弱下降</div>
-                            <div style="font-size: 18px; font-weight: 700; color: #f6465d;">1%</div>
-                        </div>
-                        <div style="padding: 12px; background: rgba(246, 70, 93, 0.05); border-radius: 6px;">
-                            <div style="font-size: 12px; font-weight: 600; color: #f6465d; margin-bottom: 4px;">强下降</div>
-                            <div style="font-size: 18px; font-weight: 700; color: #f6465d;">0.5%</div>
-                        </div>
-                        <div style="padding: 12px; background: rgba(246, 70, 93, 0.1); border-radius: 6px;">
-                            <div style="font-size: 12px; font-weight: 600; color: #f6465d; margin-bottom: 4px;">危机</div>
-                            <div style="font-size: 18px; font-weight: 700; color: #f6465d;">0.5%</div>
-                        </div>
+                        <div style="padding: 12px; color: var(--text-tertiary); font-size: 12px;">暂无状态分布占比</div>
                     </div>
 
                     <div id="l1-recommendation" style="margin-top: 16px; padding: 12px; background: var(--bg-primary); border-radius: 6px; font-size: 12px; color: var(--text-secondary);">
-                        <strong style="color: #eaecef;">策略推荐：</strong>
-                        当前状态适合运行 <span style="color: #0ecb81;">趋势跟踪策略</span>，
-                        建议 <span style="color: #f0b90b;">暂停均值回归策略</span>，
-                        防抖动机制：状态切换需连续3根K线确认
+                        暂无策略推荐（待市场状态识别接入）
                     </div>
                 </div>
 
@@ -1213,36 +1079,17 @@
                     </div>
 
                     <div id="ha-components" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;">
-                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
-                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">API服务</div>
-                            <div style="font-size: 24px; font-weight: 700; color: #0ecb81;">✅</div>
-                            <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">响应 23ms</div>
-                        </div>
-                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
-                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">数据库</div>
-                            <div style="font-size: 24px; font-weight: 700; color: #0ecb81;">✅</div>
-                            <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">连接池正常</div>
-                        </div>
-                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
-                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">交易所连接</div>
-                            <div style="font-size: 24px; font-weight: 700; color: #0ecb81;">✅</div>
-                            <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">延迟 120ms</div>
-                        </div>
-                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
-                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">消息队列</div>
-                            <div style="font-size: 24px; font-weight: 700; color: #0ecb81;">✅</div>
-                            <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;">堆积 0</div>
-                        </div>
+                        <div style="padding: 12px; color: var(--text-tertiary); font-size: 12px;">暂无逐组件健康/延迟探针数据</div>
                     </div>
 
                     <div style="display: flex; justify-content: space-between; padding: 16px; background: rgba(14, 203, 129, 0.05); border-radius: 8px; border-left: 3px solid #0ecb81;">
                         <div style="font-size: 12px; color: var(--text-secondary);">
-                            <strong style="color: #eaecef;">RTO目标：</strong> 5分钟 · <strong style="color: #eaecef;">RPO目标：</strong> 1分钟<br>
-                            <span style="font-size: 11px;">全年可用性目标 99.99%（downtime < 53分钟）</span>
+                            <strong style="color: #eaecef;">RTO目标：</strong> -- · <strong style="color: #eaecef;">RPO目标：</strong> --<br>
+                            <span style="font-size: 11px;">可用性目标值待后端探针接入</span>
                         </div>
                         <div style="text-align: right;">
-                            <div style="font-size: 20px; font-weight: 700; color: #0ecb81;">99.99%</div>
-                            <div style="font-size: 11px; color: #0ecb81;">达标</div>
+                            <div style="font-size: 20px; font-weight: 700; color: var(--text-secondary);">--</div>
+                            <div style="font-size: 11px; color: var(--text-secondary);">--</div>
                         </div>
                     </div>
                 </div>
@@ -1321,22 +1168,7 @@
                     </div>
 
                     <div id="sec-old-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;">
-                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
-                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">活跃会话</div>
-                            <div style="font-size: 24px; font-weight: 700;">2</div>
-                        </div>
-                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
-                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">API密钥</div>
-                            <div style="font-size: 24px; font-weight: 700;">3</div>
-                        </div>
-                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
-                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">审计日志</div>
-                            <div style="font-size: 24px; font-weight: 700;">1,247</div>
-                        </div>
-                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px; text-align: center;">
-                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">严重告警</div>
-                            <div style="font-size: 24px; font-weight: 700; color: #0ecb81;">0</div>
-                        </div>
+                        <div style="padding: 12px; color: var(--text-tertiary); font-size: 12px;">暂无安全会话/密钥/审计统计（见引擎页监控卡片）</div>
                     </div>
 
                     <div style="padding: 16px; background: rgba(14, 203, 129, 0.05); border-radius: 8px; border-left: 3px solid #0ecb81;">
@@ -1354,29 +1186,7 @@
                     </div>
 
                     <div id="crowd-old-list" style="display: flex; flex-direction: column; gap: 12px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px; background: var(--bg-primary); border-radius: 8px; border-left: 4px solid #0ecb81;">
-                            <div style="flex: 2;">
-                                <div style="font-size: 13px; font-weight: 600; margin-bottom: 4px;">ML增强趋势策略</div>
-                                <div style="font-size: 11px; color: var(--text-secondary);">信号相关性 0.32 · Alpha衰减 8%</div>
-                            </div>
-                            <div style="flex: 2; text-align: center;">
-                                <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">拥挤度评分</div>
-                                <div style="font-size: 20px; font-weight: 700; color: #0ecb81;">28/100</div>
-                            </div>
-                            <span style="padding: 4px 12px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">低拥挤 · 正常</span>
-                        </div>
-
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px; background: var(--bg-primary); border-radius: 8px; border-left: 4px solid #f0b90b;">
-                            <div style="flex: 2;">
-                                <div style="font-size: 13px; font-weight: 600; margin-bottom: 4px;">均值回归策略</div>
-                                <div style="font-size: 11px; color: var(--text-secondary);">信号相关性 0.58 · Alpha衰减 25%</div>
-                            </div>
-                            <div style="flex: 2; text-align: center;">
-                                <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">拥挤度评分</div>
-                                <div style="font-size: 20px; font-weight: 700; color: #f0b90b;">52/100</div>
-                            </div>
-                            <span style="padding: 4px 12px; background: rgba(240, 185, 11, 0.1); color: #f0b90b; border-radius: 4px; font-size: 11px;">中拥挤 · 预警</span>
-                        </div>
+                        <div style="padding: 14px; color: var(--text-tertiary); font-size: 12px;">暂无策略拥挤度数据</div>
                     </div>
 
                     <div id="crowd-old-advice" style="margin-top: 16px; padding: 12px; background: rgba(240, 185, 11, 0.05); border-radius: 6px; font-size: 12px; color: var(--text-secondary);">
@@ -1391,34 +1201,7 @@
                     </div>
 
                     <div id="obs-old-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;">
-                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px;">
-                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">延迟 P95</div>
-                            <div style="font-size: 20px; font-weight: 700; color: #0ecb81;">120ms</div>
-                            <div style="height: 4px; background: var(--bg-border); border-radius: 2px; margin-top: 8px;">
-                                <div style="height: 100%; width: 24%; background: #0ecb81; border-radius: 2px;"></div>
-                            </div>
-                        </div>
-                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px;">
-                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">错误率</div>
-                            <div style="font-size: 20px; font-weight: 700; color: #0ecb81;">0.3%</div>
-                            <div style="height: 4px; background: var(--bg-border); border-radius: 2px; margin-top: 8px;">
-                                <div style="height: 100%; width: 6%; background: #0ecb81; border-radius: 2px;"></div>
-                            </div>
-                        </div>
-                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px;">
-                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">CPU使用率</div>
-                            <div style="font-size: 20px; font-weight: 700; color: #0ecb81;">35%</div>
-                            <div style="height: 4px; background: var(--bg-border); border-radius: 2px; margin-top: 8px;">
-                                <div style="height: 100%; width: 35%; background: #0ecb81; border-radius: 2px;"></div>
-                            </div>
-                        </div>
-                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 16px;">
-                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">内存使用率</div>
-                            <div style="font-size: 20px; font-weight: 700; color: #f0b90b;">62%</div>
-                            <div style="height: 4px; background: var(--bg-border); border-radius: 2px; margin-top: 8px;">
-                                <div style="height: 100%; width: 62%; background: #f0b90b; border-radius: 2px;"></div>
-                            </div>
-                        </div>
+                        <div style="padding: 12px; color: var(--text-tertiary); font-size: 12px;">暂无系统探针指标（延迟/错误率/CPU/内存）</div>
                     </div>
 
                     <div style="padding: 12px; background: var(--bg-primary); border-radius: 6px; font-size: 12px; color: var(--text-secondary);">
@@ -1434,6 +1217,7 @@
                     </div>
 
                     <div id="cicd-old-list" style="display: flex; flex-direction: column; gap: 10px;">
+                        <div style="padding: 12px; color: var(--text-tertiary); font-size: 12px;">暂无部署记录</div>
 
                     <div style="margin-top: 16px; padding: 12px; background: rgba(139, 92, 246, 0.05); border-radius: 6px; font-size: 12px; color: var(--text-secondary);">
                         <strong style="color: #8b5cf6;">原则：</strong> 手动部署迟早出事故 —— 自动化 = 可重复 + 可审计 + 可回滚
@@ -1458,6 +1242,7 @@
                         <button data-kind="decision" style="padding: 7px 14px; background: var(--bg-secondary); border: 1px solid var(--bg-border); border-radius: 6px; color: var(--text-primary); font-size: 13px; cursor: pointer;">决策日志</button>
                         <button data-kind="trade" style="padding: 7px 14px; background: var(--bg-secondary); border: 1px solid var(--bg-border); border-radius: 6px; color: var(--text-primary); font-size: 13px; cursor: pointer;">交易日志</button>
                         <button data-kind="system" style="padding: 7px 14px; background: var(--bg-secondary); border: 1px solid var(--bg-border); border-radius: 6px; color: var(--text-primary); font-size: 13px; cursor: pointer;">系统日志</button>
+                        <button data-kind="risk" style="padding: 7px 14px; background: var(--bg-secondary); border: 1px solid var(--bg-border); border-radius: 6px; color: var(--text-primary); font-size: 13px; cursor: pointer;">风控事件</button>
                     </div>
                     <select id="log-strategy-select" style="padding: 8px 12px; background: var(--bg-secondary); border: 1px solid var(--bg-border); border-radius: 6px; color: var(--text-primary); font-size: 13px;">
                         <option value="">请选择策略</option>
@@ -1545,6 +1330,32 @@
 
                 <!-- 绩效指标网格 -->
                 <div id="review-metrics" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 20px;"></div>
+
+                <!-- 归因统计：亏损根因 / 止损触发 / 过早止盈（后端字段缺失，空态收口；C-REVIEW-01/02/03） -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 18px; margin-bottom: 20px;">
+                    <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                        <h3 style="font-size: 15px; margin: 0; color: #f6465d;">📉 归因统计</h3>
+                        <div style="flex: 1;"></div>
+                        <span style="font-size: 11px; color: var(--text-secondary);">字段补齐前保持空态，不编统计数字</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 14px;">
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 6px;">亏损根因分类</div>
+                            <div style="font-size: 18px; font-weight: 700; color: var(--text-secondary);" id="review-rootcause">--</div>
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-top: 6px; line-height: 1.6;">复盘报告暂无亏损单根因分类字段（C-REVIEW-01）；exit_reason_counts 仅为全平仓原因计数，不作亏损归因。</div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 14px;">
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 6px;">止损触发统计</div>
+                            <div style="font-size: 18px; font-weight: 700; color: var(--text-secondary);" id="review-stoploss">--</div>
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-top: 6px; line-height: 1.6;">暂无止损 / 追踪止损 / 保本次数聚合字段（C-REVIEW-02）；不把追踪止盈计入止损。</div>
+                        </div>
+                        <div style="background: var(--bg-primary); border-radius: 8px; padding: 14px;">
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 6px;">过早止盈统计</div>
+                            <div style="font-size: 18px; font-weight: 700; color: var(--text-secondary);" id="review-premature-tp">--</div>
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-top: 6px; line-height: 1.6;">无出场后价格路径 / 最大有利 R 比对字段，无法识别过早止盈（C-REVIEW-03）。</div>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- 诊断与建议 -->
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
@@ -2459,6 +2270,125 @@
                     <div style="margin-top: 10px; font-size: 12px; color: var(--text-secondary); line-height: 1.7;">机构对标：定期事后归因到信号/执行/风控/样本分层，区分市场运气与体系能力；先核对样本量、成本与数据质量，不因短期回撤直接改冻结的决策规则；复盘留痕服务生命周期监控与自动退役判断。</div>
                 </div>
 
+                <!-- 系统全局风控设计说明（镜像 docs/WIKI.md 同名规约，只读） -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+                    <h3 style="font-size: 15px; margin-bottom: 12px; color: #f6465d;">🛡️ 系统全局风控设计说明</h3>
+                    <p style="font-size: 12px; color: var(--text-secondary); line-height: 1.7; margin-bottom: 12px;">
+                        第一性原理：截断亏损是风控的左尾工程目标——单笔风险可控、回撤分级、超限拦截、后端强制执行，不靠人工临场判断。口径：<strong>confirmed</strong> 代码已逐行核实落点；<strong>inferred</strong> 相邻代码/配置推断；<strong>unknown</strong> 现状不明。阈值一律由 CLEAN 分布校准，不照搬机构数值，本篇不含绩效数字。
+                    </p>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 12px;">
+                        <thead>
+                            <tr style="color: var(--text-secondary); text-align: left;">
+                                <th style="padding: 6px 8px; border-bottom: 1px solid var(--border-color);">层级</th>
+                                <th style="padding: 6px 8px; border-bottom: 1px solid var(--border-color);">职责</th>
+                                <th style="padding: 6px 8px; border-bottom: 1px solid var(--border-color);">代码落点</th>
+                                <th style="padding: 6px 8px; border-bottom: 1px solid var(--border-color);">口径</th>
+                            </tr>
+                        </thead>
+                        <tbody style="color: var(--text-secondary);">
+                            <tr><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">单笔止损执行</td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">止损触发即回调平仓，不等人工；止损价只向盈利方向移动</td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">risk_engine.py：<code>_check_stop_loss_trigger</code>、<code>_close_all_positions</code>；回调由 set_close_position / set_reduce_position_callback 注入</td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">confirmed</td></tr>
+                            <tr><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">止损单调不变量</td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">多头止损只许上移、空头只许下移；放宽方向抛 StopWideningError，异常带上下文</td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">core/risk/stops.py：<code>update_stop</code>、<code>StopWideningError</code></td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">confirmed</td></tr>
+                            <tr><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">四级止损体系</td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">时间 / ATR 价格 / 信号 / 跟踪四类止损，带优先级综合决策</td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">core/risk/stops.py：<code>check_time_stop</code>、<code>check_signal_stop</code>、<code>update_trailing_stop</code>、<code>evaluate_stops</code></td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">confirmed</td></tr>
+                            <tr><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">账户/组合限额</td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">总名义、保证金、费用、资金费率、总杠杆、单品种名义、持仓数等限额校验，返回 allowed 与违规码</td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">live_trading/account_risk.py：<code>account_risk_snapshot</code>、<code>account_risk_limits</code></td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">confirmed</td></tr>
+                            <tr><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">组合敞口门禁</td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">当日亏损熔断、策略数量、总敞口、聚类敞口四道开仓前检查</td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">core/risk/portfolio_risk.py：<code>can_open_new_position</code>、<code>PortfolioRiskConfig</code></td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">confirmed</td></tr>
+                            <tr><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">日内熔断三态机</td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">normal → breaker → cooldown，熔断/冷却态禁止新开仓，跨交易日边界重置</td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">core/risk/circuit.py：<code>CircuitBreaker.update</code>、<code>allows_new_position</code></td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">confirmed</td></tr>
+                            <tr><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">紧急停止开关</td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">fail-closed 文件持久化；状态损坏/缺失按已触发处理；触发/复位写审计；复位需授权</td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">core/control/kill_switch.py：<code>is_armed/trigger/reset/guard</code></td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">confirmed</td></tr>
+                            <tr><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">入场持仓守卫</td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">下单前核对账户与策略持仓归属漂移、反向腿是否已平；越界拒绝并留痕</td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">pending_orders/entry_position_guard.py：<code>evaluate_entry_position_guard</code></td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">confirmed</td></tr>
+                            <tr><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">交易所原生保护单</td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">成交后在交易所侧挂 reduce-only 止损/止盈/追踪条件单（多交易所适配）</td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">live_trading/native_protection.py：<code>place_native_protection_orders</code></td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">confirmed</td></tr>
+                            <tr><td style="padding: 8px;">确定性保护评估器</td><td style="padding: 8px;">回测与实盘共用同一保护语义（止损/止盈/跟踪/时限），带 intrabar 模式</td><td style="padding: 8px;">strategy_v2/protection.py：<code>ProtectionEngine.evaluate_bar/evaluate_price</code></td><td style="padding: 8px;">confirmed</td></tr>
+                        </tbody>
+                    </table>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; font-size: 12px; line-height: 1.7;">
+                        <div>
+                            <div style="color: var(--text-secondary); margin-bottom: 6px;">截断亏损的工程逻辑（要点）</div>
+                            <div>· 后端强制执行、人工不可覆盖；回调是否在真实交易链路完整接线、失败重试与上限，本轮未在实盘复核 → unknown（实盘冒烟未验证）。</div>
+                            <div>· 止损单调：多头拒绝下移、空头拒绝上移，放宽被硬拦截。</div>
+                            <div>· 回撤分级减仓：档位系数到手数/减仓动作的闭环未核到；「10% 减仓 50%、15% 清仓」是纪律口径，当前代码未按该数值实现，不得当现状。</div>
+                            <div>· 熔断与急停按已收盘 bar 推进；KillSwitch fail-closed，多来源可触发同一开关。</div>
+                        </div>
+                        <div>
+                            <div style="color: #f6465d; margin-bottom: 6px;">目标态 / 待建（不得写成现状）</div>
+                            <div>· ML 驱动的风险分层与仓位缩放；当前为规则与配置驱动。</div>
+                            <div>· OMS/EMS 与拆单执行（TWAP/VWAP）；当前执行层偏直连下单。</div>
+                            <div>· 强制风控网关全链路复用串联（关联阻塞项 #107，待拍板）。</div>
+                            <div>· 回撤分级减仓闭环；实盘强制执行闭环验证（保护单成功率、回调重试、原生条件单一致性）未复核。</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 跟踪止盈 / 让利润奔跑设计说明（镜像 docs/WIKI.md 同名规约，只读） -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+                    <h3 style="font-size: 15px; margin-bottom: 12px; color: #0ecb81;">📈 跟踪止盈 / 让利润奔跑设计说明</h3>
+                    <p style="font-size: 12px; color: var(--text-secondary); line-height: 1.7; margin-bottom: 12px;">
+                        第一性原理：左尾截断之后，右尾要暴露给趋势——保本先消除「盈利变亏损」，分批落袋一部分，剩余仓位用跟踪/吊灯/回吐保护继续奔跑。R 倍数口径以入场冻结值为准；本篇不写绩效数字。
+                    </p>
+                    <div style="background: var(--bg-primary); border-radius: 8px; padding: 14px 16px; margin-bottom: 12px; font-size: 12px; line-height: 1.7;">
+                        <strong style="color: #eaecef;">R 口径（冻结 atr0 / entry_dist，confirmed）：</strong>
+                        <code>core/risk/state.py</code> 冻结 <code>atr0 / entry_dist</code>，持仓期不重算；<code>compute_current_r</code>：R =（现价 − 入场价）× 方向 / entry_dist；回放以 <code>feature_snapshot.stop_dist_price</code> 为冻结形参重算手数。纪律：持仓途中 ATR 变化不允许刷新止损距离或 R 分母；「按当前 ATR 重算止损」违反硬规则 4。
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 12px;">
+                        <thead>
+                            <tr style="color: var(--text-secondary); text-align: left;">
+                                <th style="padding: 6px 8px; border-bottom: 1px solid var(--border-color);">机制</th>
+                                <th style="padding: 6px 8px; border-bottom: 1px solid var(--border-color);">现状口径</th>
+                            </tr>
+                        </thead>
+                        <tbody style="color: var(--text-secondary);">
+                            <tr><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">保本止损</td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">研究层 + 服务层均有实现；具体 R/缓冲阈值须分布校准（confirmed）。</td></tr>
+                            <tr><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">分批止盈</td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">服务层 <code>_check_scale_out</code> 按 levels/ratios 分批减仓；研究/回测侧分批语义未提供，口径待对齐。</td></tr>
+                            <tr><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">跟踪止损</td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">研究层与服务层均有实现；保护评估器按价格峰值 + 激活百分比实现跟踪（confirmed）。</td></tr>
+                            <tr><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">吊灯止损</td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">服务层 <code>_update_chandelier_exit</code>；研究层对等实现属目标态。</td></tr>
+                            <tr><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">利润回吐保护</td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">服务层 <code>_check_profit_retracement</code>；研究层对等实现属目标态。</td></tr>
+                            <tr><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">时限 / 信号止损</td><td style="padding: 8px; border-bottom: 1px solid var(--border-color);">研究层有时限与信号反转离场；服务层是否接线信号反转输入 unknown。</td></tr>
+                            <tr><td style="padding: 8px;">交易所原生跟踪/止盈</td><td style="padding: 8px;">接线框架 confirmed；不同交易所原生跟踪能力差异未逐一实盘核验。</td></tr>
+                        </tbody>
+                    </table>
+                    <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.7;">
+                        <strong style="color: #eaecef;">阶段划分（服务层，confirmed）：</strong><code>_get_let_profit_run_stage</code> 按 R 与分批进度输出 in_loss → in_profit → breakeven → trailing → scaling_out → max_profit → stopped；研究层记录最大有利 R 供触发判断。
+                        <span style="display:block;margin-top:6px;"><strong style="color: #f6465d;">口径缺口：</strong>研究-服务层止盈语义需逐机制对齐；跟踪/吊灯/回吐阈值上线前须在 CLEAN 集分布校准；ATR 基（服务层冻结 atr_at_entry vs 研究层 entry_dist）换算关系待固化；原生跟踪与本地跟踪并行的对账属目标态；跳空穿透、部分成交后剩余仓位保护未在真实账户复核。</span>
+                    </div>
+                </div>
+
+                <!-- 研究-生产一致性规约（镜像 docs/WIKI.md 同名规约，只读） -->
+                <div style="background: var(--bg-secondary); border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+                    <h3 style="font-size: 15px; margin-bottom: 12px; color: #8b5cf6;">🔗 研究-生产一致性规约</h3>
+                    <p style="font-size: 12px; color: var(--text-secondary); line-height: 1.7; margin-bottom: 12px;">
+                        第一性原理：回测结论只有在特征、数据切分、口径、成本、审计字段上与在线链路同源时才可外推；任何一边偷用未来数据、混用集合、漏算成本，都会让回测与实盘背离。
+                    </p>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; font-size: 12px; line-height: 1.7;">
+                        <div>
+                            <div style="color: var(--text-secondary); margin-bottom: 6px;">特征同源（confirmed）</div>
+                            <div>· <code>@as_of</code> 装饰器强制 <code>feat_x(history, as_of, **kw)</code>；as_of 须 tz-aware UTC，未来 bar 抛 LookAheadError，非单调抛 AsOfContractError。</div>
+                            <div>· 同一 (history, as_of) 调用结果一致；history 尾部追加未来 bar 后 as_of 处值不变。</div>
+                            <div>· 面板逐根已收盘 bar 切片计算，warmup 行保留 NaN，产出附 available_at 列。</div>
+                            <div>· 在线推理是否复用同一特征定义、双跑比对机制 → unknown，属待建。</div>
+                        </div>
+                        <div>
+                            <div style="color: var(--text-secondary); margin-bottom: 6px;">集合分离（confirmed）</div>
+                            <div>· <strong>CLEAN</strong>：估计 ATR/波动率/Hurst 等统计量与分布阈值。</div>
+                            <div>· <strong>KNOWN</strong>：构建供需区等结构。</div>
+                            <div>· <strong>HELD_OUT（静默集）</strong>：不参与任何优化/选择/训练，代码路径显式拒绝并抛 SilentSetAccessError。</div>
+                            <div>· 审计 Decision.threshold_dataset 仅限 CLEAN|KNOWN；统计集与构建集不得混用。</div>
+                        </div>
+                        <div>
+                            <div style="color: var(--text-secondary); margin-bottom: 6px;">回测/实盘口径对齐（confirmed / unknown 分列）</div>
+                            <div>· 信号只用已收盘数据；前视检测器存在，但是否纳入上线必跑流程 unknown。</div>
+                            <div>· 成本模型含平静/新闻/跳空点差与滑点；实盘成交成本如何回填对齐同一口径 unknown。</div>
+                            <div>· intra-bar 成交假设三档模式；与实盘滑点/跳空穿透一致性未复核。</div>
+                            <div>· 熔断以 UTC 日期为交易日键；MT5/实盘服务器偏移接入时须核对。</div>
+                        </div>
+                        <div>
+                            <div style="color: var(--text-secondary); margin-bottom: 6px;">审计回放字段（confirmed）</div>
+                            <div>· 每条信号无论接受/拒绝都落一条 Decision；拒绝单 final_signed_lots==0，接受单 lots&gt;0。</div>
+                            <div>· 必备：decision_id、signal、feature_snapshot、model_version、risk_state、accepted、reject_reason、final_signed_lots、threshold_dataset、decision_rule_version、r_multiple_at_close。</div>
+                            <div>· 回放须能还原五要素；sizing 输入键缺失抛 ReplayMismatch；决策规则版本实验前冻结。</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 12px; font-size: 12px; color: #f6465d; line-height: 1.7;">
+                        一致性缺口（目标态，不得写成现状）：在线特征复用与双跑比对待建；实盘成本回填对齐待建；前视检测强制门禁待纳入流程；研究-服务止盈/止损语义待补齐并挂同一规则版本；回测撮合与实盘成交在跳空、流动性、部分成交场景的差异未在实盘复核。
+                    </div>
+                </div>
+
                 <!-- 当前阻塞 / 待拍板 -->
                 <div style="background: var(--bg-secondary); border-radius: 12px; padding: 20px; margin-bottom: 24px;">
                     <h3 style="font-size: 15px; margin-bottom: 12px; color: #f6465d;">⛔ 当前阻塞 / 待拍板（触碰实盘链路，未擅改）</h3>
@@ -2613,6 +2543,6 @@
         </div>
     </div>
     
-    <script src="js/app.js?v=20261109a"></script>
+    <script src="js/app.js?v=20261108c"></script>
 </body>
 </html>
