@@ -324,3 +324,52 @@ class TestStopsBoundary:
         assert ctx["current_stop"] == 100.0
         assert ctx["new_stop"] == 99.0
         assert "widened" in ctx["detail"]
+
+
+class TestStopsGuard:
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf"), -1.0])
+    def test_config_rejects_nonfinite_or_negative_atr_mult(self, bad):
+        with pytest.raises(ValueError):
+            StopConfig(atr_mult=bad)
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf"), -1.0])
+    def test_config_rejects_nonfinite_or_negative_r(self, bad):
+        with pytest.raises(ValueError):
+            StopConfig(breakeven_r=bad)
+        with pytest.raises(ValueError):
+            StopConfig(trailing_offset_r=bad)
+
+    @pytest.mark.parametrize("bad", [True, 1.5, -1, "20"])
+    def test_config_rejects_invalid_holding_bars(self, bad):
+        with pytest.raises(ValueError):
+            StopConfig(max_holding_bars=bad)
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf")])
+    def test_compute_r_rejects_nonfinite(self, bad):
+        with pytest.raises(ValueError):
+            compute_current_r(100.0, +1, bad, 2.0)
+        with pytest.raises(ValueError):
+            compute_current_r(bad, +1, 101.0, 2.0)
+
+    def test_compute_r_rejects_zero_dist(self):
+        with pytest.raises(ValueError):
+            compute_current_r(100.0, +1, 101.0, 0.0)
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf")])
+    def test_initial_stop_rejects_nonfinite(self, bad):
+        with pytest.raises(ValueError):
+            initial_stop(bad, +1, 2.0)
+        with pytest.raises(ValueError):
+            initial_stop(100.0, +1, bad)
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf")])
+    def test_update_stop_rejects_nonfinite(self, bad):
+        with pytest.raises(ValueError):
+            update_stop(98.0, bad, +1)
+        with pytest.raises(ValueError):
+            update_stop(bad, 99.0, +1)
+
+    def test_evaluate_rejects_nonfinite_price(self):
+        state = StopState(100.0, +1, 2.0, 2.0, 98.0)
+        with pytest.raises(ValueError):
+            evaluate_stops(state, StopConfig(), current_price=float("nan"))

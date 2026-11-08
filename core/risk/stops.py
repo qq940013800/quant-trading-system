@@ -16,8 +16,17 @@
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from enum import Enum
+
+
+def _finite(name: str, val: float) -> float:
+    v = float(val)
+    if not math.isfinite(v):
+        raise ValueError({"layer": "risk.stops", "detail":
+                          f"{name} must be finite, got {val!r}"})
+    return v
 
 
 class StopWideningError(Exception):
@@ -78,6 +87,26 @@ class StopConfig:
     trailing_activation_r: float = 2.0
     trailing_offset_r: float = 1.0
 
+    def __post_init__(self) -> None:
+        atr_mult = _finite("atr_mult", self.atr_mult)
+        if atr_mult <= 0:
+            raise ValueError({"layer": "risk.stops", "detail":
+                              f"atr_mult must be > 0, got {self.atr_mult!r}"})
+        if isinstance(self.max_holding_bars, bool) or \
+                not isinstance(self.max_holding_bars, int) or \
+                self.max_holding_bars < 1:
+            raise ValueError({"layer": "risk.stops", "detail":
+                              f"max_holding_bars must be a positive int, "
+                              f"got {self.max_holding_bars!r}"})
+        for name in ("breakeven_r", "breakeven_offset_r",
+                     "trailing_activation_r", "trailing_offset_r"):
+            v = _finite(name, getattr(self, name))
+            if v < 0:
+                raise ValueError({"layer": "risk.stops", "detail":
+                                  f"{name} must be >= 0, got {v!r}"})
+            object.__setattr__(self, name, v)
+        object.__setattr__(self, "atr_mult", atr_mult)
+
 
 @dataclass
 class StopState:
@@ -114,7 +143,16 @@ def compute_current_r(entry_price: float, direction: int,
 
     R = (当前价 - 入场价) × direction / entry_dist
     """
-    return (current_price - entry_price) * direction / entry_dist
+    ep = _finite("entry_price", entry_price)
+    cp = _finite("current_price", current_price)
+    ed = _finite("entry_dist", entry_dist)
+    if ed <= 0:
+        raise ValueError({"layer": "risk.stops", "detail":
+                           f"entry_dist must be > 0, got {ed}"})
+    if direction not in (+1, -1):
+        raise ValueError({"layer": "risk.stops", "detail":
+                           f"direction must be +1/-1, got {direction}"})
+    return (cp - ep) * direction / ed
 
 
 def initial_stop(entry_price: float, direction: int, entry_dist: float) -> float:
@@ -123,13 +161,15 @@ def initial_stop(entry_price: float, direction: int, entry_dist: float) -> float
     direction=+1 多头：止损在 entry - entry_dist；direction=-1 空头：entry + entry_dist。
     entry_dist 必须是入场冻结值，禁止调用方传入重算后的 ATR。
     """
-    if entry_dist <= 0:
+    ep = _finite("entry_price", entry_price)
+    ed = _finite("entry_dist", entry_dist)
+    if ed <= 0:
         raise ValueError({"layer": "risk.stops", "detail":
-                           f"entry_dist must be > 0, got {entry_dist}"})
+                           f"entry_dist must be > 0, got {ed}"})
     if direction not in (+1, -1):
         raise ValueError({"layer": "risk.stops", "detail":
                            f"direction must be +1/-1, got {direction}"})
-    return float(entry_price) - float(direction) * float(entry_dist)
+    return ep - float(direction) * ed
 
 
 def update_stop(current_stop: float, new_stop: float, direction: int,
@@ -140,8 +180,8 @@ def update_stop(current_stop: float, new_stop: float, direction: int,
         update_stop(current_stop, new_stop, direction) -> float
     额外的 symbol/ts_utc 仅用于异常上下文（硬规则 9），不改变判定语义。
     """
-    cur = float(current_stop)
-    new = float(new_stop)
+    cur = _finite("current_stop", current_stop)
+    new = _finite("new_stop", new_stop)
     if direction == +1:
         # 多头：止损只能上移（抬高止损 = 锁定更多利润 / 缩小风险）
         if new < cur:
@@ -259,6 +299,7 @@ def evaluate_stops(state: StopState, config: StopConfig,
         - stop_type: 触发的止损类型
     """
     # 更新最大有利 R
+    current_price = _finite("current_price", current_price)
     current_r = compute_current_r(state.entry_price, state.direction,
                                   current_price, state.entry_dist)
     state.max_favorable_r = max(state.max_favorable_r, current_r)
