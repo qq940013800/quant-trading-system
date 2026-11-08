@@ -7,8 +7,8 @@ import pandas as pd
 import pytest
 
 from core.backtest.costs import CostModel
-from core.backtest.engine import (DemoBreakoutStrategy, _trailing_candidate,
-                                  run_backtest)
+from core.backtest.engine import (DemoBreakoutStrategy, _breakeven_candidate,
+                                  _trailing_candidate, run_backtest)
 
 
 def _flat_with_drop():
@@ -123,6 +123,30 @@ def test_trailing_lock_profit_after_uptrend_pullback():
                        {"initial_equity": 10_000, "daily_loss_limit": 0.5,
                         "trail_enable": True, "trail_after_r": 1.0,
                         "trail_offset_r": 1.0})
+    assert len(res.trades) == 1
+    t = res.trades[0]
+    assert t["direction"] == +1
+    assert t["exit_price"] > t["entry_price"]
+    assert t["r_multiple"] > 0
+
+
+def test_breakeven_candidate_long_short_symmetric():
+    # 多头保本位 entry + offset×dist；空头 entry - offset×dist（冻结 entry_dist）
+    assert _breakeven_candidate(100.0, +1, 0.1, 2.0) == pytest.approx(100.2)
+    assert _breakeven_candidate(100.0, -1, 0.1, 2.0) == pytest.approx(99.8)
+    # 零偏移：候选即入场价本身
+    assert _breakeven_candidate(100.0, +1, 0.0, 2.0) == pytest.approx(100.0)
+
+
+def test_breakeven_locks_after_profit_pullback():
+    # 涨过保本 R 后回落：保本止损抬升，回落以保本位附近退出，不在初始止损亏损出场
+    prices = [1800.0] * 11 + [1801.0, 1801.0, 1800.5, 1799.8, 1799.8]
+    bars = H.make_bars(prices)
+    strat = _StubLongAt(at_idx=10)
+    res = run_backtest(bars, strat, _cost(),
+                       {"initial_equity": 10_000, "daily_loss_limit": 0.5,
+                        "trail_enable": False, "breakeven_r": 1.0,
+                        "breakeven_offset_r": 0.5})
     assert len(res.trades) == 1
     t = res.trades[0]
     assert t["direction"] == +1

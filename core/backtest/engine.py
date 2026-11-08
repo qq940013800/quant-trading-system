@@ -53,6 +53,7 @@ class Position:
     entry_dist: float        # 入场冻结，R 倍数分母
     stop_price: float
     peak_price: float        # 多头记最高价峰值 / 空头记最低价谷值（跟踪止损基准）
+    max_favorable_r: float   # 入场以来最大有利 R（保本/跟踪触发基准，规则 4 冻结分母）
     entry_ts: pd.Timestamp
     decision_id: str
 
@@ -94,6 +95,15 @@ def _trailing_candidate(peak_price: float, direction: int,
     多头 direction=+1：peak - offset×dist；空头 direction=-1：peak + offset×dist。
     """
     return float(peak_price) - float(direction) * float(offset_r) * float(entry_dist)
+
+
+def _breakeven_candidate(entry_price: float, direction: int,
+                         offset_r: float, entry_dist: float) -> float:
+    """保本止损候选：入场价 ± offset_r × entry_dist（冻结距离，规则 4）。
+
+    多头 direction=+1：entry + offset×dist；空头 direction=-1：entry - offset×dist。
+    """
+    return float(entry_price) + float(direction) * float(offset_r) * float(entry_dist)
 
 
 def _wilder_atr(history: list, n: int = 14) -> float:
@@ -182,6 +192,9 @@ def run_backtest(bars: list, strategy: Strategy,
     trail_offset_r = float(cfg.get("trail_offset_r", 1.0))
     if "trail_to_r" in cfg:
         trail_offset_r = float(cfg["trail_to_r"])
+    # 保本止损：达 breakeven_r 后移到 entry ± breakeven_offset_r × entry_dist（口径对齐 StopConfig）
+    breakeven_r = float(cfg.get("breakeven_r", 1.0))
+    breakeven_offset_r = float(cfg.get("breakeven_offset_r", 0.1))
     news_window = list(cfg.get("news_window", []) or [])
     audit_path = cfg.get("audit_path")
     bars_per_year = int(cfg.get("bars_per_year", 74880))
@@ -251,27 +264,41 @@ def run_backtest(bars: list, strategy: Strategy,
             })
         positions = kept
 
-        # 1b. 峰值跟踪止损（trailing）：止损自峰值回撤固定 R；强制 update_stop 单调（放宽即抛 StopWideningError）
-        if trail_enable:
-            for pos in positions:
-                # 更新峰值：多头记 bar.high 峰值，空头记 bar.low 谷值（已收盘 bar 的保守口径，规则 5）
-                if pos.direction == +1:
-                    pos.peak_price = max(pos.peak_price, float(bar.high))
-                else:
-                    pos.peak_price = min(pos.peak_price, float(bar.low))
-                adv_r = compute_current_r(pos.entry_price, pos.direction,
-                                          float(bar.close), pos.entry_dist)
-                if adv_r >= trail_after_r:
-                    cand = _trailing_candidate(pos.peak_price, pos.direction,
-                                               trail_offset_r, pos.entry_dist)
-                    try:
-                        new_stop = update_stop(pos.stop_price, cand, pos.direction,
-                                              symbol=pos.symbol, ts_utc=str(ts))
-                        pos.stop_price = new_stop
-                    except StopWideningError:
-                        # 放宽方向被拒：保持原止损（异常自带上下文，记录不吞掉）
-                        log.debug("trail rejected (monotonic): pos=%s ts=%s",
-                                  pos.decision_id, ts)
+        # 1b. 保本 + 峰值跟踪止损：候选经 update_stop 单调守卫（放宽即抛 StopWideningError）
+        for pos in positions:
+            # 更新峰值：多头记 bar.high 峰值，空头记 bar.low 谷值（已收盘 bar 的保守口径，规则 5）
+            if pos.direction == +1:
+                pos.peak_price = max(pos.peak_price, float(bar.high))
+            else:
+                pos.peak_price = min(pos.peak_price, float(bar.low))
+            adv_r = compute_current_r(pos.entry_price, pos.direction,
+                                      float(bar.close), pos.entry_dist)
+            pos.max_favorable_r = max(pos.max_favorable_r, adv_r)
+
+            # 保本止损：达 breakeven_r 后移到保本位（盈利不回吐成亏损）
+            if pos.max_favorable_r >= breakeven_r:
+                cand = _breakeven_candidate(pos.entry_price, pos.direction,
+                                            breakeven_offset_r, pos.entry_dist)
+                try:
+                    pos.stop_price = update_stop(
+                        pos.stop_price, cand, pos.direction,
+                        symbol=pos.symbol, ts_utc=str(ts))
+                except StopWideningError:
+                    log.debug("breakeven rejected (monotonic): pos=%s ts=%s",
+                              pos.decision_id, ts)
+
+            # 峰值跟踪止损：激活后自峰值回撤固定 R
+            if trail_enable and adv_r >= trail_after_r:
+                cand = _trailing_candidate(pos.peak_price, pos.direction,
+                                           trail_offset_r, pos.entry_dist)
+                try:
+                    pos.stop_price = update_stop(
+                        pos.stop_price, cand, pos.direction,
+                        symbol=pos.symbol, ts_utc=str(ts))
+                except StopWideningError:
+                    # 放宽方向被拒：保持原止损（异常自带上下文，记录不吞掉）
+                    log.debug("trail rejected (monotonic): pos=%s ts=%s",
+                              pos.decision_id, ts)
 
         # 2. 上一根 bar 决策的 pending 入场，在本 bar 开盘成交
         if pending is not None:
@@ -289,7 +316,7 @@ def run_backtest(bars: list, strategy: Strategy,
                     symbol=getattr(bar, "symbol", "XAUUSD"), direction=sig.direction,
                     entry_price=fill.fill_price, lots=dec.final_signed_lots,
                     atr0=sig.atr0, entry_dist=sig.entry_dist, stop_price=stop,
-                    peak_price=fill.fill_price,
+                    peak_price=fill.fill_price, max_favorable_r=0.0,
                     entry_ts=ts, decision_id=dec.decision_id))
             pending = None
 
