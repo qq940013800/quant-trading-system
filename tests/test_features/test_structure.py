@@ -13,7 +13,9 @@ from core.features.structure import (
     detect_bos,
     detect_choch,
     get_market_structure,
+    market_structure_at,
 )
+from core.features.base import AsOfContractError, LookAheadError
 
 
 # ------------------------------------------------------------------
@@ -174,3 +176,54 @@ class TestMarketStructure:
         )
         ms = get_market_structure(history, k=1)
         assert ms.trend == "ranging"
+
+
+# ------------------------------------------------------------------
+# 因果守卫入口 market_structure_at 契约测试
+# ------------------------------------------------------------------
+def _tz_bars(highs, lows, closes=None):
+    """构造 tz-aware UTC 时间戳的 history（@as_of 契约要求）。"""
+    out = []
+    for i in range(len(highs)):
+        ts = pd.Timestamp(f"2024-01-{i + 1:02d} 00:00", tz="UTC")
+        c = closes[i] if closes else None
+        out.append(FakeBar(highs[i], lows[i], c, ts))
+    return out
+
+
+class TestMarketStructureAsOfGuard:
+    def test_future_bar_rejected(self):
+        """history 中存在 ts > as_of 的 bar → LookAheadError（前视守卫）。"""
+        history = _tz_bars(
+            highs=[100, 105, 102, 110, 107, 115, 112, 120],
+            lows=[95, 100, 98, 105, 103, 110, 108, 115],
+        )
+        as_of = history[-2].ts_utc  # 倒数第二根；末根 > as_of
+        with pytest.raises(LookAheadError):
+            market_structure_at(history, as_of, k=1)
+
+    def test_naive_as_of_rejected(self):
+        """as_of 为 naive 时间戳 → AsOfContractError。"""
+        history = _tz_bars(
+            highs=[100, 105, 102, 110, 107, 115, 112, 120],
+            lows=[95, 100, 98, 105, 103, 110, 108, 115],
+        )
+        with pytest.raises(AsOfContractError):
+            market_structure_at(history, pd.Timestamp("2024-01-08"), k=1)
+
+    def test_snapshot_replayable(self):
+        """同一 (history 切片, as_of) 重算结果一致；追加未来 bar 不改变 as_of 快照。"""
+        history = _tz_bars(
+            highs=[100, 105, 102, 110, 107, 115, 112, 120],
+            lows=[95, 100, 98, 105, 103, 110, 108, 115],
+        )
+        as_of = history[5].ts_utc
+        slice_a = history[:6]
+        ms1 = market_structure_at(slice_a, as_of, k=1)
+        ms2 = market_structure_at(list(slice_a), as_of, k=1)
+        assert ms1.trend == ms2.trend
+        assert ms1.last_swing_high == ms2.last_swing_high
+        assert ms1.last_swing_low == ms2.last_swing_low
+        # 追加后续 bar 后，as_of 处仍只能喂到第 6 根，快照不变
+        ms3 = market_structure_at(history[:6], as_of, k=1)
+        assert ms3.trend == ms1.trend

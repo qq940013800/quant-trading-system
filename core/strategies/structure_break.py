@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """core.strategies.structure_break —— 市场结构突破（BOS / CHoCH）策略。
 
-复用 core.features.structure.get_market_structure：swing 点需左右各 k 根
+复用 core.features.structure.market_structure_at（@as_of 因果守卫入口，
+内部委托 get_market_structure）：swing 点需左右各 k 根
 确认 bar（confirmed_at 之后才可用），BOS=趋势延续突破同向 swing，
 CHoCH=趋势反转突破反向 swing——结构检测本身因果 by construction。
 
@@ -15,7 +16,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from ..features.structure import get_market_structure
+from ..features.structure import market_structure_at
 from .base import BaseStrategy
 
 
@@ -36,7 +37,7 @@ class StructureBreakStrategy(BaseStrategy):
     }
 
     def requires_features(self) -> list[str]:
-        return ["get_market_structure", "wilder_atr"]
+        return ["market_structure_at", "wilder_atr"]
 
     def on_bar_close(self, history: list, bar, **params):
         p = self._merged(history, bar, params)
@@ -47,7 +48,7 @@ class StructureBreakStrategy(BaseStrategy):
         atr0 = self.atr(history, bar, p["atr_n"])
         if not np.isfinite(atr0) or atr0 <= 0:
             return None
-        ms = get_market_structure(history, k=k)
+        ms = market_structure_at(history, bar.ts_utc, k=k)
         n = len(history)
         fresh = [b for b in (ms.last_bos, ms.last_choch)
                  if b is not None and b.index == n - 1]

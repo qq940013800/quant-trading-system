@@ -382,3 +382,21 @@ def get_market_structure(history: list, k: int = 3) -> MarketStructure:
         last_bos=bos_list[-1] if bos_list else None,
         last_choch=choch_list[-1] if choch_list else None,
     )
+
+
+# ------------------------------------------------------------------
+# 因果守卫入口（生产/回测逐 bar 调用）
+# ------------------------------------------------------------------
+@as_of
+def market_structure_at(history: list, as_of: pd.Timestamp,
+                        k: int = 3) -> MarketStructure:
+    """带因果守卫的市场结构快照入口。
+
+    与裸函数 :func:`get_market_structure` 的区别：本入口经 ``@as_of`` 强制
+    契约——``as_of`` 必须 tz-aware UTC，history 中不得存在 ``ts_utc > as_of``
+    的 bar（否则抛 :class:`LookAheadError`），且 history 严格单调递增。
+
+    生产策略/回测逐 bar 调用必须走本入口；裸函数仅保留给离线脚本等
+    已自行把 history 截断到 ``<= as_of`` 的场景。
+    """
+    return get_market_structure(history, k=k)
