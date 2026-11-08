@@ -12,12 +12,21 @@
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Iterable, Optional
 
 import numpy as np
 import pandas as pd
+
+
+def _finite(name: str, val: float) -> float:
+    v = float(val)
+    if not math.isfinite(v):
+        raise ValueError({"layer": "backtest.costs", "detail":
+                          f"{name} must be finite, got {val!r}"})
+    return v
 
 
 @dataclass(frozen=True)
@@ -42,6 +51,26 @@ class CostModel:
     slippage_per_volume_frac: float
     commission_per_lot: float
     news_minutes: float = 15.0
+
+    def __post_init__(self) -> None:
+        nonneg = ("base_spread", "news_spread", "gap_spread", "base_slippage",
+                  "slippage_per_volume_frac", "commission_per_lot")
+        for name in nonneg:
+            v = _finite(name, getattr(self, name))
+            if v < 0:
+                raise ValueError({"layer": "backtest.costs", "detail":
+                                  f"{name} must be >= 0, got {v!r}"})
+            object.__setattr__(self, name, v)
+        gap_th = _finite("gap_threshold", self.gap_threshold)
+        if gap_th <= 0:
+            raise ValueError({"layer": "backtest.costs", "detail":
+                              f"gap_threshold must be > 0, got {gap_th!r}"})
+        object.__setattr__(self, "gap_threshold", gap_th)
+        nm = _finite("news_minutes", self.news_minutes)
+        if nm <= 0:
+            raise ValueError({"layer": "backtest.costs", "detail":
+                              f"news_minutes must be > 0, got {nm!r}"})
+        object.__setattr__(self, "news_minutes", nm)
 
     def tiers_valid(self) -> bool:
         """成本三档单调：新闻/跳空点差不得低于平静期（防配错导致零成本假设）。"""

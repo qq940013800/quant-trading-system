@@ -58,3 +58,35 @@ def test_zero_cost_model_returns_zero():
 
 def test_tiers_monotonic_config():
     assert model().tiers_valid()
+
+
+class TestCostModelGuard:
+    @pytest.mark.parametrize("field_name,bad", [
+        ("base_spread", float("nan")), ("news_spread", float("inf")),
+        ("gap_spread", -1.0), ("base_slippage", float("nan")),
+        ("slippage_per_volume_frac", -0.2),
+        ("commission_per_lot", float("inf")),
+    ])
+    def test_rejects_nonfinite_or_negative(self, field_name, bad):
+        kw = dict(base_spread=0.20, news_spread=0.60, gap_spread=1.00,
+                  gap_threshold=1.0, base_slippage=0.05,
+                  slippage_per_volume_frac=0.10, commission_per_lot=0.0,
+                  news_minutes=15.0)
+        kw[field_name] = bad
+        with pytest.raises(ValueError):
+            CostModel(**kw)
+
+    @pytest.mark.parametrize("bad", [0.0, -1.0, float("nan")])
+    def test_gap_threshold_must_be_positive(self, bad):
+        with pytest.raises(ValueError):
+            CostModel(base_spread=0.2, news_spread=0.6, gap_spread=1.0,
+                      gap_threshold=bad, base_slippage=0.05,
+                      slippage_per_volume_frac=0.1, commission_per_lot=0.0)
+
+    @pytest.mark.parametrize("bad", [0.0, -1.0, float("inf")])
+    def test_news_minutes_must_be_positive(self, bad):
+        with pytest.raises(ValueError):
+            CostModel(base_spread=0.2, news_spread=0.6, gap_spread=1.0,
+                      gap_threshold=1.0, base_slippage=0.05,
+                      slippage_per_volume_frac=0.1, commission_per_lot=0.0,
+                      news_minutes=bad)
