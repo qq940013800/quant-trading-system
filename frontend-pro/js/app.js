@@ -2089,17 +2089,24 @@
                 low: '#848e9c'
             };
             
-            container.innerHTML = modules.map(m => `
+            container.innerHTML = modules.map(m => {
+                const badge = {
+                    connected: { text: '已连接', color: '#0ecb81', bg: 'rgba(14, 203, 129, 0.1)' },
+                    healthy: { text: '健康', color: '#0ecb81', bg: 'rgba(14, 203, 129, 0.1)' },
+                    pending: { text: '待接入', color: '#848e9c', bg: 'rgba(132, 142, 156, 0.12)' }
+                }[m.status] || { text: '待接入', color: '#848e9c', bg: 'rgba(132, 142, 156, 0.12)' };
+                const mark = (m.status === 'connected' || m.status === 'healthy') ? '✓ ' : '';
+                return `
                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-primary); border-radius: 8px; border-left: 3px solid ${levelColors[m.level] || '#848e9c'};">
                     <div>
                         <span style="font-size: 13px;">${m.name}</span>
                         ${m.details ? `<div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">${m.details}</div>` : ''}
                     </div>
-                    <span style="padding: 2px 8px; background: rgba(14, 203, 129, 0.1); color: #0ecb81; border-radius: 4px; font-size: 11px;">
-                        ✓ ${m.status === 'connected' ? '已连接' : '健康'}
+                    <span style="padding: 2px 8px; background: ${badge.bg}; color: ${badge.color}; border-radius: 4px; font-size: 11px;">
+                        ${mark}${badge.text}
                     </span>
-                </div>
-            `).join('');
+                </div>`;
+            }).join('');
         }
 
         function renderDriftMonitor(modules) {
@@ -2116,22 +2123,38 @@
             if (conceptMatch) conceptEl.textContent = conceptMatch[1].trim();
             if (statusEl) {
                 const ok = drift.status === 'healthy' || drift.status === 'connected';
-                statusEl.textContent = ok ? '正常' : '异常';
-                statusEl.style.color = ok ? '#0ecb81' : '#f6465d';
-                statusEl.style.background = ok ? 'rgba(14, 203, 129, 0.1)' : 'rgba(246, 70, 93, 0.1)';
+                const pending = drift.status === 'pending';
+                if (ok) {
+                    statusEl.textContent = '正常';
+                    statusEl.style.color = '#0ecb81';
+                    statusEl.style.background = 'rgba(14, 203, 129, 0.1)';
+                } else if (pending) {
+                    statusEl.textContent = '待接入';
+                    statusEl.style.color = '#848e9c';
+                    statusEl.style.background = 'rgba(132, 142, 156, 0.12)';
+                } else {
+                    statusEl.textContent = '异常';
+                    statusEl.style.color = '#f6465d';
+                    statusEl.style.background = 'rgba(246, 70, 93, 0.1)';
+                }
             }
         }
 
         function renderAuditLogs(logs) {
             const container = document.getElementById('audit-logs');
-            if (!container || !logs) return;
-            
+            if (!container) return;
+
+            if (!Array.isArray(logs) || logs.length === 0) {
+                container.innerHTML = '<div style="padding: 8px 12px; color: var(--text-tertiary); font-size: 12px;">暂无决策审计日志</div>';
+                return;
+            }
+
             const levelColors = {
                 INFO: '#f0b90b',
                 WARN: '#f6465d',
                 ERROR: '#f6465d'
             };
-            
+
             container.innerHTML = logs.map(log => `
                 <div style="padding: 8px 12px; background: var(--bg-primary); border-radius: 6px;">
                     <span style="color: var(--text-secondary);">${log.time}</span>
