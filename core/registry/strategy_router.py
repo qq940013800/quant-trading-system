@@ -18,6 +18,7 @@
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any, Iterable
 
@@ -71,8 +72,12 @@ class StrategyDescriptor:
                 f"未知止损类型 '{self.stop_loss_type}'（策略 {self.name}）；"
                 f"支持: {STOP_TYPES}"
             )
-        # 权重非负
+        # 权重非负且有限（拒绝 NaN/inf 污染归一化结果）
         for k, v in self.regime_profile.items():
+            if not math.isfinite(float(v)):
+                raise ValueError(
+                    f"regime_profile[{k}] 权重必须为有限数（策略 {self.name}）"
+                )
             if v < 0:
                 raise ValueError(
                     f"regime_profile[{k}] 权重不能为负（策略 {self.name}）"

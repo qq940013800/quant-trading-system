@@ -134,6 +134,16 @@ def test_descriptor_rejects_negative_weight():
         )
 
 
+def test_descriptor_rejects_nonfinite_weight():
+    for bad in (float("nan"), float("inf"), float("-inf")):
+        with pytest.raises(ValueError, match="有限数"):
+            StrategyDescriptor(
+                name="bad",
+                version="v0.0.1",
+                regime_profile={"trend": bad},
+            )
+
+
 def test_descriptor_rejects_unknown_stop_type():
     with pytest.raises(ValueError, match="未知止损类型"):
         StrategyDescriptor(
