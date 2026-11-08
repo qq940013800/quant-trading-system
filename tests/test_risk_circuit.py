@@ -60,6 +60,18 @@ def test_invalid_loss_limit_rejected():
             CircuitBreaker(daily_loss_limit=bad)
 
 
+def test_nonfinite_loss_limit_rejected():
+    for bad in (float("nan"), float("inf"), float("-inf")):
+        with pytest.raises(ValueError):
+            CircuitBreaker(daily_loss_limit=bad)
+
+
+def test_invalid_cooldown_bars_rejected():
+    for bad in (-1, 0.5, True, "2"):
+        with pytest.raises(ValueError):
+            CircuitBreaker(daily_loss_limit=0.03, cooldown_bars=bad)
+
+
 def test_breaker_does_not_auto_recover_same_day():
     """当日进入 breaker 后，权益回升也不能在同日回到 normal。"""
     cb = CircuitBreaker(daily_loss_limit=0.03, cooldown_bars=5)

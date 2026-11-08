@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import enum
+import math
 from dataclasses import dataclass
 
 
@@ -33,9 +34,15 @@ class CircuitBreaker:
     cooldown_bars: int = 12
 
     def __post_init__(self) -> None:
-        if not 0.0 < self.daily_loss_limit < 1.0:
+        if not math.isfinite(self.daily_loss_limit) or \
+                not 0.0 < self.daily_loss_limit < 1.0:
             raise ValueError({"layer": "risk.circuit", "detail":
                                f"daily_loss_limit out of (0,1): {self.daily_loss_limit}"})
+        if isinstance(self.cooldown_bars, bool) or \
+                not isinstance(self.cooldown_bars, int) or self.cooldown_bars < 0:
+            raise ValueError({"layer": "risk.circuit", "detail":
+                               f"cooldown_bars must be non-negative int: "
+                               f"{self.cooldown_bars!r}"})
         self._state = CircuitState.NORMAL
         self._day_key: object = None       # 当前交易日标识（日期）
         self._day_open_equity: float = 0.0
