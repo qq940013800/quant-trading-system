@@ -14,6 +14,7 @@ from .risk_budget import (
     average_pairwise_correlation,
     correlation_breaker,
 )
+from .return_profile import describe_returns
 
 __all__ = [
     "RiskState",
@@ -29,4 +30,5 @@ __all__ = [
     "correlation_pairs",
     "average_pairwise_correlation",
     "correlation_breaker",
+    "describe_returns",
 ]
