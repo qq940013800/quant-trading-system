@@ -36,6 +36,10 @@ from .weights import DeadbandWeightState, blend_strength
 
 logger = logging.getLogger("core.selector")
 
+# Signal/审计快照标准短键（与单专家策略 regime_weights 口径一致）；
+# 内部 regime 计算与 selection.regime_probs 仍用 STATES 长键。
+_STATE_TO_SHORT = dict(zip(STATES, ("trend", "mr", "range")))
+
 
 class BlendConfigError(ValueError):
     """混合层构造契约违反，携带上下文 dict（硬规则 9）。"""
@@ -227,7 +231,8 @@ class RegimeBlendedStrategy:
                 atr0=float(dom.atr0),
                 entry_dist=float(dom.entry_dist),
                 l1_in_zone=bool(dom.l1_in_zone),
-                regime_weights=dict(regime_level),
+                regime_weights={_STATE_TO_SHORT[s]: regime_level[s]
+                                for s in STATES},
                 meta_p=None,
                 strategy_version=self.version,
                 selection=selection,

@@ -174,3 +174,18 @@ def test_selection_snapshot_and_audit(plug_experts, bars, tmp_path):
     assert recs[0].signal_id == sig.signal_id
     assert recs[0].degraded is True
     replay_selection(recs[0])   # 不抛 = 权重/强度自洽
+
+
+def test_signal_regime_weights_use_short_keys(plug_experts, bars):
+    """落 Signal 的 regime_weights 用标准短键 trend/mr/range（与单专家一致）。"""
+    experts = plug_experts
+    experts["e_trend"]._factory = lambda h, b: _make_sig(b, +1, expert="e_trend")
+    clf = StubClassifier(probs={"trend": 0.80, "mean_reversion": 0.10,
+                                "ranging": 0.10})
+    blend = _build_blend(experts, clf, min_strength=0.10)
+    sig = blend.on_bar_close(bars[:61], bars[60])
+    assert sig is not None
+    assert set(sig.regime_weights) == {"trend", "mr", "range"}
+    assert abs(sum(sig.regime_weights.values()) - 1.0) < 1e-9
+    # 内部 selection 快照仍保留长键 probs 口径
+    assert set(sig.selection["regime_probs"]) == set(STATES)
