@@ -209,3 +209,261 @@ class LaunchGate:
             issues.append(f"模拟Sharpe={paper_sharpe:.2f} < 回测的80%")
 
         return len(issues) == 0, issues
+
+
+# ------------------------------------------------------------------
+# 八阶段映射（发现→验证→小资金→规模化→拥挤→衰减→退役→复盘）
+#
+# 前七个阶段由状态机承载；"拥挤/衰减"是监控期内的判定结论（见下方纯判定
+# 函数），"复盘"是退役后的 post-mortem 动作，不落状态机。
+# ------------------------------------------------------------------
+LIFECYCLE_STAGES: tuple[str, ...] = (
+    "discovery", "validation", "small_capital", "scale",
+    "crowding", "decay", "retired", "post_mortem",
+)
+
+STATE_TO_STAGE: dict[StrategyState, str] = {
+    StrategyState.DRAFT: "discovery",
+    StrategyState.BACKTESTING: "validation",
+    StrategyState.AB_TESTING: "validation",
+    StrategyState.PAPER_TRADING: "small_capital",
+    StrategyState.LIVE_SMALL: "small_capital",
+    StrategyState.LIVE_FULL: "scale",
+    StrategyState.MONITORING: "decay",
+    StrategyState.RETIRED: "retired",
+    StrategyState.REJECTED: "validation",
+}
+
+
+def stage_of_state(state: StrategyState) -> str:
+    """状态机状态 → 八阶段标签；未映射时抛 KeyError（显式而非兜底静默）。"""
+    return STATE_TO_STAGE[state]
+
+
+# ------------------------------------------------------------------
+# 原因码（纯枚举，供审计轨迹与退役建议引用）
+# ------------------------------------------------------------------
+class CrowdReason(str, Enum):
+    """拥挤判定原因码。"""
+    CAPACITY_LIMIT = "crowd_capacity_limit"        # 容量利用率触顶
+    FILL_RATE_DROP = "crowd_fill_rate_drop"       # 成交率下滑
+    SLIPPAGE_RISE = "crowd_slippage_rise"         # 滑点上升
+    PEER_CORR_HIGH = "crowd_peer_corr_high"       # 与同类策略相关性过高
+
+
+class DecayReason(str, Enum):
+    """衰减判定原因码。"""
+    SHARPE_DOWN = "decay_sharpe_down"             # Sharpe 相对基准下滑
+    WINRATE_DOWN = "decay_winrate_down"           # 胜率相对基准下滑
+    EXPECTANCY_DOWN = "decay_expectancy_down"     # 期望值转负/过低
+    DRAWDOWN_EXCESS = "decay_drawdown_excess"     # 回撤突破上限
+
+
+class RetireReason(str, Enum):
+    """退役建议原因码。"""
+    BREACH_RISK_LIMIT = "retire_breach_risk_limit"   # 突破风控上限
+    STRUCTURAL_BREAK = "retire_structural_break"     # 市场结构突变
+    CAPACITY_EXHAUSTED = "retire_capacity_exhausted" # 容量耗尽
+    PROLONGED_DECAY = "retire_prolonged_decay"       # 持续衰减且样本充分
+    VOLUNTARY = "retire_voluntary"                    # 主动退役
+
+
+@dataclass(frozen=True)
+class WatchThresholds:
+    """监控期阈值（调用方在实验前冻结传入；函数内不做绩效网格搜索）。"""
+    # 拥挤口径
+    min_fill_rate: float = 0.90
+    max_slippage_bps: float = 5.0
+    max_capacity_util: float = 0.80
+    max_peer_corr: float = 0.70
+    # 衰减口径
+    min_sharpe_ratio: float = 0.60      # current / baseline 下限
+    min_winrate_ratio: float = 0.85    # current / baseline 下限
+    min_expectancy: float = 0.0
+    max_drawdown: float = 0.25
+    min_trades_for_decay: int = 20      # 判定持续衰减所需最少样本
+
+
+@dataclass(frozen=True)
+class CrowdingReport:
+    """拥挤判定报告（纯数据）。"""
+    crowded: bool
+    reasons: list[str]
+    flags: dict[str, float]
+
+    def to_dict(self) -> dict:
+        return {"crowded": self.crowded, "reasons": list(self.reasons),
+                "flags": dict(self.flags)}
+
+
+@dataclass(frozen=True)
+class DecayReport:
+    """衰减判定报告（纯数据）。"""
+    decayed: bool
+    reasons: list[str]
+    flags: dict[str, float]
+
+    def to_dict(self) -> dict:
+        return {"decayed": self.decayed, "reasons": list(self.reasons),
+                "flags": dict(self.flags)}
+
+
+@dataclass(frozen=True)
+class RetirementRecommendation:
+    """退役建议：retire / watch / keep + 原因码 + 观测快照。"""
+    recommendation: str
+    reasons: list[str]
+    flags: dict[str, float]
+
+    def to_dict(self) -> dict:
+        return {"recommendation": self.recommendation,
+                "reasons": list(self.reasons), "flags": dict(self.flags)}
+
+
+def _metric(metrics: dict, key: str) -> Optional[float]:
+    value = metrics.get(key)
+    return None if value is None else float(value)
+
+
+def assess_crowding(metrics: dict,
+                    thresholds: WatchThresholds) -> CrowdingReport:
+    """纯判定：当前容量/成交/滑点/同业相关性是否进入拥挤区间。
+
+    Args:
+        metrics: fill_rate / slippage_bps / capacity_util / peer_corr，
+            缺键则该维度跳过判定。
+        thresholds: 冻结阈值。
+    """
+    reasons: list[str] = []
+    flags: dict[str, float] = {}
+
+    fill_rate = _metric(metrics, "fill_rate")
+    if fill_rate is not None:
+        flags["fill_rate"] = fill_rate
+        if fill_rate < thresholds.min_fill_rate:
+            reasons.append(CrowdReason.FILL_RATE_DROP.value)
+
+    slippage = _metric(metrics, "slippage_bps")
+    if slippage is not None:
+        flags["slippage_bps"] = slippage
+        if slippage > thresholds.max_slippage_bps:
+            reasons.append(CrowdReason.SLIPPAGE_RISE.value)
+
+    capacity = _metric(metrics, "capacity_util")
+    if capacity is not None:
+        flags["capacity_util"] = capacity
+        if capacity > thresholds.max_capacity_util:
+            reasons.append(CrowdReason.CAPACITY_LIMIT.value)
+
+    peer_corr = _metric(metrics, "peer_corr")
+    if peer_corr is not None:
+        flags["peer_corr"] = peer_corr
+        if peer_corr > thresholds.max_peer_corr:
+            reasons.append(CrowdReason.PEER_CORR_HIGH.value)
+
+    return CrowdingReport(crowded=bool(reasons), reasons=reasons, flags=flags)
+
+
+def assess_decay(metrics: dict,
+                 thresholds: WatchThresholds) -> DecayReport:
+    """纯判定：当前绩效相对基准是否出现衰减信号。
+
+    Args:
+        metrics: current_sharpe / baseline_sharpe / current_win_rate /
+            baseline_win_rate / current_expectancy / current_max_drawdown /
+            n_trades；缺键则该维度跳过判定。
+        thresholds: 冻结阈值。
+    """
+    reasons: list[str] = []
+    flags: dict[str, float] = {}
+
+    cur_sharpe = _metric(metrics, "current_sharpe")
+    base_sharpe = _metric(metrics, "baseline_sharpe")
+    if cur_sharpe is not None and base_sharpe and base_sharpe > 0:
+        ratio = cur_sharpe / base_sharpe
+        flags["sharpe_ratio"] = ratio
+        if ratio < thresholds.min_sharpe_ratio:
+            reasons.append(DecayReason.SHARPE_DOWN.value)
+
+    cur_wr = _metric(metrics, "current_win_rate")
+    base_wr = _metric(metrics, "baseline_win_rate")
+    if cur_wr is not None and base_wr and base_wr > 0:
+        wr_ratio = cur_wr / base_wr
+        flags["winrate_ratio"] = wr_ratio
+        if wr_ratio < thresholds.min_winrate_ratio:
+            reasons.append(DecayReason.WINRATE_DOWN.value)
+
+    expectancy = _metric(metrics, "current_expectancy")
+    n_trades = metrics.get("n_trades")
+    n_trades = int(n_trades) if n_trades is not None else 0
+    if expectancy is not None:
+        flags["current_expectancy"] = expectancy
+        if expectancy < thresholds.min_expectancy:
+            reasons.append(DecayReason.EXPECTANCY_DOWN.value)
+
+    max_dd = _metric(metrics, "current_max_drawdown")
+    if max_dd is not None:
+        flags["current_max_drawdown"] = max_dd
+        if max_dd > thresholds.max_drawdown:
+            reasons.append(DecayReason.DRAWDOWN_EXCESS.value)
+
+    flags["n_trades"] = float(n_trades)
+    return DecayReport(decayed=bool(reasons), reasons=reasons, flags=flags)
+
+
+def recommend_retirement(decay: DecayReport, crowd: CrowdingReport,
+                         metrics: dict,
+                         thresholds: WatchThresholds) -> RetirementRecommendation:
+    """纯判定：综合衰减/拥挤/风控信号给出 keep / watch / retire 建议。
+
+    - retire：硬 breaches（风控上限、结构突变、容量耗尽、持续衰减且样本充分）。
+    - watch：出现软信号但未触发硬 breach。
+    - keep：无显著信号。
+
+    阈值全部由 ``thresholds`` 传入；本函数不读取 DB、不做参数寻优。
+    """
+    reasons: list[str] = []
+    hard_breach = False
+
+    # 风控上限突破（硬）
+    if DecayReason.DRAWDOWN_EXCESS.value in decay.reasons:
+        reasons.append(RetireReason.BREACH_RISK_LIMIT.value)
+        hard_breach = True
+
+    # 市场结构突变（硬，调用方显式标记）
+    if bool(metrics.get("structural_break", False)):
+        reasons.append(RetireReason.STRUCTURAL_BREAK.value)
+        hard_breach = True
+
+    # 容量耗尽（硬）
+    if CrowdReason.CAPACITY_LIMIT.value in crowd.reasons:
+        reasons.append(RetireReason.CAPACITY_EXHAUSTED.value)
+        hard_breach = True
+
+    # 持续衰减且样本充分（硬）
+    n_trades = int(metrics.get("n_trades", 0) or 0)
+    expectancy = _metric(metrics, "current_expectancy")
+    if (decay.decayed and n_trades >= thresholds.min_trades_for_decay
+            and expectancy is not None and expectancy < thresholds.min_expectancy):
+        reasons.append(RetireReason.PROLONGED_DECAY.value)
+        hard_breach = True
+
+    # 主动退役（硬，调用方显式标记）
+    if bool(metrics.get("voluntary_retire", False)):
+        reasons.append(RetireReason.VOLUNTARY.value)
+        hard_breach = True
+
+    if hard_breach:
+        recommendation = "retire"
+    elif decay.decayed or crowd.crowded or reasons:
+        recommendation = "watch"
+    else:
+        recommendation = "keep"
+
+    flags = {**decay.flags, **crowd.flags,
+             "n_trades": float(n_trades),
+             "hard_breach": 1.0 if hard_breach else 0.0}
+
+    return RetirementRecommendation(
+        recommendation=recommendation, reasons=reasons, flags=flags)
+

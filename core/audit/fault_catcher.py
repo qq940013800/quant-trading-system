@@ -13,6 +13,7 @@ import traceback
 from typing import Optional
 
 from .db_writer import write_fault_knowledge_to_db
+from .evolution_rules import classify_fault
 
 logger = logging.getLogger("core.audit.fault")
 
@@ -100,25 +101,8 @@ class FaultCatcher:
             return None
 
     def _classify_error(self, error_type: str, error_msg: str) -> str:
-        """根据错误类型和信息自动分类。"""
-        error_lower = error_msg.lower()
-
-        if "connection" in error_lower or "connect" in error_lower:
-            return "连接问题"
-        if "timeout" in error_lower or "timed out" in error_lower:
-            return "超时"
-        if "permission" in error_lower or "denied" in error_lower:
-            return "权限问题"
-        if "data" in error_lower or "empty" in error_lower or "missing" in error_lower:
-            return "数据问题"
-        if "order" in error_lower or "trade" in error_lower:
-            return "下单问题"
-        if "risk" in error_lower or "margin" in error_lower:
-            return "风控问题"
-        if "config" in error_lower or "setting" in error_lower:
-            return "配置问题"
-
-        return "系统问题"
+        """根据错误类型和信息自动分类（委托纯函数，口径单一来源）。"""
+        return classify_fault(error_type, error_msg)
 
 
 # ------------------------------------------------------------------

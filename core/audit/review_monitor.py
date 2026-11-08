@@ -17,6 +17,7 @@ from datetime import datetime, date
 from typing import Optional
 
 from .db_writer import _get_pg_conn, write_post_mortem_to_db
+from .evolution_rules import evaluate_review_triggers
 
 logger = logging.getLogger("core.audit.review")
 
@@ -68,33 +69,14 @@ class ReviewMonitor:
         else:
             self._consecutive_losses = 0
 
-        # 2. 检查触发条件
-        triggers = []
-
-        # 条件1：单笔亏损过大
-        if r_multiple <= self.thresholds.single_loss_r_multiple:
-            triggers.append({
-                "type": "single_big_loss",
-                "severity": "P1",
-                "message": f"单笔亏损{r_multiple}R，超过阈值{self.thresholds.single_loss_r_multiple}R",
-            })
-
-        # 条件2：连续亏损过多
-        if self._consecutive_losses >= self.thresholds.consecutive_losses:
-            triggers.append({
-                "type": "consecutive_losses",
-                "severity": "P1",
-                "message": f"连续{self._consecutive_losses}笔亏损，超过阈值{self.thresholds.consecutive_losses}笔",
-            })
-
-        # 条件3：单日亏损过大
-        daily_loss_pct = abs(net_pnl) / equity * 100 if equity > 0 else 0
-        if daily_loss_pct >= self.thresholds.daily_loss_pct and net_pnl < 0:
-            triggers.append({
-                "type": "daily_big_loss",
-                "severity": "P2",
-                "message": f"单笔亏损占权益{daily_loss_pct:.1f}%，超过阈值{self.thresholds.daily_loss_pct}%",
-            })
+        # 2. 检查触发条件（判定规则委托纯函数，口径单一来源；计数状态仍由本类持有）
+        triggers = evaluate_review_triggers(
+            net_pnl=net_pnl,
+            r_multiple=r_multiple,
+            equity=equity,
+            consecutive_losses=self._consecutive_losses,
+            thresholds=self.thresholds,
+        )
 
         # 3. 如果有触发，自动写入复盘记录
         if triggers:

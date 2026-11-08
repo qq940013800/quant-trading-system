@@ -41,6 +41,14 @@ A typical stdio client entry is:
 
 Keep the configuration private. Prefer an environment-secret facility when the client supports one.
 
+## Minimal mounting and approval boundary
+
+- **Mount only the tools a task truly needs.** Every attached MCP server and tool both consumes context (tool schema/description injected each turn) and widens the attack surface; do not enable read-only research tools alongside trading/write tools in the same session unless the task requires both.
+- **Dangerous operations go through ask/approval first.** Restoring source versions, cancelling jobs, deleting alerts, delivering notifications, stopping runtime state, emergency-stopping trading, or placing any order require explicit human confirmation before execution; the agent does not self-approve mutating or irreversible actions.
+- Prefer read-only tools for discovery and inspection; expose write/execution tools behind separate review and an allowlist (see `AGENT_ENVIRONMENT_DESIGN.md` Layer 3).
+- **审批判定落点（core 纯函数，已固化）**：`core/control/approval_gate.py::evaluate_approval` 按风险等级（read / write_draft / write_config / runtime_control / trading）判定是否放行；未确认、权限不足、实盘条件不满足均 fail-closed 拒绝，结果与输入写入 audit。权限 scope、实盘开关、是否模拟单由适配器取数注入，纯函数不读库不触网。
+- **接线状态（未验证 / 第二步）**：纯函数尚未接到执行路由。现状勘察：`kill-switch` 已校验 `confirm is True`；但下单路由 `agent_v1/quick_trade.py::place_order` 未强制校验注册表声明的 `confirm_order` 显式确认标志（元数据 safety 承诺与执行强制不一致）。后续适配器接线：各写/交易/控制路由在执行前调用 `evaluate_approval`，把 body 的 `confirm_*` 标志、token scope、paper/live 条件注入，拒绝按现有 400/501 错误映射返回；审批回调与留痕落库留第二步。
+
 ## Expected workflow
 
 - Use market tools for discovery and OHLCV reads.

@@ -309,3 +309,68 @@ def enforce(
             metadata={"codes": report.critical_codes()},
         )
     return report
+
+
+# ----------------------------------------------------------------------
+# 成交腿流水 → 净持仓视图聚合（#155 纯函数切片）
+# ----------------------------------------------------------------------
+@dataclass(frozen=True)
+class FillAggregation:
+    """成交腿聚合结果：净持仓视图列表 + 无法归一的丢弃行（留痕，不静默跳过）。"""
+
+    positions: list[PositionView]
+    dropped: list[dict[str, Any]]
+
+
+def aggregate_fills_to_positions(
+    fills: Iterable[Any] | None,
+    *,
+    flat_net: float = 1e-12,
+) -> FillAggregation:
+    """把成交腿流水按 symbol 聚合为净持仓 `PositionView`（纯函数、无 I/O）。
+
+    - 净额 `net = Σbuy qty − Σsell qty`；`net > flat_net` → buy，`net < -flat_net` → sell `|net|`；
+      净额在 `[-flat_net, flat_net]` 内视为已平仓，不产出持仓。
+    - 缺 `symbol` / 侧别无法归一 / 数量非正的行进 `dropped`（带索引与原因），不静默跳过；
+      缺失行由适配器归入对账 mismatch/unknown 口径。
+    - `entry_price` 不在此层推断（无 VWAP 口径），置 0.0；加权成本由需要的适配器自行计算。
+    - 列名别名映射（lots/direction 等）属适配器职责；本函数只接受已归一的
+      `symbol/side/quantity` 字段。
+    """
+    net: dict[str, float] = {}
+    dropped: list[dict[str, Any]] = []
+
+    for index, raw in enumerate(fills or []):
+        symbol = _get(raw, "symbol")
+        if symbol is None or str(symbol).strip() == "":
+            dropped.append({"index": index, "reason": "missing_symbol", "raw": raw})
+            continue
+        symbol = str(symbol).strip()
+        side = normalize_side(_get(raw, "side", _get(raw, "direction")))
+        if side not in ("buy", "sell"):
+            dropped.append({"index": index, "reason": "missing_side", "symbol": symbol, "raw": raw})
+            continue
+        qty_raw = _get(raw, "quantity", _get(raw, "lots", None))
+        try:
+            qty = abs(float(qty_raw))
+        except (TypeError, ValueError):
+            dropped.append({"index": index, "reason": "invalid_quantity", "symbol": symbol, "raw": raw})
+            continue
+        if qty <= 0.0:
+            dropped.append({"index": index, "reason": "nonpositive_quantity", "symbol": symbol, "raw": raw})
+            continue
+        net[symbol] = net.get(symbol, 0.0) + (qty if side == "buy" else -qty)
+
+    positions: list[PositionView] = []
+    for symbol in sorted(net):
+        value = net[symbol]
+        if abs(value) <= flat_net:
+            continue
+        positions.append(PositionView(
+            symbol=symbol,
+            side="buy" if value > 0 else "sell",
+            quantity=abs(value),
+            entry_price=0.0,
+        ))
+
+    return FillAggregation(positions=positions, dropped=dropped)

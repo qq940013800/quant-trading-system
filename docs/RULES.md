@@ -100,6 +100,10 @@
 - ❌ **禁止**：猜函数名
 - ✅ **必须**：先Read后端代码确认方法签名再调用
 
+### 4.7 Agent 工具链治理
+- ✅ 系统提示/工具/skill 前缀保持稳定以命中 prompt cache；长会话不频繁切模型、不中途反复增删工具集（详见 `docs/token-optimization-playbook.md`）。
+- ✅ MCP 只挂当前任务真正需要的工具（省上下文 + 收窄攻击面）；危险/不可逆操作先 ask/审批，禁止自批（详见 `docs/agent/MCP_SETUP.md`「Minimal mounting and approval boundary」）。
+
 ---
 
 ## 五、策略生命周期铁律（Alpha会衰减）
