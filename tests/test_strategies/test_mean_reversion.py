@@ -144,3 +144,31 @@ def test_all_strategies_returns_default_instances():
     names = {f"{type(s).__module__}.{type(s).__name__}" for s in instances}
     assert names == {"core.strategies.trend_breakout.TrendBreakoutStrategy",
                      "core.strategies.mean_reversion.MeanReversionStrategy"}
+
+
+class TestMRGuard:
+    @pytest.mark.parametrize("bad", [1, 0, -2, 2.5, True])
+    def test_period_rejects_non_int_or_too_small(self, bad):
+        with pytest.raises(ValueError):
+            MeanReversionStrategy(rsi_period=bad)
+
+    @pytest.mark.parametrize("bad", [float("nan"), -1.0, 101.0])
+    def test_rsi_bounds_reject_nonfinite_or_out_of_range(self, bad):
+        with pytest.raises(ValueError):
+            MeanReversionStrategy(rsi_oversold=bad, rsi_overbought=70.0)
+        with pytest.raises(ValueError):
+            MeanReversionStrategy(rsi_oversold=30.0, rsi_overbought=bad)
+
+    @pytest.mark.parametrize("bad", [float("nan"), 0.0, -1.0])
+    def test_positive_mult_rejects_nonfinite_or_nonpositive(self, bad):
+        with pytest.raises(ValueError):
+            MeanReversionStrategy(bb_sigma=bad)
+        with pytest.raises(ValueError):
+            MeanReversionStrategy(trend_dist_max=bad)
+        with pytest.raises(ValueError):
+            MeanReversionStrategy(entry_dist_mult=bad)
+
+    @pytest.mark.parametrize("bad", [0, -1, 1.5, True])
+    def test_max_hold_bars_rejects_non_int_or_too_small(self, bad):
+        with pytest.raises(ValueError):
+            MeanReversionStrategy(max_hold_bars=bad)

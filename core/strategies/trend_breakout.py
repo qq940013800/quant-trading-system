@@ -16,11 +16,27 @@
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Optional
 
 import numpy as np
 import pandas as pd
+
+
+def _finite(name: str, val: float) -> float:
+    v = float(val)
+    if not math.isfinite(v):
+        raise ValueError({"layer": "strategies.trend_breakout", "detail":
+                          f"{name} must be finite, got {val!r}"})
+    return v
+
+
+def _period(name: str, val: int) -> int:
+    if isinstance(val, bool) or not isinstance(val, int) or val < 2:
+        raise ValueError({"layer": "strategies.trend_breakout", "detail":
+                          f"{name} must be an int >= 2, got {val!r}"})
+    return val
 
 #: 趋势专家在 regime 混合中的固定权重（trend=1：由趋势专家独占）。
 _REGIME_WEIGHTS = {"trend": 1.0, "mr": 0.0, "range": 0.0}
@@ -112,26 +128,15 @@ class TrendBreakoutStrategy:
     def __init__(self, entry_period: int = 20, sma_period: int = 50,
                  atr_period: int = 14, entry_dist_mult: float = 2.0,
                  symbol: str = "XAUUSD"):
-        if entry_period < 2:
-            raise ValueError({"layer": "strategies.trend_breakout",
-                              "detail": f"entry_period must be >= 2, "
-                                        f"got {entry_period}"})
-        if sma_period < 2:
-            raise ValueError({"layer": "strategies.trend_breakout",
-                              "detail": f"sma_period must be >= 2, "
-                                        f"got {sma_period}"})
-        if atr_period < 2:
-            raise ValueError({"layer": "strategies.trend_breakout",
-                              "detail": f"atr_period must be >= 2, "
-                                        f"got {atr_period}"})
-        if entry_dist_mult <= 0:
+        self.entry_period = _period("entry_period", entry_period)
+        self.sma_period = _period("sma_period", sma_period)
+        self.atr_period = _period("atr_period", atr_period)
+        mult = _finite("entry_dist_mult", entry_dist_mult)
+        if mult <= 0:
             raise ValueError({"layer": "strategies.trend_breakout",
                               "detail": f"entry_dist_mult must be > 0, "
-                                        f"got {entry_dist_mult}"})
-        self.entry_period = int(entry_period)
-        self.sma_period = int(sma_period)
-        self.atr_period = int(atr_period)
-        self.entry_dist_mult = float(entry_dist_mult)
+                                        f"got {mult}"})
+        self.entry_dist_mult = mult
         self.symbol = str(symbol)
         # 历史不足阈值：通道需要 entry_period 根 + 当前 bar，均线需要
         # sma_period 根，ATR 需要 atr_period+1 根（TR 比 close 多一根）。

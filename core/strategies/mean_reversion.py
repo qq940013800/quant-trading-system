@@ -21,11 +21,27 @@ history；不计算手数（硬规则 8），只输出 atr0 与 entry_dist。
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Optional
 
 import numpy as np
 import pandas as pd
+
+
+def _finite(name: str, val: float) -> float:
+    v = float(val)
+    if not math.isfinite(v):
+        raise ValueError({"layer": "strategies.mean_reversion", "detail":
+                          f"{name} must be finite, got {val!r}"})
+    return v
+
+
+def _period(name: str, val: int) -> int:
+    if isinstance(val, bool) or not isinstance(val, int) or val < 2:
+        raise ValueError({"layer": "strategies.mean_reversion", "detail":
+                          f"{name} must be an int >= 2, got {val!r}"})
+    return val
 
 #: 均值回归专家在 regime 混合中的固定权重（mr=1：由均值回归专家独占）。
 _REGIME_WEIGHTS = {"trend": 0.0, "mr": 1.0, "range": 0.0}
@@ -153,52 +169,42 @@ class MeanReversionStrategy:
                  trend_dist_max: float = 2.0, atr_period: int = 14,
                  entry_dist_mult: float = 2.0, max_hold_bars: int = 24,
                  symbol: str = "XAUUSD"):
-        if rsi_period < 2:
-            raise ValueError({"layer": "strategies.mean_reversion",
-                              "detail": f"rsi_period must be >= 2, "
-                                        f"got {rsi_period}"})
-        if not 0.0 <= float(rsi_oversold) < float(rsi_overbought) <= 100.0:
+        self.rsi_period = _period("rsi_period", rsi_period)
+        lo = _finite("rsi_oversold", rsi_oversold)
+        hi = _finite("rsi_overbought", rsi_overbought)
+        if not 0.0 <= lo < hi <= 100.0:
             raise ValueError({"layer": "strategies.mean_reversion",
                               "detail": "require 0 <= rsi_oversold < "
                                         "rsi_overbought <= 100, got "
-                                        f"{rsi_oversold}/{rsi_overbought}"})
-        if bb_period < 2:
+                                        f"{lo}/{hi}"})
+        self.rsi_oversold = lo
+        self.rsi_overbought = hi
+        self.bb_period = _period("bb_period", bb_period)
+        sigma = _finite("bb_sigma", bb_sigma)
+        if sigma <= 0:
             raise ValueError({"layer": "strategies.mean_reversion",
-                              "detail": f"bb_period must be >= 2, "
-                                        f"got {bb_period}"})
-        if bb_sigma <= 0:
-            raise ValueError({"layer": "strategies.mean_reversion",
-                              "detail": f"bb_sigma must be > 0, got {bb_sigma}"})
-        if sma_period < 2:
-            raise ValueError({"layer": "strategies.mean_reversion",
-                              "detail": f"sma_period must be >= 2, "
-                                        f"got {sma_period}"})
-        if trend_dist_max <= 0:
+                              "detail": f"bb_sigma must be > 0, got {sigma}"})
+        self.bb_sigma = sigma
+        self.sma_period = _period("sma_period", sma_period)
+        tdm = _finite("trend_dist_max", trend_dist_max)
+        if tdm <= 0:
             raise ValueError({"layer": "strategies.mean_reversion",
                               "detail": f"trend_dist_max must be > 0, "
-                                        f"got {trend_dist_max}"})
-        if atr_period < 2:
-            raise ValueError({"layer": "strategies.mean_reversion",
-                              "detail": f"atr_period must be >= 2, "
-                                        f"got {atr_period}"})
-        if entry_dist_mult <= 0:
+                                        f"got {tdm}"})
+        self.trend_dist_max = tdm
+        self.atr_period = _period("atr_period", atr_period)
+        mult = _finite("entry_dist_mult", entry_dist_mult)
+        if mult <= 0:
             raise ValueError({"layer": "strategies.mean_reversion",
                               "detail": f"entry_dist_mult must be > 0, "
-                                        f"got {entry_dist_mult}"})
-        if int(max_hold_bars) < 1:
+                                        f"got {mult}"})
+        self.entry_dist_mult = mult
+        if isinstance(max_hold_bars, bool) or not isinstance(max_hold_bars, int) \
+                or max_hold_bars < 1:
             raise ValueError({"layer": "strategies.mean_reversion",
-                              "detail": f"max_hold_bars must be >= 1, "
-                                        f"got {max_hold_bars}"})
-        self.rsi_period = int(rsi_period)
-        self.rsi_oversold = float(rsi_oversold)
-        self.rsi_overbought = float(rsi_overbought)
-        self.bb_period = int(bb_period)
-        self.bb_sigma = float(bb_sigma)
-        self.sma_period = int(sma_period)
-        self.trend_dist_max = float(trend_dist_max)
-        self.atr_period = int(atr_period)
-        self.entry_dist_mult = float(entry_dist_mult)
-        self.max_hold_bars = int(max_hold_bars)
+                              "detail": f"max_hold_bars must be an int >= 1, "
+                                        f"got {max_hold_bars!r}"})
+        self.max_hold_bars = max_hold_bars
         self.symbol = str(symbol)
         # RSI 需要 period+1 根 close；布林/均线需要 period 根；ATR 需要 +1。
         self._min_history = max(self.rsi_period + 1, self.bb_period,

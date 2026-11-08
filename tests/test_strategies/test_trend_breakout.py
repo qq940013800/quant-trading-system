@@ -126,3 +126,15 @@ def test_slow_sma_filters_counter_trend_breakout():
     sig = control.on_bar_close(bars, bars[-1])
     assert sig is not None
     assert sig.direction == +1
+
+
+class TestTrendGuard:
+    @pytest.mark.parametrize("bad", [1, 0, -3, 1.5, True])
+    def test_period_rejects_non_int_or_too_small(self, bad):
+        with pytest.raises(ValueError):
+            TrendBreakoutStrategy(entry_period=bad)
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf"), 0.0, -2.0])
+    def test_entry_dist_mult_rejects_nonfinite_or_nonpositive(self, bad):
+        with pytest.raises(ValueError):
+            TrendBreakoutStrategy(entry_dist_mult=bad)
