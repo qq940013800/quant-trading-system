@@ -236,3 +236,60 @@ class TestMetaLabelBuilder:
         assert X.shape[0] > 0
         assert X.shape[1] == 6
         assert y.shape[0] == X.shape[0]
+
+
+class TestStrategyConfigGuard:
+    @pytest.mark.parametrize("bad", [1, 0, -3, 1.5, True])
+    def test_period_must_be_positive_int(self, bad):
+        with pytest.raises(ValueError):
+            StrategyConfig(entry_period=bad)
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf"), 0.0, -1.0])
+    def test_meta_C_must_be_finite_positive(self, bad):
+        with pytest.raises(ValueError):
+            StrategyConfig(meta_C=bad)
+
+    @pytest.mark.parametrize("bad", [float("nan"), 1.2, -0.1])
+    def test_quantile_bounds_reject_nonfinite_or_out_of_range(self, bad):
+        with pytest.raises(ValueError):
+            StrategyConfig(meta_q_lo=bad, meta_q_hi=0.7)
+        with pytest.raises(ValueError):
+            StrategyConfig(meta_q_lo=0.3, meta_q_hi=bad)
+
+    @pytest.mark.parametrize("bad", [float("nan"), -0.01])
+    def test_risk_per_trade_must_be_nonnegative(self, bad):
+        with pytest.raises(ValueError):
+            StrategyConfig(risk_per_trade=bad)
+
+    @pytest.mark.parametrize("bad", [float("nan"), 0.0, -2.0])
+    def test_atr_mult_must_be_finite_positive(self, bad):
+        with pytest.raises(ValueError):
+            StrategyConfig(atr_stop_mult=bad)
+        with pytest.raises(ValueError):
+            StrategyConfig(atr_trail_mult=bad)
+
+    @pytest.mark.parametrize("bad", [float("nan"), -0.2])
+    def test_min_trend_weight_must_be_nonnegative(self, bad):
+        with pytest.raises(ValueError):
+            StrategyConfig(min_trend_weight=bad)
+
+
+class TestPredictGuard:
+    def test_capital_rejects_nonfinite_or_nonpositive(self):
+        history = _make_synthetic_history(n=50)
+        as_of = history[-1]["time"]
+        strat = MLTrendStrategy()
+        for bad in (float("nan"), float("inf"), 0.0, -100.0):
+            with pytest.raises(ValueError):
+                strat.predict(history, as_of, capital=bad)
+
+    @pytest.mark.parametrize("bad", [float("nan"), 0.0, -1.0])
+    def test_trailing_stop_rejects_bad_atr(self, bad):
+        strat = MLTrendStrategy()
+        with pytest.raises(ValueError):
+            strat.update_trailing_stop(95.0, 100.0, 1, atr=bad)
+
+    def test_trailing_stop_rejects_invalid_direction(self):
+        strat = MLTrendStrategy()
+        with pytest.raises(ValueError):
+            strat.update_trailing_stop(95.0, 100.0, 0, atr=1.0)

@@ -16,6 +16,7 @@
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Callable
 
@@ -23,6 +24,14 @@ import numpy as np
 import pandas as pd
 
 from .baseline import LogisticBaseline
+
+
+def _finite(name: str, val: float) -> float:
+    v = float(val)
+    if not math.isfinite(v):
+        raise ValueError({"layer": "models.ml_trend", "detail":
+                          f"{name} must be finite, got {val!r}"})
+    return v
 
 
 @dataclass
@@ -39,10 +48,38 @@ class StrategyConfig:
     meta_q_hi: float = 0.70          # 满仓分位：训练 p 的 70% 分位以上满仓
 
     def __post_init__(self) -> None:
-        if not 0.0 <= self.meta_q_lo < self.meta_q_hi <= 1.0:
-            raise ValueError(
-                f"require 0 <= meta_q_lo < meta_q_hi <= 1, got "
-                f"{self.meta_q_lo}/{self.meta_q_hi}")
+        for name in ("entry_period", "exit_period", "atr_period"):
+            v = getattr(self, name)
+            if isinstance(v, bool) or not isinstance(v, int) or v < 2:
+                raise ValueError({"layer": "models.ml_trend", "detail":
+                                  f"{name} must be an int >= 2, got {v!r}"})
+        meta_C = _finite("meta_C", self.meta_C)
+        if meta_C <= 0:
+            raise ValueError({"layer": "models.ml_trend", "detail":
+                              f"meta_C must be > 0, got {meta_C!r}"})
+        lo = _finite("meta_q_lo", self.meta_q_lo)
+        hi = _finite("meta_q_hi", self.meta_q_hi)
+        if not 0.0 <= lo < hi <= 1.0:
+            raise ValueError({"layer": "models.ml_trend", "detail":
+                              f"require 0 <= meta_q_lo < meta_q_hi <= 1, "
+                              f"got {lo}/{hi}"})
+        risk = _finite("risk_per_trade", self.risk_per_trade)
+        if risk < 0:
+            raise ValueError({"layer": "models.ml_trend", "detail":
+                              f"risk_per_trade must be >= 0, got {risk!r}"})
+        for name in ("atr_stop_mult", "atr_trail_mult"):
+            v = _finite(name, getattr(self, name))
+            if v <= 0:
+                raise ValueError({"layer": "models.ml_trend", "detail":
+                                  f"{name} must be > 0, got {v!r}"})
+        mw = _finite("min_trend_weight", self.min_trend_weight)
+        if mw < 0:
+            raise ValueError({"layer": "models.ml_trend", "detail":
+                              f"min_trend_weight must be >= 0, got {mw!r}"})
+        object.__setattr__(self, "meta_C", meta_C)
+        object.__setattr__(self, "meta_q_lo", lo)
+        object.__setattr__(self, "meta_q_hi", hi)
+        object.__setattr__(self, "risk_per_trade", risk)
 
     # === 仓位与风控 ===
     risk_per_trade: float = 0.01    # 单笔风险占总资金 1%
@@ -287,6 +324,10 @@ class MLTrendStrategy:
             TradeSignal 交易信号
         """
         cfg = self.config
+        cap = _finite("capital", capital)
+        if cap <= 0:
+            raise ValueError({"layer": "models.ml_trend", "detail":
+                              f"capital must be > 0, got {capital!r}"})
         signal = TradeSignal(
             timestamp=as_of,
             direction=0,
@@ -332,7 +373,7 @@ class MLTrendStrategy:
         entry_price = df["close"].values[-1]
 
         stop_loss = entry_price - direction * atr * cfg.atr_stop_mult
-        risk_amount = capital * cfg.risk_per_trade * position_scale
+        risk_amount = cap * cfg.risk_per_trade * position_scale
         stop_distance = abs(entry_price - stop_loss)
 
         if stop_distance > 0:
@@ -364,12 +405,21 @@ class MLTrendStrategy:
         规则：止损只允许向盈利方向移动，永不向亏损方向移动。
         """
         cfg = self.config
-        new_stop = current_price - direction * atr * cfg.atr_trail_mult
+        cur = _finite("current_stop", current_stop)
+        price = _finite("current_price", current_price)
+        atr = _finite("atr", atr)
+        if atr <= 0:
+            raise ValueError({"layer": "models.ml_trend", "detail":
+                              f"atr must be > 0, got {atr!r}"})
+        if direction not in (+1, -1):
+            raise ValueError({"layer": "models.ml_trend", "detail":
+                              f"direction must be +1/-1, got {direction}"})
+        new_stop = price - direction * atr * cfg.atr_trail_mult
 
         if direction == 1:  # 多头：止损上移
-            return max(current_stop, new_stop)
+            return max(cur, new_stop)
         else:  # 空头：止损下移
-            return min(current_stop, new_stop)
+            return min(cur, new_stop)
 
 
 # ------------------------------------------------------------------
