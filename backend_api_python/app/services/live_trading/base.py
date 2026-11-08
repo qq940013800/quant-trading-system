@@ -108,6 +108,35 @@ def is_file_descriptor_exhausted(exc: BaseException | str) -> bool:
     return is_fd_exhaustion(exc)
 
 
+# Exchange error codes that indicate throttling / rate-limit rejection (OKX v5).
+# 50011: request frequency exceeds the endpoint limit; 50061: sub-account order-request limit.
+RETRYABLE_EXCHANGE_CODES = frozenset({"50011", "50061"})
+
+
+def is_retryable_transient(status_code: int, exchange_code: str = "") -> bool:
+    """Whether a read-only idempotent request may be retried after a transient failure.
+
+    Retry only on throttling (HTTP 429), transient server errors (HTTP 5xx), or exchange
+    throttle codes. Client-side 4xx business errors (invalid params, auth, insufficient
+    margin) are never retried.
+    """
+    try:
+        code = int(status_code)
+    except (TypeError, ValueError):
+        code = 0
+    if code == 429 or 500 <= code < 600:
+        return True
+    if str(exchange_code or "") in RETRYABLE_EXCHANGE_CODES:
+        return True
+    return False
+
+
+def retry_delay_sec(attempt: int, *, base: float = 0.4, cap: float = 1.6) -> float:
+    """Exponential backoff delay for ``attempt`` (0-based), capped at ``cap`` seconds."""
+    a = max(0, int(attempt))
+    return min(float(base) * (2 ** a), float(cap))
+
+
 class BaseRestClient:
     def __init__(self, base_url: str, timeout_sec: float = 15.0):
         self.base_url = (base_url or "").rstrip("/")

@@ -16,7 +16,15 @@ from decimal import Decimal, ROUND_DOWN
 from typing import Any, Dict, Optional, Tuple
 from urllib.parse import urlencode
 
-from app.services.live_trading.base import BaseRestClient, LiveOrderResult, LiveTradingError
+import requests
+
+from app.services.live_trading.base import (
+    BaseRestClient,
+    LiveOrderResult,
+    LiveTradingError,
+    is_retryable_transient,
+    retry_delay_sec,
+)
 from app.utils.numeric_precision import floor_decimal_to_step, format_decimal
 
 logger = logging.getLogger(__name__)
@@ -174,7 +182,9 @@ class OkxClient(BaseRestClient):
         return floor_decimal_to_step(value, step)
 
     def _public_request(self, method: str, path: str, *, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        code, data, text = self._request(method, path, params=params, json_body=None, headers=None, data=None)
+        code, data, text = self._request_readonly_with_retry(
+            method, path, params=params, json_body=None, headers=None, data=None
+        )
         if code >= 400:
             raise LiveTradingError(f"OKX HTTP {code}: {text[:500]}")
         if isinstance(data, dict) and str(data.get("code") or "") not in ("0", ""):
@@ -284,6 +294,54 @@ class OkxClient(BaseRestClient):
             h["x-simulated-trading"] = "1"
         return h
 
+    def _request_readonly_with_retry(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: Optional[Dict[str, Any]] = None,
+        json_body: Optional[Dict[str, Any]] = None,
+        headers: Optional[Dict[str, str]] = None,
+        data: Optional[Any] = None,
+        max_retries: int = 2,
+    ) -> Tuple[int, Dict[str, Any], str]:
+        """
+        Call the base ``_request`` for a read-only GET, retrying transient failures with
+        exponential backoff.
+
+        Only idempotent GET calls may go through here: order placement, cancellation and
+        leverage setting (POST) are never auto-retried, to avoid duplicate orders on a
+        network/timeout ambiguity.
+        """
+        attempt = 0
+        while True:
+            try:
+                code, data, text = self._request(
+                    method, path, params=params, json_body=json_body, headers=headers, data=data
+                )
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+                if attempt >= max_retries:
+                    raise LiveTradingError(
+                        f"OKX transient network error after {max_retries} retries: {e}"
+                    ) from e
+                logger.warning("OKX readonly GET transient network error (attempt %d): %s", attempt, e)
+                time.sleep(retry_delay_sec(attempt))
+                attempt += 1
+                continue
+            except requests.exceptions.RequestException as e:
+                # Other transport failures (DNS, TLS, proxy, etc.) are not safe to retry here.
+                raise LiveTradingError(f"OKX transport error: {e}") from e
+
+            # Throttle (429) and transient server errors (5xx) are retried for GET only.
+            if method.upper() == "GET" and is_retryable_transient(code) and attempt < max_retries:
+                logger.warning(
+                    "OKX readonly GET transient HTTP %s (attempt %d), backing off", code, attempt
+                )
+                time.sleep(retry_delay_sec(attempt))
+                attempt += 1
+                continue
+            return code, data, text
+
     def _signed_request(
         self,
         method: str,
@@ -325,13 +383,25 @@ class OkxClient(BaseRestClient):
             request_path = path
             request_params = params
         
-        code, data, text = self._request(
-            method,
-            request_path,
-            params=request_params,
-            data=body_str if body_str else None,
-            headers=self._headers(ts, sign),
-        )
+        # Read-only GET endpoints go through the transient-failure backoff wrapper.
+        # POST (place/cancel/set-leverage) calls go straight through and are never retried,
+        # because a timeout ambiguity must not trigger a duplicate order.
+        if method.upper() == "GET":
+            code, data, text = self._request_readonly_with_retry(
+                method,
+                request_path,
+                params=None,
+                data=None,
+                headers=self._headers(ts, sign),
+            )
+        else:
+            code, data, text = self._request(
+                method,
+                request_path,
+                params=request_params,
+                data=body_str if body_str else None,
+                headers=self._headers(ts, sign),
+            )
         if code >= 400:
             # Provide more helpful error messages for common permission issues
             error_msg = text[:500] if text else f"HTTP {code}"
@@ -357,6 +427,21 @@ class OkxClient(BaseRestClient):
                 s_code = str(first_item.get("sCode") or "")
                 s_msg = str(first_item.get("sMsg") or "")
                 
+                # 50011 / 50061: request frequency / sub-account order-request limit (throttling).
+                if s_code in ("50011", "50061") or error_code in ("50011", "50061"):
+                    raise LiveTradingError(
+                        f"OKX rate-limit error (code {s_code or error_code}): {s_msg or error_msg}\n"
+                        f"Solution: request frequency exceeds the endpoint/sub-account limit. Back off "
+                        f"and reduce polling/order frequency; order, amend and cancel limits are counted independently."
+                    )
+                # 50113: invalid signature / timestamp / credential mismatch.
+                if s_code == "50113" or error_code == "50113":
+                    raise LiveTradingError(
+                        f"OKX signature/timestamp error (code {s_code or error_code}): {s_msg or error_msg}\n"
+                        f"Solution: verify Secret Key and Passphrase are copied correctly, ensure the host "
+                        f"clock is synchronized (NTP), and confirm the API key/secret match the live or demo "
+                        f"(x-simulated-trading) environment."
+                    )
                 # Error code 51008: Insufficient margin
                 if s_code == "51008" or "insufficient" in s_msg.lower() or "margin" in s_msg.lower():
                     raise LiveTradingError(
@@ -377,6 +462,19 @@ class OkxClient(BaseRestClient):
                     f"OKX API permission error (code {error_code}): {error_msg}\n"
                     f"Solution: Please enable 'Trade' permission for your API key in OKX account.\n"
                     f"Path: OKX website -> API Management -> Edit API Key -> Enable 'Trade' permission"
+                )
+            # Top-level throttle / signature fallbacks (in case data array is empty).
+            if error_code in ("50011", "50061"):
+                raise LiveTradingError(
+                    f"OKX rate-limit error (code {error_code}): {error_msg}\n"
+                    f"Solution: back off and reduce polling/order frequency; order, amend and "
+                    f"cancel limits are counted independently."
+                )
+            if error_code == "50113":
+                raise LiveTradingError(
+                    f"OKX signature/timestamp error (code {error_code}): {error_msg}\n"
+                    f"Solution: verify Secret Key/Passphrase, sync the host clock (NTP), and match "
+                    f"the API key/secret to the live or demo environment."
                 )
             raise LiveTradingError(f"OKX error: {data}")
         return data if isinstance(data, dict) else {"raw": data}
