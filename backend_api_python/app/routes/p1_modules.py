@@ -400,21 +400,26 @@ def market_analysis_demo():
 
 @p1_bp.route("/market-layers/summary", methods=["GET"])
 def market_layers_summary():
-    """五层市场识别架构总览"""
+    """五层市场识别架构总览。
+
+    各层级仅登记框架与职责划分，未接入实时行情探针；status 统一 pending，
+    不宣称"已完成/已上线"。真实层级状态需由对应行情/结构探针回填。
+    """
     layers = [
         {"level": "L1", "name": "市场状态识别", "module": "market_regime.py",
-         "status": "✅ 已完成", "desc": "趋势市/震荡市/危机市，决定用什么策略"},
+         "status": "pending", "desc": "趋势市/震荡市/危机市，决定用什么策略"},
         {"level": "L2", "name": "市场结构识别", "module": "market_structure.py",
-         "status": "✅ 已完成", "desc": "支撑阻力/高低点/结构突破，决定在哪里入场止损"},
+         "status": "pending", "desc": "支撑阻力/高低点/结构突破，决定在哪里入场止损"},
         {"level": "L3", "name": "市场趋势识别", "module": "market_trend.py",
-         "status": "✅ 已完成", "desc": "趋势方向/强度/阶段，决定方向和仓位"},
+         "status": "pending", "desc": "趋势方向/强度/阶段，决定方向和仓位"},
         {"level": "L4", "name": "价格行为识别", "module": "price_action.py",
-         "status": "✅ 已完成", "desc": "吞没/针形线/内包线，决定精确入场时机"},
+         "status": "pending", "desc": "吞没/针形线/内包线，决定精确入场时机"},
         {"level": "L5", "name": "K线形态识别", "module": "candlestick_patterns.py",
-         "status": "✅ 已完成", "desc": "早晨之星/黄昏之星/三只乌鸦，决定最终入场信号"},
+         "status": "pending", "desc": "早晨之星/黄昏之星/三只乌鸦，决定最终入场信号"},
     ]
     return jsonify({"success": True, "data": {
         "layers": layers, "total": len(layers),
+        "data_kind": "registered",
         "core_principle": "从上到下过滤，多层共振才入场"
     }})
 
@@ -513,33 +518,15 @@ def overfitting_status():
 
 @p1_bp.route("/strategy-health/summary", methods=["GET"])
 def strategy_health_summary():
-    """策略健康度摘要"""
+    """策略健康度摘要。
+
+    当前未接入注册中心真实策略快照，不构造演示策略（不编造夏普/胜率/
+    健康分/仓位建议）。空概览计数全 0，前端按空态 '--' 渲染。
+    """
     try:
-        from app.services.strategy_health import health_monitor, StrategyHealth
-        demo_strategies = [
-            StrategyHealth(
-                strategy_id="1", strategy_name="趋势跟踪策略",
-                status="active", health_score=85.0,
-                recent_sharpe=1.8, recent_drawdown=8.0, win_rate=45.0, trade_count=120,
-                sharpe_decay=0.1, performance_trend="stable",
-                recommendation="继续运行", next_review="2026-11-01"
-            ),
-            StrategyHealth(
-                strategy_id="2", strategy_name="均值回归策略",
-                status="watch", health_score=55.0,
-                recent_sharpe=0.9, recent_drawdown=15.0, win_rate=52.0, trade_count=200,
-                sharpe_decay=0.35, performance_trend="declining",
-                recommendation="减少仓位，观察", next_review="2026-10-28"
-            ),
-            StrategyHealth(
-                strategy_id="3", strategy_name="突破交易策略",
-                status="active", health_score=90.0,
-                recent_sharpe=2.1, recent_drawdown=6.0, win_rate=38.0, trade_count=80,
-                sharpe_decay=0.05, performance_trend="improving",
-                recommendation="可加仓", next_review="2026-11-05"
-            ),
-        ]
-        summary = health_monitor.get_portfolio_overview(demo_strategies)
+        from app.services.strategy_health import health_monitor
+        summary = health_monitor.get_portfolio_overview([])
+        summary["data_kind"] = "empty"
         return jsonify({"success": True, "data": summary})
     except Exception as e:
         logger.error(f"策略健康度失败: {e}")

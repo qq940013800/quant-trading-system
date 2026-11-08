@@ -2412,71 +2412,94 @@
             debugLog('加载核心引擎数据', 'info');
             
             // 1. 五层市场识别架构
+            const layersEl = document.getElementById('market-layers-list');
+            const layerStatusColor = (status) => {
+                const s = String(status || '').toLowerCase();
+                if (['active', 'healthy', 'done', 'online'].includes(s)) return '#0ecb81';
+                if (['error', 'unhealthy', 'failed'].includes(s)) return '#f6465d';
+                if (['watch', 'degraded'].includes(s)) return '#f0b90b';
+                return '#848e9c';
+            };
             try {
                 const res = await fetch('/api/p1/market-layers/summary');
                 const data = await res.json();
-                if (data.success) {
-                    const layers = data.data.layers;
-                    const html = layers.map(l => 
-                        `<div>• <span style="color: #5e72e4; font-weight: 600;">${l.level}</span> ${l.name} <span style="color: #0ecb81;">${l.status.split(' ')[0]}</span><br>
+                const layers = (data.success && data.data && data.data.layers) || [];
+                if (layers.length) {
+                    const html = layers.map(l =>
+                        `<div>• <span style="color: #5e72e4; font-weight: 600;">${l.level}</span> ${l.name} <span style="color: ${layerStatusColor(l.status)};">${l.status || 'pending'}</span><br>
                          <span style="font-size: 11px; color: var(--text-secondary); padding-left: 20px;">${l.desc}</span></div>`
                     ).join('');
-                    document.getElementById('market-layers-list').innerHTML = html;
+                    if (layersEl) layersEl.innerHTML = html;
+                } else if (layersEl) {
+                    layersEl.innerHTML = '<div style="color: var(--text-tertiary); font-size:12px; padding:4px 0;">暂无层级数据，待接入</div>';
                 }
             } catch (e) {
                 debugLog(`五层市场识别加载失败: ${e.message}`, 'error');
+                if (layersEl) layersEl.innerHTML = '<div style="color: var(--text-tertiary); font-size:12px; padding:4px 0;">数据不可用，待接入</div>';
             }
 
             // 2. 策略优化引擎状态
+            const optEl = document.getElementById('optimizer-status');
             try {
                 const res = await fetch('/api/p1/optimizer/status');
                 const data = await res.json();
-                if (data.success) {
+                if (data.success && data.data) {
                     const s = data.data;
-                    document.getElementById('optimizer-status').innerHTML = `
-                        <div>• 因子数量: <span style="color: #f0b90b; font-weight: 600;">${s.factor_count}</span> 个</div>
-                        <div>• 累计试验: <span style="color: #f0b90b; font-weight: 600;">${s.total_trials}</span> 次</div>
-                        <div>• 已优化策略: <span style="color: #f0b90b; font-weight: 600;">${s.optimized_strategies}</span> 个</div>
-                        <div style="font-size: 11px; color: var(--text-secondary); margin-top: 8px;">🛡️ ${s.overfitting_defense}</div>
+                    if (optEl) optEl.innerHTML = `
+                        <div>• 因子数量: <span style="color: #f0b90b; font-weight: 600;">${s.factor_count ?? '--'}</span> 个</div>
+                        <div>• 累计试验: <span style="color: #f0b90b; font-weight: 600;">${s.total_trials ?? '--'}</span> 次</div>
+                        <div>• 已优化策略: <span style="color: #f0b90b; font-weight: 600;">${s.optimized_strategies ?? '--'}</span> 个</div>
+                        <div style="font-size: 11px; color: var(--text-secondary); margin-top: 8px;">🛡️ ${s.overfitting_defense || '待接入'}</div>
                     `;
+                } else if (optEl) {
+                    optEl.innerHTML = '<div style="color: var(--text-tertiary); font-size:12px; padding:4px 0;">暂无优化引擎状态，待接入</div>';
                 }
             } catch (e) {
                 debugLog(`优化引擎状态加载失败: ${e.message}`, 'error');
+                if (optEl) optEl.innerHTML = '<div style="color: var(--text-tertiary); font-size:12px; padding:4px 0;">数据不可用，待接入</div>';
             }
 
             // 3. 因子库列表
+            const factorEl = document.getElementById('factor-list');
             try {
                 const res = await fetch('/api/p1/optimizer/factors');
                 const data = await res.json();
-                if (data.success) {
-                    const factors = data.data.factors;
-                    const html = factors.map(f => 
+                const factors = (data.success && data.data && data.data.factors) || [];
+                if (factors.length) {
+                    const html = factors.map(f =>
                         `<span style="display: inline-block; background: rgba(240,185,11,0.1); color: #f0b90b; padding: 2px 8px; border-radius: 4px; margin: 2px; font-size: 10px;">${f.name}</span>`
                     ).join('');
-                    document.getElementById('factor-list').innerHTML = html;
+                    if (factorEl) factorEl.innerHTML = html;
+                } else if (factorEl) {
+                    factorEl.textContent = '暂无已注册因子，待接入';
                 }
             } catch (e) {
                 debugLog(`因子库加载失败: ${e.message}`, 'error');
+                if (factorEl) factorEl.textContent = '数据不可用，待接入';
             }
 
             // 4. 策略健康度
+            const healthEl = document.getElementById('engine-health-list');
             try {
                 const res = await fetch('/api/p1/strategy-health/summary');
                 const data = await res.json();
-                if (data.success) {
-                    const s = data.data;
+                const s = (data.success && data.data) || null;
+                if (s && (s.total || 0) > 0) {
                     const html = `
-                        <div>• 总策略数: <span style="font-weight: 600;">${s.total || '-'}</span></div>
-                        <div>• 健康运行: <span style="color: #0ecb81; font-weight: 600;">${s.active || '-'}</span></div>
-                        <div>• 观察预警: <span style="color: #f0b90b; font-weight: 600;">${s.watch || '-'}</span></div>
-                        <div>• 暂停退役: <span style="color: #f6465d; font-weight: 600;">${s.suspended || '-'}</span></div>
-                        <div>• 平均健康分: <span style="font-weight: 600;">${s.avg_health_score || '-'}</span> / 100</div>
+                        <div>• 总策略数: <span style="font-weight: 600;">${s.total}</span></div>
+                        <div>• 健康运行: <span style="color: #0ecb81; font-weight: 600;">${s.active ?? '--'}</span></div>
+                        <div>• 观察预警: <span style="color: #f0b90b; font-weight: 600;">${s.watch ?? '--'}</span></div>
+                        <div>• 暂停退役: <span style="color: #f6465d; font-weight: 600;">${s.suspended ?? '--'}</span></div>
+                        <div>• 平均健康分: <span style="font-weight: 600;">${s.avg_health_score ?? '--'}</span> / 100</div>
                         <div style="font-size: 11px; color: var(--text-secondary); margin-top: 8px;">绿区运行 → 黄区减仓 → 红区退役</div>
                     `;
-                    document.getElementById('engine-health-list').innerHTML = html;
+                    if (healthEl) healthEl.innerHTML = html;
+                } else if (healthEl) {
+                    healthEl.innerHTML = '<div style="color: var(--text-tertiary); font-size:12px; padding:4px 0;">暂无已接入策略，待接入</div>';
                 }
             } catch (e) {
                 debugLog(`策略健康度加载失败: ${e.message}`, 'error');
+                if (healthEl) healthEl.innerHTML = '<div style="color: var(--text-tertiary); font-size:12px; padding:4px 0;">数据不可用，待接入</div>';
             }
 
             // 5. 综合市场分析
@@ -2487,26 +2510,9 @@
                 if (maEl) maEl.innerHTML = '<div style="padding:8px;color:var(--text-tertiary);font-size:12px;">暂无真实综合市场分析，待接入</div>';
                 if (maBadge) { maBadge.textContent = '待接入'; maBadge.style.color = 'var(--text-tertiary)'; }
             } else {
-                try {
-                    const res = await fetch('/api/p1/market-layers/demo');
-                    const data = await res.json();
-                    if (data.success) {
-                        const r = data.data;
-                        const dirColor = r.overall_direction === 'bullish' ? '#0ecb81' : 
-                                         r.overall_direction === 'bearish' ? '#f6465d' : '#f0b90b';
-                        document.getElementById('market-analysis-result').innerHTML = `
-                            <div>• 综合方向: <span style="color: ${dirColor}; font-weight: 600; text-transform: uppercase;">${r.overall_direction || 'neutral'}</span></div>
-                            <div>• 置信度: <span style="font-weight: 600;">${(r.confidence * 100 || 0).toFixed(0)}%</span></div>
-                            <div>• L1 市场状态: ${r.l1_regime || '-'}</div>
-                            <div>• L3 市场趋势: ${r.l3_trend || '-'}</div>
-                            <div>• L4 价格行为: ${r.l4_price_action || '-'}</div>
-                            <div>• L5 K线形态: ${r.l5_candlestick || '-'}</div>
-                            <div style="font-size: 11px; color: var(--text-secondary); margin-top: 8px;">📍 建议入场: ${r.entry_zone || '待分析'}</div>
-                        `;
-                    }
-                } catch (e) {
-                    debugLog(`综合市场分析加载失败: ${e.message}`, 'error');
-                }
+                // 未登录同样不拉演示端点：演示方向/置信度/入场区不得冒充真实分析
+                if (maEl) maEl.innerHTML = '<div style="padding:8px;color:var(--text-tertiary);font-size:12px;">暂无真实综合市场分析，待接入</div>';
+                if (maBadge) { maBadge.textContent = '待接入'; maBadge.style.color = 'var(--text-tertiary)'; }
             }
 
             // 6. P1/P2 企业级模块卡片实时数据
