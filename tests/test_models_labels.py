@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import pandas as pd
+import numpy as np
 import pytest
 
 from _tp_bootstrap import ROOT  # noqa: F401  (sys.path 引导)
@@ -84,3 +85,32 @@ def test_bad_mult_raises():
     with pytest.raises(ValueError):
         triple_barrier_labels(bars, _atr_const(5), tp_mult=0.0, sl_mult=1.0,
                               max_holding_bars=5)
+
+
+def test_atr_length_mismatch_raises():
+    bars = _make_bars([100.0] * 8)
+    with pytest.raises(ValueError, match="mismatch"):
+        triple_barrier_labels(bars, _atr_const(5), tp_mult=1.0, sl_mult=1.0,
+                              max_holding_bars=5)
+
+
+def test_zero_holding_bars_raises():
+    bars = _make_bars([100.0] * 5)
+    with pytest.raises(ValueError, match="max_holding_bars"):
+        triple_barrier_labels(bars, _atr_const(5), tp_mult=1.0, sl_mult=1.0,
+                              max_holding_bars=0)
+
+
+def test_missing_atr_falls_back_to_zero_label():
+    """atr0 缺失（NaN/<=0）不猜屏障，标签归 0（不编方向）。"""
+    bars = _make_bars([100.0 + 0.3 * i for i in range(12)])
+    atr = pd.Series([np.nan] * 12)
+    lab = triple_barrier_labels(bars, atr, tp_mult=1.0, sl_mult=1.0,
+                                max_holding_bars=5)
+    assert set(lab.tolist()) == {0}
+
+
+def test_empty_input_returns_empty_series():
+    lab = triple_barrier_labels([], pd.Series([], dtype=float),
+                                tp_mult=1.0, sl_mult=1.0, max_holding_bars=5)
+    assert len(lab) == 0

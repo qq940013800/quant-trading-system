@@ -33,3 +33,29 @@ def test_empty_trades_no_crash():
     m = compute_metrics(eq, [], bars_per_year=100)
     assert m["n_trades"] == 0
     assert m["sharpe"] == 0.0
+
+
+def test_constant_equity_zero_metrics():
+    # 零方差权益：夏普/索提诺/回撤都归 0，不除零
+    idx = pd.date_range("2021-01-04", periods=30, freq="5min", tz="UTC")
+    eq = pd.Series(np.full(30, 100.0), index=idx)
+    m = compute_metrics(eq, [], bars_per_year=100)
+    assert m["sharpe"] == 0.0
+    assert m["sortino"] == 0.0
+    assert m["max_drawdown"] == 0.0
+
+
+def test_all_losing_trades_profit_factor_zero():
+    idx = pd.date_range("2021-01-04", periods=2, freq="5min", tz="UTC")
+    eq = pd.Series([100.0, 99.0], index=idx)
+    m = compute_metrics(eq, [{"pnl_usd": -5.0}, {"pnl_usd": -3.0}])
+    assert m["profit_factor"] == 0.0
+    assert m["win_rate"] == 0.0
+
+
+def test_all_winning_trades_profit_factor_infinite():
+    idx = pd.date_range("2021-01-04", periods=2, freq="5min", tz="UTC")
+    eq = pd.Series([100.0, 101.0], index=idx)
+    m = compute_metrics(eq, [{"pnl_usd": 5.0}, {"pnl_usd": 3.0}])
+    assert m["profit_factor"] == float("inf")
+    assert m["win_rate"] == 1.0

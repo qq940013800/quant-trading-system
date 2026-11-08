@@ -11,6 +11,8 @@ from core.backtest.overfitting import (
     deflated_sharpe_ratio,
     probability_of_backtest_overfitting,
     combinatorial_purged_cv,
+    overfitting_diagnostic,
+    _normal_cdf,
 )
 
 
@@ -205,3 +207,81 @@ class TestPBOCSCV:
         assert probability_of_backtest_overfitting(one) == 0.0
         tiny = pd.DataFrame(np.zeros((8, 3)), columns=list("abc"))
         assert probability_of_backtest_overfitting(tiny, n_splits=10) == 0.5
+
+
+# ------------------------------------------------------------------
+# 边界 / 缺失值 / 小样本（纯计算，不触交易与数据落库）
+# ------------------------------------------------------------------
+class TestSharpeEdge:
+    def test_short_series_returns_zero(self):
+        assert compute_sharpe(pd.Series([0.01])) == 0.0
+        assert compute_sharpe(pd.Series([], dtype=float)) == 0.0
+
+    def test_constant_series_zero_sharpe(self):
+        # 零方差序列不除零，Sharpe 归 0
+        assert compute_sharpe(pd.Series([0.01] * 50)) == 0.0
+
+    def test_normal_cdf_symmetry_and_midpoint(self):
+        assert _normal_cdf(0.0) == pytest.approx(0.5, abs=1e-6)
+        assert _normal_cdf(1.96) == pytest.approx(0.975, abs=2e-3)
+        assert _normal_cdf(-1.96) == pytest.approx(0.025, abs=2e-3)
+        # CDF 单调
+        assert _normal_cdf(0.5) > _normal_cdf(-0.5)
+
+
+class TestDeflatedSharpeEdge:
+    def test_short_sample_returns_neutral_half(self):
+        # 样本 <30 无法判定，回落中性 0.5（不编显著结论）
+        short = pd.Series(np.random.default_rng(0).normal(0, 0.01, 20))
+        assert deflated_sharpe_ratio(short, trials=5) == 0.5
+
+    def test_dsr_probability_bounded(self):
+        rng = np.random.default_rng(3)
+        for trials in (1, 3, 50):
+            dsr = deflated_sharpe_ratio(
+                pd.Series(rng.normal(0.0, 0.01, 252)), trials=trials)
+            assert 0.0 <= dsr <= 1.0
+
+
+class TestCPCVEdge:
+    def test_tiny_series_returns_empty_with_unit_ratio(self):
+        res = combinatorial_purged_cv(pd.Series(np.zeros(20)), n_splits=5)
+        assert res["train_sharpes"] == []
+        assert res["test_sharpes"] == []
+        assert res["ratio"] == 1.0
+
+    def test_ratio_bounded_for_stable_strategy(self):
+        rng = np.random.default_rng(11)
+        res = combinatorial_purged_cv(
+            pd.Series(rng.normal(0.002, 0.005, 300)), n_splits=6)
+        assert res["ratio"] >= 0.0
+
+
+class TestDiagnosticCard:
+    @staticmethod
+    def _series(seed: int, loc: float, scale: float, n: int = 252) -> pd.Series:
+        rng = np.random.default_rng(seed)
+        return pd.Series(rng.normal(loc, scale, n))
+
+    def test_card_returns_expected_fields(self):
+        card = overfitting_diagnostic(self._series(1, 0.002, 0.005), trials=10)
+        for key in ("sharpe", "deflated_sharpe", "cpcv_ratio", "score",
+                    "rating", "warnings"):
+            assert key in card
+        assert isinstance(card["warnings"], list)
+
+    def test_negative_sharpe_gets_warning(self):
+        card = overfitting_diagnostic(self._series(2, -0.003, 0.01), trials=1)
+        assert card["sharpe"] < 0
+        assert any("不赚钱" in w for w in card["warnings"])
+
+    def test_constant_zero_series_does_not_raise(self):
+        card = overfitting_diagnostic(pd.Series(np.zeros(252)), trials=1)
+        assert card["cpcv_ratio"] == 1.0
+        assert card["deflated_sharpe"] == pytest.approx(0.5, abs=1e-6)
+
+    def test_trials_increase_penalty(self):
+        base = self._series(5, 0.002, 0.005)
+        low = overfitting_diagnostic(base, trials=1)["deflated_sharpe"]
+        high = overfitting_diagnostic(base, trials=100)["deflated_sharpe"]
+        assert high <= low
