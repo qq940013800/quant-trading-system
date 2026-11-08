@@ -18,6 +18,7 @@ The end-user installers live at the repository root:
 | `check_docs.py` | Validate documentation structure, local links, code fences, and referenced assets. | Keep |
 | `check_mojibake.py` | Detect common text-encoding corruption in tracked files. | Keep |
 | `check_version.py` | Verify version fallback files stay aligned; used by CI. | Keep |
+| `git-github-connect.ps1` | Check/repair git's GitHub connectivity on Windows; auto-falls back between direct connection and local proxy. Exit codes: 0 usable, 2 both paths down, 3 git missing. | Keep |
 
 Removed frontend-only scripts should be recreated or moved in the frontend
 repository if that workflow is still needed.

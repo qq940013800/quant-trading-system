@@ -334,3 +334,149 @@ qd_strategy_review_reports  ── GET /api/strategies/review-report/history 历
 ---
 
 **AI 复盘与经验回灌 已纳入 WIKI（2026-11-08）**
+
+---
+
+## 🛡️ 系统全局风控设计说明（2026-11-08 新增）
+
+> 第一性原理：截断亏损是风控的左尾工程目标——单笔风险可控、回撤分级、超限拦截、后端强制执行，不靠人工临场判断。
+> 口径约定：**confirmed** = 代码已逐行核实落点；**inferred** = 由相邻代码/配置推断，未在本轮回测或实盘复核；**unknown** = 现状不明。阈值一律由 CLEAN 分布校准，不照搬机构数值，本篇不含夏普/胜率/回撤/年化等绩效数字。
+> 边界：本篇描述 `core/` 研究/风控层与 `backend_api_python/app/services/` 服务层现状；`mt5/` 执行层常量与 `configs/`、`registry.yaml` 不在本轮改动范围。
+
+### 1.1 风控分层与强制执行链路（现状落点）
+
+| 层级 | 职责 | 代码落点（文件:模块/函数） | 口径 |
+|---|---|---|---|
+| 单笔止损执行 | 止损触发即走回调平仓，不等人工；止损价只向盈利方向移动 | `backend_api_python/app/services/risk_engine.py`：`RiskEngine._check_stop_loss_trigger`、`RiskEngine._close_all_positions`；回调由 `set_close_position_callback` / `set_reduce_position_callback` 注入 | confirmed |
+| 止损单调不变量 | 多头止损只许上移、空头只许下移；放宽方向抛 `StopWideningError`，异常带上下文 | `core/risk/stops.py`：`update_stop`、`StopWideningError`（`current_stop/new_stop/direction/context`） | confirmed |
+| 四级止损体系 | 时间 / ATR 价格 / 信号 / 跟踪四类止损，带优先级综合决策 | `core/risk/stops.py`：`check_time_stop`、`check_signal_stop`、`update_trailing_stop`、`evaluate_stops`、`StopType` | confirmed |
+| 账户/组合限额 | 总名义、保证金、费用、资金费率、总杠杆、单品种名义、持仓数等限额校验，返回 `allowed` 与违规码 | `backend_api_python/app/services/live_trading/account_risk.py`：`account_risk_snapshot`、`account_risk_limits` | confirmed |
+| 组合敞口门禁 | 当日亏损熔断、策略数量、总敞口、聚类敞口四道开仓前检查 | `core/risk/portfolio_risk.py`：`PortfolioRiskManager.can_open_new_position`、`PortfolioRiskConfig` | confirmed |
+| 日内熔断三态机 | `normal → breaker → cooldown`，熔断/冷却态禁止新开仓，跨交易日边界重置 | `core/risk/circuit.py`：`CircuitBreaker.update`、`allows_new_position`、`CircuitState` | confirmed |
+| 紧急停止开关 | fail-closed 文件持久化开关；状态损坏/缺失按已触发处理；触发/复位写审计；复位需授权 | `core/control/kill_switch.py`：`KillSwitch.is_armed/trigger/reset/guard` | confirmed |
+| 入场持仓守卫 | 下单前核对账户与策略持仓归属漂移、反向腿是否已平；越界拒绝并留痕 | `backend_api_python/app/services/pending_orders/entry_position_guard.py`：`evaluate_entry_position_guard`、`EntryPositionGuardResult` | confirmed |
+| 交易所原生保护单 | 成交后在交易所侧挂 reduce-only 止损/止盈/追踪条件单（多交易所适配） | `backend_api_python/app/services/live_trading/native_protection.py`：`place_native_protection_orders`、`protection_prices_from_payload`、`NativeProtectionRequest` | confirmed |
+| 确定性保护评估器 | 回测与实盘共用同一保护语义（止损/止盈/跟踪/时限），带 intrabar 模式 | `backend_api_python/app/services/strategy_v2/protection.py`：`ProtectionEngine.evaluate_bar/evaluate_price`、`ProtectionState`、`ProtectionSpec` | confirmed |
+
+### 1.2 截断亏损的工程逻辑
+
+1. **后端强制执行，人工不可覆盖（confirmed）**：`risk_engine.py` 止损触发后由 `_close_position_callback` 执行平仓，告警 `action_required="close_position"`；`native_protection.py` 把保护单挂到交易所侧 reduce-only，双保险。回调是否在真实交易链路被完整接线、失败重试与重试上限，本轮未在实盘复核 → **unknown**（实盘冒烟属未验证项）。
+2. **止损单调（confirmed）**：`core/risk/stops.py::update_stop` 对多头拒绝 `new < cur`、对空头拒绝 `new > cur`，否则抛 `StopWideningError`；`risk_engine.py` 的追踪/保本/吊灯分支同样只在更优方向改写 `stop_loss_price`。止损放宽被硬拦截，不允许事后把止损挪远。
+3. **回撤分级减仓（部分 confirmed / 部分目标态）**：
+   - `core/risk/state.py::RiskState.drawdown_tier` 为回撤档位系数字段（注释：海龟分级降档），`risk_engine.py` 组合层 `check_portfolio_risk` 在回撤达 `max_drawdown_pct` 时走 `_close_all_positions` 全平；持仓数超限产生 `position_limit` 告警。
+   - **现状缺口（目标态/待建）**：未见「回撤达到某一档位即按比例减仓、再达一档再减」的连续分级减仓执行链路；`drawdown_tier` 如何作用到手数、减仓动作由谁触发并落地成交，本轮未核到闭环。RULES.md 中「回撤 10% 减仓 50%、15% 清仓」是纪律口径，**当前代码未按该数值实现**，不得当作现状。
+4. **账户限额与入场守卫（confirmed）**：`account_risk_snapshot` 按凭证/市场类型归集现存持仓与拟开仓位，估算 gross/net 名义、对冲比、总杠杆、保证金、往返费用、区间资金费率与单品种名义，超限返回对应 `accountRisk.*` 违规码；`entry_position_guard.py` 在下单前拒绝持仓漂移与未平反向腿。限额数值来自传入 `limits` 或策略 `trading_config.account_risk`，**阈值最终须由分布校准，不在代码内拍死**。
+5. **熔断与急停（confirmed）**：`CircuitBreaker` 按已收盘 bar 推进，breaker/cooldown 态 `allows_new_position=False`；`KillSwitch` fail-closed，多来源（人工/对账/回撤/数据过期）可触发同一开关，触发与复位均落审计。
+
+### 1.3 目标态 / 待建（不得写成现状）
+
+- **ML 驱动的风险分层与仓位缩放**：风险状态/档位由模型判别属目标态；当前为规则与配置驱动。
+- **OMS/EMS 与拆单执行**：组单、风控前置闸门、TWAP/VWAP 拆单、执行回报归集属目标态；当前执行层偏直连下单（见 TODO P2 与系统简介页局限口径）。
+- **强制风控网关全链路复用**：统一在订单发出前过账户限额 + 组合门禁 + 熔断 + 急停 + 入场守卫的闸门闭环，部分模块已存在但跨入口串联复用未闭合（关联阻塞项 #107，触碰实盘链路，待拍板）。
+- **回撤分级减仓闭环**：档位系数到手数/减仓动作的执行链路待补。
+- **实盘强制执行闭环验证**：保护单挂单成功率、回调失败重试、交易所原生条件单与本地风控的一致性，均未在真实账户复核 → **未验证**。
+
+### 1.4 纪律约束
+
+- 阈值/限额由 CLEAN 分布与 config 派生，禁止按绩效网格搜索（不变量 3、硬规则 8）。
+- 异常必须带上下文记录，禁止 `except Exception: pass`（硬规则 9）；`StopWideningError`、`LiveTradingError` 等均带 layer/上下文。
+- 止损、开仓决策只在已收盘 bar / 已收盘数据上调用（intra-bar 纪律，硬规则 5）。
+
+---
+
+## 📈 跟踪止盈 / 让利润奔跑设计说明（2026-11-08 新增）
+
+> 第一性原理：左尾截断之后，右尾要暴露给趋势——保本先消除「盈利变亏损」，分批落袋一部分，剩余仓位用跟踪/吊灯/回吐保护继续奔跑。
+> 口径同上：**confirmed** 代码已核实；**inferred** 相邻推断；**unknown** 现状不明。R 倍数口径以入场冻结值为准；本篇不写绩效数字。
+
+### 2.1 R 口径：冻结 atr0 / entryDist（confirmed）
+
+| 项 | 落点 | 口径 |
+|---|---|---|
+| 冻结字段 | `core/risk/state.py::RiskState.atr0`、`entry_dist`；持仓期不重算；`frozen_r_denominator()` 强制返回冻结 `entry_dist` | confirmed |
+| R 倍数计算 | `core/risk/stops.py::compute_current_r`：`R = (current_price - entry_price) × direction / entry_dist` | confirmed |
+| 初始止损派生 | `core/risk/stops.py::initial_stop`：多头 `entry - entry_dist`，空头 `entry + entry_dist`；`entry_dist <= 0` 拒绝 | confirmed |
+| 服务层冻结镜像 | `backend_api_python/app/services/risk_engine.py::Position.atr_at_entry`、`entry_dist`；`r_multiple = unrealized_pnl / (entry_dist × quantity)` | confirmed |
+| 回放对齐 | `core/audit/replay.py`：`feature_snapshot.stop_dist_price` 作为冻结 `atr0` 形参重算手数；`core/audit/record.py::Decision.r_multiple_at_close` 出场后回填，用入场冻结 `entry_dist` | confirmed |
+
+> 纪律：持仓途中 ATR 变化不允许刷新止损距离或 R 分母；任何「按当前 ATR 重算止损」的写法违反硬规则 4。
+
+### 2.2 各类止盈/跟踪机制：现状与目标态
+
+| 机制 | 研究/风控层落点 | 服务层落点 | 现状口径 |
+|---|---|---|---|
+| 保本止损 | `core/risk/stops.py::update_breakeven_stop`：R ≥ `breakeven_r` 后移到 `entry + direction × breakeven_offset_r × entry_dist` | `risk_engine.py::_update_breakeven_stop`：R ≥ `breakeven_activation_r` 移到入场价 + `breakeven_buffer` | confirmed（研究层 + 服务层均有实现）；具体 R/缓冲阈值须分布校准 |
+| 分批止盈 | —（研究层未见分批落袋模块） | `risk_engine.py::_check_scale_out`：按 `scale_out_levels`/`scale_out_ratios` 分批减仓，`remaining_ratio` 递减，调 `_reduce_position_callback` | confirmed（服务层）；研究/回测侧分批语义在 `strategy_v2/protection.py` 未提供分批，属口径待对齐 |
+| 跟踪止损 | `core/risk/stops.py::update_trailing_stop`：R ≥ `trailing_activation_r` 后在最大有利位置后退 `trailing_offset_r × entry_dist` | `risk_engine.py::_update_trailing_stop`：R ≥ `trailing_activation_r` 激活，距峰值 `trailing_atr_mult × atr_at_entry` | confirmed；`strategy_v2/protection.py::_trailing_trigger` 按价格峰值 + 激活百分比实现跟踪 |
+| 吊灯止损 | —（研究层未见吊灯模块） | `risk_engine.py::_update_chandelier_exit`：激活跟踪后，峰值回撤 `chandelier_atr_mult × atr_at_entry` | confirmed（服务层）；研究层对等实现属目标态 |
+| 利润回吐保护 | — | `risk_engine.py::_check_profit_retracement`：盈利 >1R 后，自峰值利润回撤达 `profit_retracement_pct` 平剩余仓位 | confirmed（服务层）；研究层对等实现属目标态 |
+| 时限出场 | `core/risk/stops.py::check_time_stop`：超 `max_holding_bars` 且未达保本 R | `strategy_v2/protection.py`：`time_limit_seconds` 触发 `time_limit` 决策 | confirmed |
+| 信号止损 | `core/risk/stops.py::check_signal_stop`：入场逻辑反转即离场 | — | confirmed（研究层）；服务层是否接线信号反转输入 unknown |
+| 交易所原生跟踪/止盈 | — | `native_protection.py`：trailing callbackRatio / activatePrice、SL/TP 条件单；Gate/HTX 跟踪单标注 `managed_by: strategy_runtime` | confirmed 接线框架；不同交易所原生跟踪能力差异未逐一实盘核验 |
+
+### 2.3 让利润奔跑的阶段划分（服务层，confirmed）
+
+`risk_engine.py::_get_let_profit_run_stage` 按 R 与分批进度输出阶段：`in_loss → in_profit → breakeven → trailing → scaling_out → max_profit → stopped`，供摘要与审计读取。研究层 `StopState.max_favorable_r` 记录最大有利 R，供跟踪/保本触发判断。
+
+### 2.4 口径缺口与目标态（不得写成现状）
+
+- **研究-服务层止盈语义对齐**：吊灯、分批、回吐目前主要在 `risk_engine.py` 服务层；`core/risk/stops.py` 研究层对等模块不全，回测与实盘的右尾口径尚需逐机制对齐（关联研究-生产一致性规约）。
+- **阈值分布校准**：`trailing_activation_r`、`breakeven_r`、`scale_out_levels`、`chandelier_atr_mult`、`profit_retracement_pct` 等当前为 dataclass 默认值/配置项；上线前须在 CLEAN 集做分布校准，禁止按回测绩效挑参数。
+- **跟踪参数的 ATR 基**：服务层跟踪/吊灯距离用冻结 `atr_at_entry`；与研究层 `entry_dist`（R 倍数）两种基口径需在同一套决策规则版本下明确换算关系。
+- **原生跟踪一致性**：交易所侧跟踪单与本地跟踪/吊灯并行时以谁为准、如何对账，属目标态；当前未核验实盘一致性。
+- **未验证**：各机制在真实行情下的触发顺序、跳空穿透处理、部分成交后剩余仓位保护，未在真实账户复核。
+
+---
+
+## 🔗 研究-生产一致性规约（2026-11-08 新增）
+
+> 第一性原理：回测结论只有在特征、数据切分、口径、成本、审计字段上与在线链路同源时才可外推；任何一边偷用未来数据、混用集合、漏算成本，都会让回测与实盘背离。
+> 口径：**confirmed** 代码已核实；**inferred** 相邻推断；**unknown** 现状不明。
+
+### 3.1 特征同源：研究/在线同一特征定义（confirmed）
+
+- 特征函数契约：`core/features/base.py` 的 `@as_of` 装饰器强制 `feat_x(history, as_of, **kw)`；`as_of` 须 tz-aware UTC，history 内任一 `bar.ts_utc > as_of` 抛 `LookAheadError`，非单调抛 `AsOfContractError`。
+- 因果可重算：同一 `(history, as_of)` 调用结果一致；history 尾部追加未来 bar 后，as_of 处值不变（黄金因果守卫 c01/c02，见 `tests/test_features_causal.py`）。
+- 面板构建：`build_feature_panel` 逐根已收盘 bar 切片 `history[:i+1]` 计算，前 `warmup_bars` 行保留 NaN（不猜未来）；产出附 `available_at` 列。
+- **目标态/待建**：在线推理链路是否直接复用 `core/features` 同一函数定义、还是另写一套在线特征，本轮未核到统一注册/比对机制 → **unknown**；研究与在线特征一致性回归（同输入双跑比对）属待建。
+
+### 3.2 集合分离（confirmed）
+
+| 集合 | 用途 | 落点 |
+|---|---|---|
+| CLEAN | 估计 ATR/波动率/Hurst 等统计量与分布阈值 | `core/data/splits.py::split_dataset` 划分 CLEAN 桶；`core/risk/sizing.py::quantile_threshold` 从样本分位派生门限 |
+| KNOWN | 构建供需区等结构 | `split_dataset` 划分 KNOWN 桶 |
+| HELD_OUT（静默集） | 不参与任何优化/选择/训练；代码路径上显式拒绝 | `split_dataset` 对静默窗口 bar 丢弃，返回 `HELD_OUT: []`；`SplitConfig.from_file` 拦截指向静默数据文件的键（`_FORBIDDEN_DATA_KEYS`），抛 `SilentSetAccessError` |
+
+- 审计留痕：`core/audit/record.py::Decision.threshold_dataset` 取值仅限 `CLEAN|KNOWN`，构造时校验；每条决策可追溯阈值来源集。
+- 纪律：统计量估计集与策略构建集不得混用；测试/静默集禁止参与参数选择（硬规则 2、RULES 3.2）。
+
+### 3.3 回测/实盘口径对齐
+
+| 口径项 | 现状落点 | 口径 |
+|---|---|---|
+| 信号只用已收盘数据 | `@as_of` 守卫 + `build_feature_panel` 逐收盘 bar；`CircuitBreaker.update` 每根已收盘 bar 推进；`strategy_v2/protection.py::evaluate_bar` 按 OHLC 判定，`evaluate_price` 按价格判定 | confirmed |
+| 前视自动检测 | `core/audit/lookahead_detector.py::LookaheadDetector`：时间戳单调性、特征/标签泄露、滚动窗口边界检查 | confirmed（检测器存在）；是否在每条策略上线流程强制跑过 unknown |
+| 成本含滑点 + 点差 + 佣金 | `core/backtest/costs.py`：`CostModel`（平静/新闻/跳空三档点差）、`spread_at`、`slippage_points`、平方根/成交量冲击/波动率调整滑点；`tiers_valid` 保证新闻/跳空点差不低于平静期 | confirmed（回测成本模型）；实盘成交成本如何回填对齐同一口径 unknown |
+| 零成本退化 | `costs.py` 中 `cost_model=None` 返回 0 成本，仅对照实验，默认不用于正式回测 | confirmed |
+| intra-bar 成交假设 | `strategy_v2/protection.py`：`VALID_INTRABAR_MODES = conservative/balanced/aggressive`，同一根 bar 多候选按模式选优先级 | confirmed；回测成交撮合假设与实盘滑点/跳空穿透的一致性未复核 |
+| 时区一致 | 熔断以 UTC 日期为交易日键，注释要求实盘经纪商日边界配置覆盖（硬规则 6） | confirmed（研究层）；MT5/实盘服务器偏移与 Python `--tz` 一致性须在接入时核对 |
+
+### 3.4 审计回放字段要求（confirmed）
+
+- 每条信号无论接受/拒绝都落一条 `Decision`（`core/audit/record.py::write_decision`，JSONL 单行追加）；拒绝单 `final_signed_lots==0`，接受单 `lots>0`，构造即校验。
+- 必备字段：`decision_id`、`signal`、`feature_snapshot`、`model_version`、`risk_state`、`accepted`、`reject_reason`、`final_signed_lots`、`threshold_dataset`、`decision_rule_version`、`r_multiple_at_close`（出场后回填）。
+- 回放五要素：`core/audit/replay.py::replay_decision` 须能还原 `feature_snapshot / model_version / threshold_dataset / final_signed_lots / reject_reason`；`feature_snapshot` 缺 sizing 输入键（`equity/risk_pct/stop_dist_price/point_value/min_lot/lot_step/kelly_cap/vol_scale`）抛 `ReplayMismatch`；接受单手数重算与快照超容差即不一致。
+- 决策规则版本：`decision_rule_version` 在实验前冻结；规则变更须新版本，禁止事后改旧快照口径（硬规则 11）。
+
+### 3.5 一致性缺口与目标态（不得写成现状）
+
+- **在线特征复用与双跑比对**：研究特征定义与在线推理特征的统一注册、同输入一致性测试待建。
+- **实盘成本回填对齐**：成交滑点/点差/佣金/资金费的实盘归集与回测 `CostModel` 口径对齐待建。
+- **前视检测强制门禁**：检测器已存在，纳入上线前必跑流程属目标态。
+- **研究-服务止盈/止损语义对齐**：见《跟踪止盈 / 让利润奔跑设计说明》2.4，两引擎对等机制需补齐并挂同一规则版本。
+- **未验证**：回测撮合与实盘成交在跳空、流动性、部分成交场景下的差异；审计回放对真实成交记录的闭环还原，未在实盘复核。
+
+---
+
+**三篇规约已纳入 WIKI（2026-11-08）；单一事实源在 docs/WIKI.md，前端只读镜像由后续环节收口，本轮未改前端文件。**
