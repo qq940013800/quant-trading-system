@@ -109,6 +109,16 @@
 - **边界 / 未验证**：纯逻辑内存骨架，不持久化权重二进制、不连数据库、不产交易收益序列；未引入 sklearn/lightgbm 硬依赖；PBO/CPCV/DSR 仅预留指标槽位，实验账本与 trials 计数仍由实验脚本/审计负责（AGENTS.md 规则 11）。生产化 ML 依赖引入、训练脚本与权重落库、制品库与在线灰度属边界外，待拍板。
 - **提交**：Gitee `7e482c5`。
 
+### 48. 策略中心交易对收口为可成交主流品种（现货）✅ 已完成
+- **完成时间**：2026-11-08
+- **内容**：
+  - 后端 `app/services/strategy.py` 新增模块级纯函数：`normalize_strategy_symbol`（池/指数/股票前缀引用原样保留；crypto 无斜杠/横杠/下划线/资金费后缀规范成 `BASE/QUOTE`；空值返空串）、`classify_strategy_symbol`（`pool/crypto/equity/other/""`）、`is_research_only_strategy`（signal 模式或挂组合池品种→研究信号）；`_query` 出口派生 `symbol`（规范后）、`symbol_kind`、`research_only` 三字段；`redact_strategy_row` 全量复制不剥离派生字段。
+  - DB 快照 `qd_strategies_trading`：id1/2/3 对齐 OKX demo 现货主流币对 `BTC/USDT`、`ETH/USDT`、`SOL/USDT`（canonical 同步、market_type=spot），凭证 `exchange_config.credential_id` 由失效的 1 修正为实际存在的 2（OKX-DEMO，user_id=1）；id4/5 美股 sp500 池研究信号策略品种/市场/凭证/manifest 全部保留不动。
+  - 前端详情弹窗交易对行新增研究信号标注「研究信号·不可实盘成交」（`research_only===true || symbol_kind==='pool' || execution_mode==='signal'` 显隐）；`.detail-value-wrap` / `.detail-hint` 样式；css/js 版本号破缓存。
+- **验证**：新单测 `tests/test_strategy_symbol_normalization.py` 8 passed；策略相关子集 34 passed（v2_routes/v2_storage/v2_service/lifecycle/secret_handling/deployment_payload/normalization）；容器内探针直连 `StrategyService.list_strategies(user_id=1)` 返回 5 行，1/2/3 为 crypto/spot/live/cred 2，4/5 为 pool/signal/research_only；浏览器登录态复验：id5 详情显示 `universe:POOL:sp500` + 研究信号标注，id1 详情显示 `BTC/USDT` 且无标注。
+- **未验证 / 遗留（阻塞待拍板）**：V2 实盘会话候选品种由编译脚本 manifest 解析（`trading_executor.resolve_candidates(manifest=program.manifest)`），不由 DB 顶层 symbol 驱动。1/2/3 引用的历史版本 pk15/11/19 合约仍为 `set_universe(pool="sp500")` + `set_benchmark("USStock:SPY")`，与顶层 crypto 快照本就不一致；要让这三条在 OKX 现货真实成交，需把对应脚本合约改为 crypto 单品种并重编译版本、更新部署引用——属合约层改动，按 AGENTS.md 停止条件待人工确认。实盘下单成交未验证：demo 账户 `acctLv=1` 简单账户仅现货可成交，永续开仓被 `OKX_SWAP_ACCOUNT_MODE_REQUIRED` 阻塞。
+- **提交**：本地（哈希回填）。
+
 ### 43. 账户列表去演示哨兵并接入真实凭证端点 + 日志签名错位修复 ✅ 已完成
 - **完成时间**：2026-11-08
 - **内容**：侧边「我的账户」与绑定弹窗账户列表唯一事实源收口到 `GET /credentials/list`；`loadAccountsList` 改为异步拉取真实凭证回填，删除硬编码 `OKX-DEMO` 与固定 api_key_hint 演示卡片。`updateAccountsList` 真实登录态空凭证走空态「暂无已连接交易账户」，仅未登录/接口全挂（非真实）保留演示兜底；卡片按 `environment` 标注模拟盘/实盘。同时修正 14 处 `debugLog(msg, type)` 参数颠倒（级别↔消息）导致的系统日志级别筛选/计数失效；请求层、K线/WS/下单路径的裸 `console` 收口到系统日志通道，不改变控制流与返回值。
@@ -328,6 +338,7 @@
 - ✅ **#134 附带修复存量 HTML 嵌套未闭合缺陷**：`#page-validation` 内"策略拥挤度监控"面板与 validation 容器两处 `div` 未闭合，浏览器容错把 `logs/engine/about/wiki` 吞入其 `display:none` 子树，级联塌缩为 0×0 宽度；补两处闭合标签后 9 个页面全部回到 `MAIN.main-content` 平级。浏览器逐页复验宽度 967、内容按高度展开、控制台 0 报错；`index.html` div 开合配平 diff=0，`node --check app.js` exit 0。
 - ✅ **#135 Wiki 补充可复制成功经验与机构最佳实践对标**：`#page-wiki` 新增"🏆 可复制成功经验"8 条（真实契约先行/显式 id 回填/只读最小手数/单一事实源/新旧分层收口/闭环复验/容器部署纪律/故障沉淀闭环）与"🌐 全球机构最佳实践对标"表 6 行（Renaissance/Two Sigma/Citadel/DE Shaw/Millennium/Jane Street，列核心做法、现状差距、演进方向）；对标为方向参考，阈值仍须分布校准，不照搬机构数值。素材对齐 `docs/WIKI.md` 机构对标表；浏览器复验 11 分区标题、对标表 6 行、宽度 967、控制台 0 报错。
 - ✅ **#136 Wiki 沉淀第一性原理推导框架**：`#page-wiki` 宪法之后新增"🧭 第一性原理推导框架"分区：稳定盈利 = 正期望值 × 大数定律 × 不爆仓；五层闭环链（数据输入→信号生成→组合构建→订单执行→风控监控→绩效反馈，反馈回灌）；Alpha 四分类（行为偏差/信息优势/统计偏差/结构红利）；逆向致死清单（不止损/仓位重/过拟合/失效未识别/前视/高杠杆或全仓单一策略）。顶部声明同步纳入方法论框架；素材对齐 `docs/WIKI.md` 稳定盈利原理段，未新编数字。浏览器复验 12 分区标题、公式/闭环/分类/清单文本命中、宽度 967、控制台 0 报错。
+- ✅ **#198 策略中心交易对收口为现货主流品种**：后端品种规范化/分类/研究信号纯函数 + 出口派生字段；DB 快照 1/2/3 对齐 BTC/ETH/SOL-USDT 现货并修正凭证 id=2；4/5 sp500 研究信号保留并在详情弹窗标注「研究信号·不可实盘成交」。新单测 8 passed、策略子集 34 passed；容器探针与浏览器复验通过。遗留：历史版本脚本 manifest 仍是 sp500 池，V2 候选按 manifest 解析，合约层改动待拍板。
 
 
 ### 🔴 P1（核心口径，决定看板能否反映真实绩效）
@@ -353,6 +364,7 @@
 - **#107 共享风控 gate 复用三同步入口**：触碰实盘下单链路，受停止条件约束，待用户拍板。
 - **#108 周期对账 / 漂移告警**：需新增后台调度，确认后再动。
 - **#102 / #87 / #91 实盘全链路测试**：等 OKX 真实 Key 与最小手数验证；当前仅 OKX demo 只读 + 两笔 demo 成交闭环。
+- **#198 策略合约品种与顶层快照不一致**：1/2/3 历史版本脚本 manifest 仍是 sp500 池 + SPY benchmark，V2 会话候选按 manifest 解析，顶层 symbol 不驱动候选；需改脚本合约为 crypto 单品种并重编译版本、更新部署引用后才能在 OKX 现货成交。触碰合约/版本引用，按停止条件待人工确认。
 
 ### ⚠️ 未验证 / 技术债
 

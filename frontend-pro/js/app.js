@@ -738,9 +738,22 @@
             // 填充基本信息
             document.getElementById('detail-strategy-name').textContent = strategy.name || '策略详情';
             document.getElementById('detail-strategy-id').textContent = strategy.id || '--';
-            document.getElementById('detail-strategy-status').textContent = 
+            document.getElementById('detail-strategy-status').textContent =
                 (strategy.status === 'running' || strategy.status === 'active') ? '运行中' : '已停止';
             document.getElementById('detail-strategy-symbol').textContent = strategy.symbol || '--';
+            const symbolHintEl = document.getElementById('detail-strategy-symbol-hint');
+            const researchOnly = strategy.research_only === true
+                || strategy.symbol_kind === 'pool'
+                || strategy.execution_mode === 'signal';
+            if (symbolHintEl) {
+                if (researchOnly) {
+                    symbolHintEl.textContent = '研究信号·不可实盘成交';
+                    symbolHintEl.hidden = false;
+                } else {
+                    symbolHintEl.hidden = true;
+                    symbolHintEl.textContent = '';
+                }
+            }
             document.getElementById('detail-strategy-created').textContent = strategy.created_at || '--';
             
             // 绩效指标：优先取策略携带字段，后端未返回时显示 --，不编演示数字

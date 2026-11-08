@@ -993,6 +993,19 @@
             font-size: 13px;
             font-weight: 500;
         }
+        .detail-value-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .detail-hint {
+            font-size: 11px;
+            color: var(--warning-color);
+            background: var(--bg-tertiary);
+            padding: 1px 6px;
+            border-radius: 4px;
+            white-space: nowrap;
+        }
         .detail-stats-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);

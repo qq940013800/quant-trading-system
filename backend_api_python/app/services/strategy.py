@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any, Dict, List, Optional
 
 from app.utils.db import get_db_connection
@@ -13,6 +14,68 @@ logger = get_logger(__name__)
 _service: Optional["StrategyService"] = None
 MIN_STRATEGY_INVESTMENT_AMOUNT = 10.0
 MAX_STRATEGY_INVESTMENT_AMOUNT = 1_000_000.0
+
+_POOL_PREFIXES = ("UNIVERSE:", "POOL:", "INDEX:")
+_EQUITY_PREFIXES = ("USSTOCK:", "CNSTOCK:", "HKSTOCK:")
+_CRYPTO_QUOTES = ("USDT", "USDC", "USD", "BTC", "ETH")
+
+
+def normalize_strategy_symbol(symbol: Any) -> str:
+    """规范化面向展示/下单的策略品种。
+
+    - 组合池 / 指数 / 前缀引用（``universe:POOL:sp500``、``POOL:sp500``、
+      ``INDEX:...``、``USStock:SPY``）原样保留：它们不是可下单的单品种，
+      不能被强行改成 crypto 交易对。
+    - crypto 无斜杠 / 横杠 / 下划线 / 资金费后缀形式（``BTCUSDT``、``BTC-USDT``、
+      ``BTC/USDT:USDT``）规范成 ``BASE/QUOTE`` 斜杠格式。
+    - 空值返回空串。
+    """
+    raw = str(symbol or "").strip()
+    if not raw:
+        return ""
+    upper = raw.upper()
+    if upper.startswith(_POOL_PREFIXES) or upper.startswith(_EQUITY_PREFIXES):
+        return raw
+
+    sym = upper.replace("-", "/").replace("_", "/")
+    if ":" in sym:
+        head, _tail = sym.split(":", 1)
+        sym = head
+    if "/" in sym:
+        base, quote = sym.split("/", 1)
+        base, quote = base.strip(), quote.strip()
+        if base and quote:
+            return f"{base}/{quote}"
+    for quote in _CRYPTO_QUOTES:
+        if sym.endswith(quote) and len(sym) > len(quote):
+            return f"{sym[:-len(quote)]}/{quote}"
+    return raw
+
+
+def classify_strategy_symbol(symbol: Any) -> str:
+    """返回品种类别：``pool`` / ``crypto`` / ``equity`` / ``other`` / ``""``。"""
+    raw = str(symbol or "").strip()
+    if not raw:
+        return ""
+    upper = raw.upper()
+    if upper.startswith(_POOL_PREFIXES):
+        return "pool"
+    if "/" in upper or upper.endswith(_CRYPTO_QUOTES):
+        return "crypto"
+    if upper.startswith(_EQUITY_PREFIXES) or re.fullmatch(r"[A-Z][A-Z0-9.\-]{0,14}", upper):
+        return "equity"
+    return "other"
+
+
+def is_research_only_strategy(row: Dict[str, Any]) -> bool:
+    """研究信号策略不可在当前实盘通道成交：signal 模式或挂组合池品种。
+
+    live 模式 + 可下单单品种（crypto/equity 个股）不属于研究信号。
+    """
+    execution_mode = str(row.get("execution_mode") or "").strip().lower()
+    if execution_mode == "signal":
+        return True
+    return classify_strategy_symbol(row.get("symbol")) == "pool"
 
 
 def _strip_legacy_risk_pct_basis(value: Any) -> Any:
@@ -303,6 +366,10 @@ class StrategyService:
             for field in ("exchange_config", "trading_config", "notification_config"):
                 item[field] = _json_object(item.get(field))
             item["trading_config"] = _strip_legacy_risk_pct_basis(item.get("trading_config") or {})
+            normalized_symbol = normalize_strategy_symbol(item.get("symbol"))
+            item["symbol"] = normalized_symbol
+            item["symbol_kind"] = classify_strategy_symbol(normalized_symbol)
+            item["research_only"] = is_research_only_strategy(item)
             output.append(item)
         return output
 
