@@ -240,7 +240,7 @@ class TestEvaluateStops:
 # ------------------------------------------------------------------
 class TestStopsBoundary:
     def test_breakeven_branch_updates_stop(self):
-        """R 介于保本线与跟踪激活线之间：走保本分支，返回 PRICE_ATR。"""
+        """R 介于保本线与跟踪激活线之间：走保本分支，返回 BREAKEVEN。"""
         state = StopState(
             entry_price=100.0, direction=+1,
             entry_atr=2.0, entry_dist=2.0,
@@ -252,7 +252,10 @@ class TestStopsBoundary:
             state, config, current_price=101.0,
         )
         assert should_exit is False
-        assert stop_type == StopType.PRICE_ATR
+        assert stop_type == StopType.BREAKEVEN
+        # 审计可区分：保本止损不得被误标为初始 ATR 止损
+        assert state.stop_type == StopType.BREAKEVEN
+        assert stop_type != StopType.PRICE_ATR
         # 保本价 = entry + 0.1R × entry_dist = 100.2
         assert new_stop == pytest.approx(100.2)
         assert state.current_stop == pytest.approx(100.2)

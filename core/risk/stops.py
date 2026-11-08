@@ -41,11 +41,22 @@ class StopWideningError(Exception):
 
 
 class StopType(Enum):
-    """止损类型（四级止损体系）。"""
+    """止损类型（执行态分类，供审计回放区分止损来源）。
+
+    - TIME：时间止损；
+    - PRICE_ATR：初始 ATR 价格止损（入场冻结距离，未被保本/跟踪覆盖前）；
+    - SIGNAL：信号止损（入场逻辑反转）；
+    - TRAILING：跟踪止损（盈利后随峰值移动）；
+    - BREAKEVEN：保本止损（盈利达到 breakeven_r 后移到保本位）。
+
+    BREAKEVEN 独立于 PRICE_ATR：审计回放必须能区分「初始 ATR 止损」与
+    「已上移到保本的止损」，二者风险状态不同，不可混为一类。
+    """
     TIME = "time"           # 时间止损
-    PRICE_ATR = "price_atr" # ATR 价格止损
+    PRICE_ATR = "price_atr" # 初始 ATR 价格止损
     SIGNAL = "signal"       # 信号止损（入场逻辑反转）
     TRAILING = "trailing"   # 跟踪止损
+    BREAKEVEN = "breakeven" # 保本止损（盈利保护，锁定不亏/小赚）
 
 
 @dataclass
@@ -269,14 +280,14 @@ def evaluate_stops(state: StopState, config: StopConfig,
         state.stop_type = StopType.TRAILING
         return False, new_stop, StopType.TRAILING
 
-    # 4. 保本止损
+    # 4. 保本止损（独立分类 BREAKEVEN，区别于初始 ATR 止损）
     breakeven_stop = update_breakeven_stop(state, config)
     if breakeven_stop is not None:
         new_stop = update_stop(state.current_stop, breakeven_stop, state.direction,
                               symbol, ts_utc)
         state.current_stop = new_stop
-        state.stop_type = StopType.PRICE_ATR  # 还是价格止损的一种
-        return False, new_stop, StopType.PRICE_ATR
+        state.stop_type = StopType.BREAKEVEN
+        return False, new_stop, StopType.BREAKEVEN
 
     # 5. 基础 ATR 价格止损（不需要更新，保持原样）
     return False, None, StopType.PRICE_ATR
