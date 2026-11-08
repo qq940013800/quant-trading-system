@@ -68,6 +68,31 @@ class TradeSignal:
     reason: str = ""                 # 决策原因（可审计）
 
 
+def _read_trend_weight(regime_weights: dict | None) -> float:
+    """读取趋势权重，兼容两套键名口径。
+
+    - Signal/审计快照标准短键 ``trend`` 优先；
+    - 旧 ``features.regime`` 键 ``w_trend`` 回退；
+    - 两者都缺失或取值非有限时回退默认 0.5（中性，不冒充校准结果）。
+
+    避免未来按 Signal 口径传入 ``trend`` 键字典时，门控只读 ``w_trend``
+    而静默落到默认 0.5、旁路趋势过滤。
+    """
+    if not regime_weights:
+        return 0.5
+    for key in ("trend", "w_trend"):
+        val = regime_weights.get(key)
+        if val is None:
+            continue
+        try:
+            fval = float(val)
+        except (TypeError, ValueError):
+            continue
+        if np.isfinite(fval):
+            return fval
+    return 0.5
+
+
 class MLTrendStrategy:
     """AI/ML 增强趋势策略。
 
@@ -277,7 +302,7 @@ class MLTrendStrategy:
 
         # 第二步：市场状态门控
         if cfg.use_regime_filter and regime_weights:
-            w_trend = regime_weights.get("w_trend", 0.5)
+            w_trend = _read_trend_weight(regime_weights)
             if w_trend < cfg.min_trend_weight:
                 signal.reason = f"趋势权重不足（{w_trend:.2f} < {cfg.min_trend_weight}）"
                 return signal

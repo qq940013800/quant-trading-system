@@ -18,6 +18,7 @@ from core.models.ml_trend_strategy import (
     MLTrendStrategy,
     StrategyConfig,
     build_meta_labels,
+    _read_trend_weight,
 )
 
 
@@ -118,6 +119,30 @@ class TestFeatureEngineering:
         features2 = strategy._build_features(history2, as_of)
         # 特征应该完全一样（因为只用 as_of 之前的数据）
         np.testing.assert_array_almost_equal(features1, features2)
+
+
+# ------------------------------------------------------------------
+# 测试：门控趋势权重键名兼容
+# ------------------------------------------------------------------
+class TestTrendWeightReader:
+    def test_trend_short_key_takes_precedence(self):
+        """Signal 标准短键 trend 优先于旧 w_trend。"""
+        assert _read_trend_weight({"trend": 0.8, "w_trend": 0.2}) == pytest.approx(0.8)
+
+    def test_fallback_to_w_trend(self):
+        """无 trend 键时回退旧 w_trend。"""
+        assert _read_trend_weight({"w_trend": 0.4}) == pytest.approx(0.4)
+
+    def test_none_and_empty_default_to_neutral(self):
+        assert _read_trend_weight(None) == pytest.approx(0.5)
+        assert _read_trend_weight({}) == pytest.approx(0.5)
+
+    def test_missing_keys_default_to_neutral(self):
+        assert _read_trend_weight({"mr": 0.6, "range": 0.4}) == pytest.approx(0.5)
+
+    def test_non_finite_falls_back_to_neutral(self):
+        assert _read_trend_weight({"trend": np.nan}) == pytest.approx(0.5)
+        assert _read_trend_weight({"trend": "n/a"}) == pytest.approx(0.5)
 
 
 # ------------------------------------------------------------------
