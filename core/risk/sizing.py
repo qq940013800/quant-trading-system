@@ -19,6 +19,15 @@ import math
 import numpy as np
 
 
+def _finite(name: str, val: float) -> float:
+    """把输入转有限浮点数；NaN/inf 显式抛错（不静默产非法仓位）。"""
+    f = float(val)
+    if not np.isfinite(f):
+        raise ValueError({"layer": "risk.sizing",
+                           "detail": f"{name} must be finite: {val!r}"})
+    return f
+
+
 def quantile_threshold(values, q: float) -> float:
     """阈值来自分布（不变量 3）：从给定样本估计的 q 分位数派生阈值。
 
@@ -50,6 +59,14 @@ def target_lots(equity: float, risk_pct: float, atr0: float,
         max_lot:       最大手数（保护上限）
     返回：向下对齐 lot_step 的手数；低于 min_lot 返回 0.0。
     """
+    equity = _finite("equity", equity)
+    atr0 = _finite("atr0", atr0)
+    point_value = _finite("point_value", point_value)
+    lot_step = _finite("lot_step", lot_step)
+    risk_pct = _finite("risk_pct", risk_pct)
+    kelly_cap = _finite("kelly_cap", kelly_cap)
+    min_lot = _finite("min_lot", min_lot)
+    max_lot = _finite("max_lot", max_lot)
     if equity <= 0:
         raise ValueError({"layer": "risk.sizing", "detail": f"equity must be >0: {equity}"})
     if atr0 <= 0:
@@ -58,13 +75,21 @@ def target_lots(equity: float, risk_pct: float, atr0: float,
         raise ValueError({"layer": "risk.sizing", "detail": f"point_value must be >0: {point_value}"})
     if lot_step <= 0:
         raise ValueError({"layer": "risk.sizing", "detail": f"lot_step must be >0: {lot_step}"})
+    if risk_pct < 0:
+        raise ValueError({"layer": "risk.sizing", "detail": f"risk_pct must be >=0: {risk_pct}"})
+    if kelly_cap <= 0:
+        raise ValueError({"layer": "risk.sizing", "detail": f"kelly_cap must be >0: {kelly_cap}"})
+    if min_lot < 0:
+        raise ValueError({"layer": "risk.sizing", "detail": f"min_lot must be >=0: {min_lot}"})
+    if max_lot <= 0:
+        raise ValueError({"layer": "risk.sizing", "detail": f"max_lot must be >0: {max_lot}"})
 
     # fractional Kelly 上限：单笔风险比例不得超过 kelly_cap（设计：1/4~1/2 Kelly）
-    eff_risk_pct = min(float(risk_pct), float(kelly_cap))
+    eff_risk_pct = min(risk_pct, kelly_cap)
     risk_budget = equity * eff_risk_pct
 
     # 每手止损亏损 = 冻结止损距离 × point_value
-    per_unit_risk = float(atr0) * float(point_value)
+    per_unit_risk = atr0 * point_value
     raw_lots = risk_budget / per_unit_risk
 
     # 向下对齐 lot_step（禁止四舍五入放大风险）
@@ -73,7 +98,7 @@ def target_lots(equity: float, risk_pct: float, atr0: float,
     lots = round(lots, 8)
     if lots < min_lot:
         return 0.0
-    return min(lots, float(max_lot))
+    return min(lots, max_lot)
 
 
 def vol_target_scale(realized_vol: float, target_vol: float) -> float:
@@ -82,6 +107,8 @@ def vol_target_scale(realized_vol: float, target_vol: float) -> float:
     scale = min(1.0, target_vol / realized_vol)。由引擎乘到 target_lots 结果上。
     realized_vol/target_vol 均由调用方从 CLEAN 分布估计（config 给出目标）。
     """
+    realized_vol = _finite("realized_vol", realized_vol)
+    target_vol = _finite("target_vol", target_vol)
     if realized_vol <= 0 or target_vol <= 0:
         raise ValueError({"layer": "risk.sizing", "detail":
                            f"vol must be >0: realized={realized_vol}, target={target_vol}"})

@@ -98,3 +98,30 @@ def test_vol_target_rejects_nonpositive_inputs():
 
 def test_vol_target_equal_vol_is_one():
     assert vol_target_scale(0.15, 0.15) == 1.0
+
+
+def test_target_lots_rejects_nonfinite_and_negative_params():
+    def call(risk_pct=0.01, kelly_cap=1.0, min_lot=0.01, max_lot=100.0):
+        return target_lots(equity=10_000, risk_pct=risk_pct, atr0=2.0,
+                           point_value=100, min_lot=min_lot, lot_step=0.01,
+                           kelly_cap=kelly_cap, max_lot=max_lot)
+    # risk_pct 负 / NaN；kelly_cap 0 / inf；min_lot 负；max_lot NaN
+    with pytest.raises(ValueError):
+        call(risk_pct=-0.01)
+    with pytest.raises(ValueError):
+        call(risk_pct=float("nan"))
+    with pytest.raises(ValueError):
+        call(kelly_cap=0.0)
+    with pytest.raises(ValueError):
+        call(kelly_cap=float("inf"))
+    with pytest.raises(ValueError):
+        call(min_lot=-0.01)
+    with pytest.raises(ValueError):
+        call(max_lot=float("nan"))
+
+
+def test_vol_target_rejects_nonfinite_inputs():
+    for realized, target in ((float("nan"), 0.1), (0.1, float("nan")),
+                             (float("inf"), 0.1), (0.1, float("inf"))):
+        with pytest.raises(ValueError):
+            vol_target_scale(realized, target)
