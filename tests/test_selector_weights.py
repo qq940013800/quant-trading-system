@@ -117,3 +117,21 @@ def test_target_validation():
         DeadbandWeightState(("a", "b"), alpha=0.0)
     with pytest.raises(WeightStateError):
         DeadbandWeightState(("a", "b"), confirm_n=0)
+
+
+def test_target_rejects_nonfinite_weight():
+    ws = DeadbandWeightState(("a", "b"))
+    with pytest.raises(WeightStateError):
+        ws.update({"a": float("nan"), "b": 1.0 - float("nan")})
+    with pytest.raises(WeightStateError):
+        ws.update({"a": float("inf"), "b": 0.0})
+    with pytest.raises(WeightStateError):
+        DeadbandWeightState(("a", "b"),
+                             initial={"a": float("-inf"), "b": float("inf")})
+
+
+def test_blend_strength_rejects_bad_direction_and_weight():
+    with pytest.raises(WeightStateError):
+        blend_strength({"a": 2}, {"a": 0.5})
+    with pytest.raises(WeightStateError):
+        blend_strength({"a": 1}, {"a": float("nan")})

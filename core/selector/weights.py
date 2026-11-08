@@ -19,6 +19,7 @@
 """
 from __future__ import annotations
 
+import math
 from typing import Dict, Optional, Sequence
 
 
@@ -101,6 +102,10 @@ class DeadbandWeightState:
             raise WeightStateError({
                 "layer": "selector.weights",
                 "detail": f"target weights must be >= 0: {target}"})
+        if any(not math.isfinite(float(v)) for v in target.values()):
+            raise WeightStateError({
+                "layer": "selector.weights",
+                "detail": f"target weights must be finite: {target}"})
         total = float(sum(target.values()))
         if abs(total - 1.0) > 1e-6:
             raise WeightStateError({
@@ -203,7 +208,16 @@ def blend_strength(directions: Dict[str, int],
     """
     net = 0.0
     for name, d in directions.items():
-        net += float(weights.get(name, 0.0)) * int(d)
+        if d not in (-1, 1):
+            raise WeightStateError({
+                "layer": "selector.weights",
+                "detail": f"direction must be -1 or 1: {name!r}={d!r}"})
+        w = float(weights.get(name, 0.0))
+        if not math.isfinite(w):
+            raise WeightStateError({
+                "layer": "selector.weights",
+                "detail": f"weight must be finite: {name!r}={w!r}"})
+        net += w * int(d)
     return abs(net)
 
 
