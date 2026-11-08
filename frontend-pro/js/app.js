@@ -1708,7 +1708,9 @@
             strategies = strategies.map(s => ({
                 ...s,
                 name: s.name || s.strategy_name || '未命名策略',
-                status: s.status || s.execution_mode === 'live' ? 'running' : 'stopped',
+                // 运行态只认后端落库 status；execution_mode（live/signal）是交易模式维度，
+                // 不能兜底成 running，否则 stopped 策略被误标“运行中”。
+                status: (s.status === 'running' || s.status === 'active') ? 'running' : 'stopped',
                 today_pnl: s.today_pnl ?? s.daily_pnl ?? s.pnl_today ?? null,
                 win_rate: s.win_rate ?? s.winrate ?? null,
                 sharpe: s.sharpe ?? s.sharpe_ratio ?? null,
