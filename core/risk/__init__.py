@@ -8,6 +8,12 @@ from .state import RiskState
 from .stops import StopWideningError, update_stop, initial_stop
 from .sizing import target_lots, vol_target_scale, quantile_threshold
 from .circuit import CircuitBreaker, CircuitState
+from .risk_budget import (
+    risk_budget_weights,
+    correlation_pairs,
+    average_pairwise_correlation,
+    correlation_breaker,
+)
 
 __all__ = [
     "RiskState",
@@ -19,4 +25,8 @@ __all__ = [
     "quantile_threshold",
     "CircuitBreaker",
     "CircuitState",
+    "risk_budget_weights",
+    "correlation_pairs",
+    "average_pairwise_correlation",
+    "correlation_breaker",
 ]
