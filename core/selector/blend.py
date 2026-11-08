@@ -24,6 +24,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from typing import Dict, List, Optional
 
 import pandas as pd
@@ -115,10 +116,11 @@ class RegimeBlendedStrategy:
                 raise BlendConfigError({
                     "layer": "selector.blend", "strategy": name,
                     "detail": f"regime keys {bad} not in {STATES}"})
-        if float(min_strength) < 0.0 or float(min_strength) > 1.0:
+        ms = float(min_strength)
+        if not math.isfinite(ms) or ms < 0.0 or ms > 1.0:
             raise BlendConfigError({
                 "layer": "selector.blend",
-                "detail": f"min_strength must be in [0,1], got {min_strength!r}"})
+                "detail": f"min_strength must be finite in [0,1], got {min_strength!r}"})
         self._classifier = regime_classifier
         self._names = list(strategy_names)
         self._map = {n: ((expert_regime_map[n],)

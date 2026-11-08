@@ -189,3 +189,17 @@ def test_signal_regime_weights_use_short_keys(plug_experts, bars):
     assert abs(sum(sig.regime_weights.values()) - 1.0) < 1e-9
     # 内部 selection 快照仍保留长键 probs 口径
     assert set(sig.selection["regime_probs"]) == set(STATES)
+
+
+def test_config_rejects_nonfinite_min_strength(plug_experts):
+    ws = DeadbandWeightState(["e_trend", "e_mr"], alpha=1.0,
+                             deadband=0.0, confirm_n=1)
+    clf = StubClassifier()
+    for bad in (float("nan"), float("inf"), float("-inf"), 1.5, -0.2):
+        with pytest.raises(blend_mod.BlendConfigError):
+            RegimeBlendedStrategy(
+                regime_classifier=clf,
+                strategy_names=["e_trend", "e_mr"],
+                expert_regime_map={"e_trend": "trend",
+                                   "e_mr": "mean_reversion"},
+                weight_state=ws, min_strength=bad)
