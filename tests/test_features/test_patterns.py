@@ -19,7 +19,12 @@ from core.features.patterns import (
     bear_fvg,
     bull_engulfing,
     bear_engulfing,
+    piercing,
+    dark_cloud_cover,
+    morning_star,
+    evening_star,
 )
+from core.features.base import AsOfContractError, LookAheadError
 
 
 # ------------------------------------------------------------------
@@ -271,3 +276,60 @@ class TestEngulfingWrappers:
         )
         ts = pd.Timestamp("2024-01-02", tz="UTC")
         assert bear_engulfing(history, ts) == 1.0
+
+
+# ------------------------------------------------------------------
+# 两根/三根反转形态守卫包装器
+# ------------------------------------------------------------------
+class TestReversalWrappers:
+    def test_piercing_wrapper(self):
+        history = make_bars(
+            (100, 101, 95, 96),
+            (94, 100, 93, 99),
+        )
+        ts = pd.Timestamp("2024-01-02", tz="UTC")
+        assert piercing(history, ts) == 1.0
+
+    def test_dark_cloud_cover_wrapper(self):
+        history = make_bars(
+            (100, 110, 99, 109),
+            (111, 112, 103, 104),
+        )
+        ts = pd.Timestamp("2024-01-02", tz="UTC")
+        assert dark_cloud_cover(history, ts) == 1.0
+
+    def test_morning_star_wrapper(self):
+        history = make_bars(
+            (100, 101, 90, 91),
+            (91, 92, 89, 90.5),
+            (90.5, 98, 90, 97),
+        )
+        ts = pd.Timestamp("2024-01-03", tz="UTC")
+        assert morning_star(history, ts) == 1.0
+
+    def test_evening_star_wrapper(self):
+        history = make_bars(
+            (90, 100, 89, 99),
+            (99, 101, 98, 99.5),
+            (99.5, 100, 92, 93),
+        )
+        ts = pd.Timestamp("2024-01-03", tz="UTC")
+        assert evening_star(history, ts) == 1.0
+
+    def test_future_bar_rejected(self):
+        """包装器对 history 中 ts > as_of 的 bar 抛 LookAheadError。"""
+        history = make_bars(
+            (100, 101, 95, 96),
+            (94, 100, 93, 99),
+        )
+        as_of = history[0].ts_utc  # 第二根 > as_of
+        with pytest.raises(LookAheadError):
+            piercing(history, as_of)
+
+    def test_naive_as_of_rejected(self):
+        history = make_bars(
+            (100, 101, 95, 96),
+            (94, 100, 93, 99),
+        )
+        with pytest.raises(AsOfContractError):
+            piercing(history, pd.Timestamp("2024-01-02"))

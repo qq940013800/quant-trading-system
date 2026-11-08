@@ -264,3 +264,30 @@ def bull_engulfing(history: list, as_of: pd.Timestamp) -> float:
 def bear_engulfing(history: list, as_of: pd.Timestamp) -> float:
     """空头吞没（当前阴线实体包住前一根阳线实体）。"""
     return 1.0 if is_engulfing(history, direction="bearish") else 0.0
+
+
+# ------------------------------------------------------------------
+# 两根/三根反转形态守卫包装入口（生产/回测逐 bar 调用）
+# ------------------------------------------------------------------
+@as_of
+def piercing(history: list, as_of: pd.Timestamp) -> float:
+    """刺透形态（看涨反转）守卫入口，返回 1.0/0.0。"""
+    return 1.0 if is_piercing(history) else 0.0
+
+
+@as_of
+def dark_cloud_cover(history: list, as_of: pd.Timestamp) -> float:
+    """乌云盖顶（看跌反转）守卫入口，返回 1.0/0.0。"""
+    return 1.0 if is_dark_cloud_cover(history) else 0.0
+
+
+@as_of
+def morning_star(history: list, as_of: pd.Timestamp) -> float:
+    """启明星（底部反转）守卫入口，返回 1.0/0.0。"""
+    return 1.0 if is_morning_star(history) else 0.0
+
+
+@as_of
+def evening_star(history: list, as_of: pd.Timestamp) -> float:
+    """黄昏星（顶部反转）守卫入口，返回 1.0/0.0。"""
+    return 1.0 if is_evening_star(history) else 0.0
