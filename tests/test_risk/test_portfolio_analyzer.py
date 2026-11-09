@@ -150,3 +150,45 @@ class TestHighCorrThreshold:
         # 非法/越界阈值回退默认 0.7，近乎同向对仍告警，且不崩溃
         assert rep["status"] == "ok"
         assert len(rep["high_correlation_warnings"]) == 1
+
+
+class TestAnalyzerInputGuards:
+    def _pair(self):
+        return {"a": _returns(1), "b": _returns(2)}, {"a": 0.5, "b": 0.5}
+
+    def test_returns_must_be_dict(self):
+        pa = PortfolioAnalyzer()
+        with pytest.raises(ValueError):
+            pa.analyze_portfolio(["a", "b"], {"a": 0.5})
+
+    def test_weights_must_be_dict(self):
+        pa = PortfolioAnalyzer()
+        returns, _ = self._pair()
+        with pytest.raises(ValueError):
+            pa.analyze_portfolio(returns, [0.5, 0.5])
+
+    @pytest.mark.parametrize("bad", ["not-a-seq", {"x": 1.0}])
+    def test_returns_series_must_be_sequence(self, bad):
+        pa = PortfolioAnalyzer()
+        with pytest.raises(ValueError):
+            pa.analyze_portfolio({"a": bad, "b": _returns(2)}, {"a": 0.5, "b": 0.5})
+
+    @pytest.mark.parametrize("bad", [np.nan, np.inf, True, "0.01", None])
+    def test_return_element_must_be_finite_num(self, bad):
+        pa = PortfolioAnalyzer()
+        with pytest.raises(ValueError):
+            pa.analyze_portfolio({"a": [0.01, bad], "b": [0.02, -0.01]},
+                                 {"a": 0.5, "b": 0.5})
+
+    @pytest.mark.parametrize("bad", [np.nan, np.inf, True, "0.5"])
+    def test_weight_must_be_finite_num(self, bad):
+        pa = PortfolioAnalyzer()
+        with pytest.raises(ValueError):
+            pa.analyze_portfolio({"a": _returns(1), "b": _returns(2)},
+                                {"a": bad, "b": 0.5})
+
+    def test_weight_key_must_match_returns(self):
+        pa = PortfolioAnalyzer()
+        with pytest.raises(ValueError):
+            pa.analyze_portfolio({"a": _returns(1), "b": _returns(2)},
+                                 {"a": 0.5, "b": 0.5, "ghost": 0.2})

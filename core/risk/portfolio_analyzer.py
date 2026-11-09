@@ -33,6 +33,36 @@ def _high_corr_threshold(value: float) -> float:
     return v
 
 
+def _finite_num(name: str, val: object) -> float:
+    """有限数值守卫：排 bool/非数值/NaN/Inf。"""
+    if isinstance(val, bool) or not isinstance(val, (int, float)) \
+            or not np.isfinite(val):
+        raise ValueError({"layer": "risk.portfolio_analyzer",
+                          "detail": f"{name} 必须为有限数值，收到 {val!r}"})
+    return float(val)
+
+
+def _validate_inputs(strategy_returns: Dict[str, List[float]],
+                    strategy_weights: Dict[str, float]) -> None:
+    if not isinstance(strategy_returns, dict):
+        raise ValueError({"layer": "risk.portfolio_analyzer",
+                          "detail": "strategy_returns 必须为 dict"})
+    if not isinstance(strategy_weights, dict):
+        raise ValueError({"layer": "risk.portfolio_analyzer",
+                          "detail": "strategy_weights 必须为 dict"})
+    for s, series in strategy_returns.items():
+        if not isinstance(series, (list, tuple)):
+            raise ValueError({"layer": "risk.portfolio_analyzer",
+                              "detail": f"策略 {s!r} 收益序列必须为 list/tuple"})
+        for i, v in enumerate(series):
+            _finite_num(f"策略 {s!r} 收益[{i}]", v)
+    for s, w in strategy_weights.items():
+        if s not in strategy_returns:
+            raise ValueError({"layer": "risk.portfolio_analyzer",
+                              "detail": f"权重键 {s!r} 不在 strategy_returns 中"})
+        _finite_num(f"策略 {s!r} 权重", w)
+
+
 class PortfolioAnalyzer:
     """组合层面风险诊断器。
 
@@ -62,6 +92,7 @@ class PortfolioAnalyzer:
             组合风险分析报告
         """
         threshold = _high_corr_threshold(high_corr_threshold)
+        _validate_inputs(strategy_returns, strategy_weights)
         strategies = list(strategy_returns.keys())
         n = len(strategies)
 
