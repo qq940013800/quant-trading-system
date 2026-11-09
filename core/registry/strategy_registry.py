@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -62,6 +63,38 @@ class PerformanceSnapshot:
     deflated_sharpe: float = 0.0     # 校正后夏普（考虑试验次数）
     pbo: float = 1.0                 # 过拟合概率（越低越好）
     evaluated_at: datetime = field(default_factory=datetime.now)
+
+    def __post_init__(self) -> None:
+        def _finite(name: str, val: float) -> float:
+            if isinstance(val, bool) or not isinstance(val, (int, float)) \
+                    or not math.isfinite(val):
+                raise ValueError(f"{name} 必须为有限数值，收到 {val!r}")
+            return float(val)
+
+        def _nonneg(name: str, val: float) -> float:
+            v = _finite(name, val)
+            if v < 0:
+                raise ValueError(f"{name} 必须为非负有限数值，收到 {val!r}")
+            return v
+
+        def _unit(name: str, val: float) -> float:
+            v = _nonneg(name, val)
+            if v > 1:
+                raise ValueError(f"{name} 必须在 [0,1] 内，收到 {val!r}")
+            return v
+
+        for name in ("sharpe", "sortino", "calmar",
+                     "avg_r_multiple", "deflated_sharpe"):
+            setattr(self, name, _finite(name, getattr(self, name)))
+        self.max_drawdown = _nonneg("max_drawdown", self.max_drawdown)
+        self.profit_factor = _nonneg("profit_factor", self.profit_factor)
+        self.win_rate = _unit("win_rate", self.win_rate)
+        self.pbo = _unit("pbo", self.pbo)
+        if isinstance(self.total_trades, bool) \
+                or not isinstance(self.total_trades, int) \
+                or self.total_trades < 0:
+            raise ValueError(
+                f"total_trades 必须为非负整数，收到 {self.total_trades!r}")
 
 
 @dataclass

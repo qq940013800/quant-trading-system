@@ -137,3 +137,15 @@ class TestSerialization:
         m.transition(ModelStage.PRODUCTION)
         restored = ModelVersion.from_dict(m.to_dict())
         assert restored.stage == ModelStage.PRODUCTION
+
+
+class TestSeedGuards:
+    @pytest.mark.parametrize("bad", [-1, 1.5, True, "7"])
+    def test_invalid_seed_rejected(self, bad):
+        with pytest.raises(ValueError):
+            _make(seed=bad)
+
+    @pytest.mark.parametrize("seed", [None, 0, 42])
+    def test_valid_seed_accepted(self, seed):
+        m = _make(seed=seed)
+        assert m.seed == seed

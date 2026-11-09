@@ -79,6 +79,13 @@ class ModelVersion:
     stage: ModelStage = ModelStage.CANDIDATE
     _frozen: bool = field(default=False, init=False, repr=False)
 
+    def __post_init__(self) -> None:
+        if self.seed is not None:
+            if isinstance(self.seed, bool) or not isinstance(self.seed, int) \
+                    or self.seed < 0:
+                raise ValueError(
+                    f"seed 必须为非负整数或 None，收到 {self.seed!r}")
+
     # ------------------------------------------------------------------ 状态
     def freeze(self) -> None:
         """冻结关键快照（只有 CANDIDATE 可主动冻结）。"""

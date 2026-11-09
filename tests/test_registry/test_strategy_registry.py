@@ -285,3 +285,44 @@ class TestRegistry:
         assert "period" in diff["parameter_diff"]
         assert "sharpe" in diff["performance_diff"]
         assert diff["performance_diff"]["sharpe"]["delta"] == pytest.approx(0.3)
+
+
+class TestPerformanceSnapshotGuards:
+    @pytest.mark.parametrize("kw", [
+        {"sharpe": float("nan")}, {"sharpe": float("inf")},
+        {"sortino": float("nan")}, {"calmar": float("inf")},
+        {"avg_r_multiple": float("nan")}, {"deflated_sharpe": float("inf")},
+    ])
+    def test_non_finite_ratio_rejected(self, kw):
+        with pytest.raises(ValueError):
+            PerformanceSnapshot(**kw)
+
+    @pytest.mark.parametrize("kw", [
+        {"max_drawdown": -0.1}, {"max_drawdown": float("nan")},
+        {"profit_factor": -0.2}, {"profit_factor": float("inf")},
+    ])
+    def test_nonneg_metric_rejected(self, kw):
+        with pytest.raises(ValueError):
+            PerformanceSnapshot(**kw)
+
+    @pytest.mark.parametrize("kw", [
+        {"win_rate": 1.2}, {"win_rate": -0.1}, {"win_rate": float("nan")},
+        {"pbo": 1.2}, {"pbo": -0.1}, {"pbo": float("nan")},
+    ])
+    def test_unit_metric_rejected(self, kw):
+        with pytest.raises(ValueError):
+            PerformanceSnapshot(**kw)
+
+    @pytest.mark.parametrize("kw", [
+        {"total_trades": -1}, {"total_trades": 1.5}, {"total_trades": True},
+    ])
+    def test_nonneg_int_trades_rejected(self, kw):
+        with pytest.raises(ValueError):
+            PerformanceSnapshot(**kw)
+
+    def test_valid_snapshot_accepted(self):
+        snap = PerformanceSnapshot(
+            sharpe=-0.5, sortino=-0.3, calmar=0.2, max_drawdown=0.15,
+            win_rate=0.5, profit_factor=1.2, total_trades=42,
+            avg_r_multiple=0.1, deflated_sharpe=-0.2, pbo=0.3)
+        assert snap.total_trades == 42
