@@ -68,3 +68,25 @@ def test_replay_missing_inputs_raises(tmp_path):
            "reject_reason": None, "feature_snapshot": {"equity": 1000}}
     with pytest.raises(ReplayMismatch):
         replay_decision(rec)
+
+
+def test_replay_rec_must_be_dict():
+    with pytest.raises(ReplayMismatch):
+        replay_decision(["not", "a", "dict"])
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), -1.0, True])
+def test_tol_must_be_finite_nonneg(bad):
+    rec = {"accepted": False, "final_signed_lots": 0.0,
+           "feature_snapshot": _fs()}
+    with pytest.raises(ReplayMismatch):
+        replay_decision(rec, tol=bad)
+
+
+def test_tol_zero_accepted_still_matches(tmp_path):
+    dec = _dec("D5", True, 2.5, None, _fs())
+    p = tmp_path / "d.jsonl"
+    write_decision(str(p), dec)
+    rec = read_decisions(str(p))[0]
+    out = replay_decision(rec, tol=0.0)
+    assert out["ok"] is True

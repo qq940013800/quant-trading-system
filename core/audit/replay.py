@@ -7,9 +7,17 @@
 from __future__ import annotations
 
 import json
+import math
 from typing import Optional
 
 from ..risk.sizing import target_lots
+
+
+def _nonneg_finite(name: str, val: float) -> float:
+    if isinstance(val, bool) or not isinstance(val, (int, float)) \
+            or not math.isfinite(val) or val < 0:
+        raise ReplayMismatch(f"{name} 必须为有限非负数值，收到 {val!r}")
+    return float(val)
 
 
 class ReplayMismatch(Exception):
@@ -50,6 +58,9 @@ def replay_decision(rec: dict, tol: float = 1e-6) -> dict:
                  final_signed_lots / reject_reason。
     返回 {ok, recomputed_lots, stored_lots, accepted, reject_reason}；不一致抛 ReplayMismatch。
     """
+    if not isinstance(rec, dict):
+        raise ReplayMismatch(f"rec 必须为 dict，收到 {type(rec).__name__}")
+    tol = _nonneg_finite("tol", tol)
     fs = rec.get("feature_snapshot") or {}
     missing = [k for k in _REQUIRED_KEYS if k not in fs]
     if missing:
