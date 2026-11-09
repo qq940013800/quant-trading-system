@@ -25,6 +25,46 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 
+def _finite(name: str, val: float) -> float:
+    if not isinstance(val, (int, float)) or isinstance(val, bool) \
+            or not np.isfinite(val):
+        raise ValueError(f"{name} 必须为有限数值，收到 {val!r}")
+    return float(val)
+
+
+def _positive_finite(name: str, val: float) -> float:
+    v = _finite(name, val)
+    if v <= 0:
+        raise ValueError(f"{name} 必须 > 0，收到 {v!r}")
+    return v
+
+
+def _unit_open(name: str, val: float) -> float:
+    v = _finite(name, val)
+    if v <= 0 or v >= 1:
+        raise ValueError(f"{name} 必须位于 (0, 1) 开区间，收到 {v!r}")
+    return v
+
+
+def _nonneg_finite(name: str, val: float) -> float:
+    v = _finite(name, val)
+    if v < 0:
+        raise ValueError(f"{name} 必须 >= 0，收到 {v!r}")
+    return v
+
+
+def _as_int(name: str, val: int) -> int:
+    if isinstance(val, bool) or not isinstance(val, int):
+        raise ValueError(f"{name} 必须为整数，收到 {val!r}")
+    return val
+
+
+def _nonempty_str(name: str, val: str) -> str:
+    if not isinstance(val, str) or not val.strip():
+        raise ValueError(f"{name} 必须为非空字符串，收到 {val!r}")
+    return val
+
+
 # ------------------------------------------------------------------
 # 数据类
 # ------------------------------------------------------------------
@@ -42,6 +82,24 @@ class ABTestConfig:
     max_experiment_days: int = 90  # 最长实验周期
     min_experiment_days: int = 20  # 最短实验周期
     risk_aversion: float = 1.0   # 风险厌恶系数
+
+    def __post_init__(self) -> None:
+        _nonempty_str("strategy_a_name", self.strategy_a_name)
+        _nonempty_str("strategy_b_name", self.strategy_b_name)
+        _positive_finite("min_detectable_effect",
+                         self.min_detectable_effect)
+        _unit_open("alpha", self.alpha)
+        _unit_open("power", self.power)
+        lo = _as_int("min_experiment_days", self.min_experiment_days)
+        hi = _as_int("max_experiment_days", self.max_experiment_days)
+        if lo < 1 or hi < 1:
+            raise ValueError(
+                f"实验周期天数必须 >= 1，收到 min={lo}, max={hi}")
+        if lo > hi:
+            raise ValueError(
+                f"min_experiment_days 不能大于 max_experiment_days，"
+                f"收到 min={lo}, max={hi}")
+        _nonneg_finite("risk_aversion", self.risk_aversion)
 
 
 @dataclass

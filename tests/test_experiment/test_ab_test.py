@@ -115,3 +115,38 @@ class TestMultipleTestingCorrection:
         fdr_results = fdr_correction(p_values, alpha=0.05)
         # FDR应该允许更多显著结果
         assert sum(fdr_results) >= sum(bonf_results)
+
+
+class TestABConfigGuards:
+    def _base(self, **kw):
+        base = dict(strategy_a_name="v1", strategy_b_name="v2",
+                    min_detectable_effect=0.1)
+        base.update(kw)
+        return ABTestConfig(**base)
+
+    @pytest.mark.parametrize("kw", [
+        {"strategy_a_name": ""}, {"strategy_a_name": None},
+        {"strategy_b_name": ""},
+        {"min_detectable_effect": 0}, {"min_detectable_effect": -0.1},
+        {"min_detectable_effect": np.nan},
+        {"alpha": 0.0}, {"alpha": 1.0}, {"alpha": np.nan},
+        {"power": 0.0}, {"power": 1.0}, {"power": np.nan},
+        {"max_experiment_days": 0}, {"max_experiment_days": 30.0},
+        {"max_experiment_days": True},
+        {"min_experiment_days": 0}, {"min_experiment_days": 20.0},
+        {"min_experiment_days": 30, "max_experiment_days": 20},
+        {"risk_aversion": -0.1}, {"risk_aversion": np.nan},
+    ])
+    def test_invalid_config_rejected(self, kw):
+        with pytest.raises(ValueError):
+            self._base(**kw)
+
+    def test_default_and_custom_valid_accepted(self):
+        cfg = ABTestConfig(strategy_a_name="v1", strategy_b_name="v2",
+                           min_detectable_effect=0.2)
+        assert cfg.alpha == pytest.approx(0.05)
+        assert cfg.power == pytest.approx(0.8)
+        custom = self._base(alpha=0.1, power=0.9,
+                            min_experiment_days=10, max_experiment_days=60,
+                            risk_aversion=2.0)
+        assert custom.risk_aversion == pytest.approx(2.0)
