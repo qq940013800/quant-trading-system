@@ -2,6 +2,7 @@
 """tests.test_backtest.test_stress_test —— 压力测试模块测试。"""
 from __future__ import annotations
 
+import numpy as np
 import pytest
 
 from core.backtest.stress_test import (
@@ -96,3 +97,20 @@ class TestStressTester:
         assert "name" in worst
         assert "total_loss" in worst
         assert worst["total_loss"] > 0
+
+
+class TestConstructorGuards:
+    @pytest.mark.parametrize("kw", [
+        {"initial_equity": 0.0}, {"initial_equity": -1000.0},
+        {"initial_equity": np.nan}, {"initial_equity": np.inf},
+        {"max_leverage": 0.0}, {"max_leverage": -2.0},
+        {"max_leverage": np.nan},
+    ])
+    def test_non_positive_or_non_finite_rejected(self, kw):
+        with pytest.raises(ValueError):
+            StressTester(**kw)
+
+    def test_valid_construction_accepted(self):
+        t = StressTester(initial_equity=200000.0, max_leverage=5.0)
+        assert t.initial_equity == 200000.0
+        assert t.max_leverage == 5.0

@@ -20,6 +20,12 @@ from typing import Optional
 import numpy as np
 
 
+def _positive_finite(name: str, val: float) -> float:
+    if not np.isfinite(val) or val <= 0:
+        raise ValueError(f"{name} 必须为 >0 有限数值，收到 {val!r}")
+    return val
+
+
 @dataclass
 class StressScenario:
     """压力测试情景定义。
@@ -118,8 +124,8 @@ class StressTester:
 
     def __init__(self, initial_equity: float = 100000.0,
                  max_leverage: float = 10.0):
-        self.initial_equity = initial_equity
-        self.max_leverage = max_leverage
+        self.initial_equity = _positive_finite("initial_equity", initial_equity)
+        self.max_leverage = _positive_finite("max_leverage", max_leverage)
 
     def run_scenario(self, scenario: StressScenario,
                     current_exposure: float = 0.02) -> StressTestResult:
