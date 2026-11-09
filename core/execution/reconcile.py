@@ -18,6 +18,7 @@
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -27,12 +28,30 @@ _DEFAULT_QTY_ABS = 1e-6
 _DEFAULT_QTY_REL = 1e-4
 
 
+def _finite_nonneg(name: str, val: Any) -> float:
+    if not isinstance(val, (int, float)) or isinstance(val, bool) \
+            or not math.isfinite(val) or val < 0:
+        raise ValueError(f"{name} 必须为非负有限数值，收到 {val!r}")
+    return float(val)
+
+
+def _finite_unit(name: str, val: Any) -> float:
+    if not isinstance(val, (int, float)) or isinstance(val, bool) \
+            or not math.isfinite(val) or not (0 <= val <= 1):
+        raise ValueError(f"{name} 必须为 [0,1] 内有限数值，收到 {val!r}")
+    return float(val)
+
+
 @dataclass(frozen=True)
 class Tolerance:
     """数量比较容忍度：绝对 + 相对，取较大者。"""
 
     qty_abs: float = _DEFAULT_QTY_ABS
     qty_rel: float = _DEFAULT_QTY_REL
+
+    def __post_init__(self) -> None:
+        _finite_nonneg("qty_abs", self.qty_abs)
+        _finite_unit("qty_rel", self.qty_rel)
 
     def equals(self, a: float, b: float) -> bool:
         limit = max(self.qty_abs, self.qty_rel * max(abs(float(a)), abs(float(b))))
@@ -337,6 +356,7 @@ def aggregate_fills_to_positions(
     - 列名别名映射（lots/direction 等）属适配器职责；本函数只接受已归一的
       `symbol/side/quantity` 字段。
     """
+    flat_net = _finite_nonneg("flat_net", flat_net)
     net: dict[str, float] = {}
     dropped: list[dict[str, Any]] = []
 

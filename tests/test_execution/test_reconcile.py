@@ -271,3 +271,26 @@ def test_aggregate_empty_input():
     agg = aggregate_fills_to_positions(None)
     assert agg.positions == []
     assert agg.dropped == []
+
+
+class TestReconcileGuardGuards:
+    @pytest.mark.parametrize("bad", [-1.0, True, float("nan"), float("inf"), "1e-6"])
+    def test_invalid_qty_abs_rejected(self, bad):
+        with pytest.raises(ValueError):
+            Tolerance(qty_abs=bad)
+
+    @pytest.mark.parametrize("bad", [-0.1, 1.5, True, float("nan"), float("inf")])
+    def test_invalid_qty_rel_rejected(self, bad):
+        with pytest.raises(ValueError):
+            Tolerance(qty_rel=bad)
+
+    @pytest.mark.parametrize("bad", [-1e-12, True, float("nan"), float("inf"), "1e-12"])
+    def test_invalid_flat_net_rejected(self, bad):
+        with pytest.raises(ValueError):
+            aggregate_fills_to_positions(None, flat_net=bad)
+
+    def test_valid_tolerance_accepted(self):
+        tol = Tolerance(qty_abs=1e-3, qty_rel=0.0)
+        assert tol.equals(1.0, 1.0005)
+        agg = aggregate_fills_to_positions(None, flat_net=1e-12)
+        assert agg.positions == []
