@@ -333,3 +333,52 @@ class TestReversalWrappers:
         )
         with pytest.raises(AsOfContractError):
             piercing(history, pd.Timestamp("2024-01-02"))
+
+
+class TestRatioGuards:
+    def _bar(self):
+        return FakeBar(100, 100.25, 95, 100.2)
+
+    @pytest.mark.parametrize("kwargs", [
+        {"shadow_ratio": np.nan}, {"shadow_ratio": np.inf},
+        {"shadow_ratio": -0.5}, {"shadow_ratio": True},
+        {"max_upper_ratio": np.nan}, {"max_upper_ratio": -0.1},
+    ])
+    def test_hammer_ratio_rejected(self, kwargs):
+        with pytest.raises(ValueError):
+            is_hammer(self._bar(), **kwargs)
+
+    @pytest.mark.parametrize("kwargs", [
+        {"shadow_ratio": np.nan}, {"max_lower_ratio": -0.2},
+        {"max_lower_ratio": np.inf},
+    ])
+    def test_shooting_star_ratio_rejected(self, kwargs):
+        with pytest.raises(ValueError):
+            is_shooting_star(self._bar(), **kwargs)
+
+    @pytest.mark.parametrize("kwargs", [
+        {"tolerance_ratio": np.nan}, {"tolerance_ratio": -0.3},
+        {"tolerance_ratio": True},
+    ])
+    def test_doji_ratio_rejected(self, kwargs):
+        with pytest.raises(ValueError):
+            is_doji(self._bar(), **kwargs)
+
+    @pytest.mark.parametrize("fn", [is_piercing, is_dark_cloud_cover])
+    @pytest.mark.parametrize("bad", [1.2, -0.1, np.nan])
+    def test_penetration_ratio_rejected(self, fn, bad):
+        history = make_bars((100, 101, 95, 96), (94, 100, 93, 99))
+        with pytest.raises(ValueError):
+            fn(history, min_penetration_ratio=bad)
+
+    @pytest.mark.parametrize("fn", [is_morning_star, is_evening_star])
+    @pytest.mark.parametrize("bad", [np.nan, -0.4, np.inf])
+    def test_body_ratio_rejected(self, fn, bad):
+        history = make_bars((100, 101, 90, 91), (91, 92, 89, 90.5), (90.5, 98, 90, 97))
+        with pytest.raises(ValueError):
+            fn(history, body_ratio=bad)
+
+    def test_valid_custom_ratio_accepted(self):
+        assert is_hammer(self._bar(), shadow_ratio=1.5, max_upper_ratio=0.4) in (True, False)
+        history = make_bars((100, 101, 95, 96), (94, 100, 93, 99))
+        assert is_piercing(history, min_penetration_ratio=0.5) in (True, False)

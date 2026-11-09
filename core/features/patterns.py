@@ -42,6 +42,20 @@ def _is_bear(open_: float, close: float) -> bool:
     return close < open_
 
 
+def _nonneg_ratio(name: str, val: float) -> float:
+    if isinstance(val, bool) or not isinstance(val, (int, float)) \
+            or not np.isfinite(val) or val < 0:
+        raise ValueError(f"{name} 必须为非负有限数值，收到 {val!r}")
+    return float(val)
+
+
+def _unit_ratio(name: str, val: float) -> float:
+    v = _nonneg_ratio(name, val)
+    if v > 1:
+        raise ValueError(f"{name} 必须在 [0,1] 内，收到 {val!r}")
+    return v
+
+
 # ------------------------------------------------------------------
 # 单根K线形态
 # ------------------------------------------------------------------
@@ -63,6 +77,8 @@ def is_hammer(bar, direction: str = "bullish",
     Returns:
         True = 是锤子线
     """
+    _nonneg_ratio("shadow_ratio", shadow_ratio)
+    _nonneg_ratio("max_upper_ratio", max_upper_ratio)
     o, h, l, c = bar.open_, bar.high, bar.low, bar.close
     body = _body(o, c)
     if body == 0:
@@ -80,6 +96,8 @@ def is_shooting_star(bar, direction: str = "bearish",
     - 上影线长度 >= shadow_ratio × 实体
     - 下影线很短（<= max_lower_ratio × 实体）
     """
+    _nonneg_ratio("shadow_ratio", shadow_ratio)
+    _nonneg_ratio("max_lower_ratio", max_lower_ratio)
     o, h, l, c = bar.open_, bar.high, bar.low, bar.close
     body = _body(o, c)
     if body == 0:
@@ -95,6 +113,7 @@ def is_doji(bar, tolerance_ratio: float = 0.1) -> bool:
     Args:
         tolerance_ratio: 实体相对整体波幅的容忍度
     """
+    _nonneg_ratio("tolerance_ratio", tolerance_ratio)
     o, h, l, c = bar.open_, bar.high, bar.low, bar.close
     total_range = h - l
     if total_range == 0:
@@ -140,6 +159,7 @@ def is_piercing(history, min_penetration_ratio: float = 0.5) -> bool:
     - 第一根大阴线
     - 第二根低开高走，收盘价深入前阴实体一半以上
     """
+    _unit_ratio("min_penetration_ratio", min_penetration_ratio)
     if len(history) < 2:
         return False
     prev, cur = history[-2], history[-1]
@@ -162,6 +182,7 @@ def is_dark_cloud_cover(history, min_penetration_ratio: float = 0.5) -> bool:
     - 第一根大阳线
     - 第二根高开低走，收盘价深入前阳实体一半以上
     """
+    _unit_ratio("min_penetration_ratio", min_penetration_ratio)
     if len(history) < 2:
         return False
     prev, cur = history[-2], history[-1]
@@ -186,6 +207,7 @@ def is_morning_star(history, body_ratio: float = 0.3) -> bool:
     - 第二根：小实体（跳空低开，星线）
     - 第三根：大阳线，深入第一根实体一半以上
     """
+    _nonneg_ratio("body_ratio", body_ratio)
     if len(history) < 3:
         return False
     b1, b2, b3 = history[-3], history[-2], history[-1]
@@ -215,6 +237,7 @@ def is_evening_star(history, body_ratio: float = 0.3) -> bool:
     - 第二根：小实体（跳空高开，星线）
     - 第三根：大阴线，深入第一根实体一半以上
     """
+    _nonneg_ratio("body_ratio", body_ratio)
     if len(history) < 3:
         return False
     b1, b2, b3 = history[-3], history[-2], history[-1]
