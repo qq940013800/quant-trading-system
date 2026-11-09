@@ -268,3 +268,75 @@ def risk_parity_weights(returns: Mapping[str, Sequence[float]],
         w = w / w.sum()
 
     return {sid: float(w[i]) for i, sid in enumerate(ids)}
+
+
+# ---------------------------------------------------------------------------
+# 相关性时序突变（当前窗口 vs 基准窗口）
+# ---------------------------------------------------------------------------
+def correlation_regime_shift(
+    current_returns: Mapping[str, Sequence[float]],
+    baseline_returns: Mapping[str, Sequence[float]],
+    *,
+    corr_jump: float,
+    min_factor: float = 0.5,
+) -> tuple[bool, dict[str, object]]:
+    """检测策略间相关性相对基准窗口的时序突变。
+
+    与 :func:`correlation_breaker`（横截面：当前窗口内相关是否偏高）不同，
+    本函数比较当前窗口与基准窗口的平均成对相关，识别相关结构"突变跃升"。
+    纯函数：只给判定与证据，不执行任何降仓/降杠杆处置动作。
+
+    Args:
+        current_returns: 当前窗口 策略ID → 收益序列（等长、≥2、有限）。
+        baseline_returns: 基准/历史窗口 策略ID → 收益序列，策略集合须与当前一致。
+        corr_jump: 平均相关绝对跃升阈值（非负有限）；``delta > corr_jump`` 判突变。
+        min_factor: 突变时建议杠杆系数的下限，落在 (0,1]。
+
+    Returns:
+        ``(shifted, report)``；``report`` 含策略、当前/基准平均相关、相关增量、
+        是否突变、建议杠杆系数与触发原因。
+    """
+    cur_ids = _check_returns(current_returns)
+    base_ids = _check_returns(baseline_returns)
+    if set(cur_ids) != set(base_ids):
+        raise ValueError(
+            "当前窗口与基准窗口策略集合不一致: "
+            f"current={cur_ids}, baseline={base_ids}")
+
+    def _real(name: str, val: object) -> float:
+        if isinstance(val, bool) or not isinstance(val, (int, float)):
+            raise ValueError(f"{name} 必须为数值，收到 {val!r}")
+        return _check_positive_finite(val, name)
+
+    jump = _real("corr_jump", corr_jump)
+    if isinstance(min_factor, bool) or not isinstance(min_factor, (int, float)):
+        raise ValueError(f"min_factor 必须为数值，收到 {min_factor!r}")
+    _check_threshold(min_factor, "min_factor")
+
+    cur_avg = average_pairwise_correlation(current_returns)
+    base_avg = average_pairwise_correlation(baseline_returns)
+    delta = cur_avg - base_avg
+    shifted = delta > jump
+
+    reasons: list[str] = []
+    if shifted:
+        reasons.append(
+            f"平均成对相关由 {base_avg:.3f} 升至 {cur_avg:.3f}，"
+            f"跃升 {delta:.3f} 超过阈值 {jump:.3f}")
+
+    if shifted:
+        # 相关跃升越多，杠杆系数越低；跌幅不缩；下限 min_factor 兜底。
+        factor = max(min_factor, min(1.0, 1.0 - max(delta, 0.0)))
+    else:
+        factor = 1.0
+
+    report: dict[str, object] = {
+        "strategies": cur_ids,
+        "current_avg_correlation": round(cur_avg, 3),
+        "baseline_avg_correlation": round(base_avg, 3),
+        "corr_delta": round(delta, 3),
+        "shifted": shifted,
+        "suggested_leverage_factor": round(factor, 4),
+        "reasons": reasons,
+    }
+    return shifted, report

@@ -12,6 +12,7 @@ import pytest
 from core.risk.risk_budget import (
     risk_budget_weights,
     risk_parity_weights,
+    correlation_regime_shift,
 )
 
 
@@ -91,3 +92,73 @@ class TestRiskParityWeights:
     def test_invalid_tol_rejected(self, bad):
         with pytest.raises(ValueError):
             risk_parity_weights({"a": _series(15), "b": _series(16)}, tol=bad)
+
+
+def _independent(seed_a: int, seed_b: int, n: int = 200) -> dict[str, list[float]]:
+    ra = np.random.default_rng(seed_a).normal(0.0, 0.01, n)
+    rb = np.random.default_rng(seed_b).normal(0.0, 0.01, n)
+    return {"a": ra.tolist(), "b": rb.tolist()}
+
+
+def _synchronized(seed: int, n: int = 200) -> dict[str, list[float]]:
+    rng = np.random.default_rng(seed)
+    a = rng.normal(0.0, 0.01, n)
+    b = a + 0.01 * rng.normal(0.0, 0.01, n)
+    return {"a": a.tolist(), "b": b.tolist()}
+
+
+class TestCorrelationRegimeShift:
+    def test_synchro_jump_detected_and_factor_below_one(self):
+        baseline = _independent(1, 2)
+        current = _synchronized(3)
+        shifted, report = correlation_regime_shift(
+            current, baseline, corr_jump=0.2, min_factor=0.5)
+        assert shifted is True
+        assert report["corr_delta"] > 0.2
+        assert report["suggested_leverage_factor"] < 1.0
+        assert report["suggested_leverage_factor"] >= 0.5
+        assert report["reasons"]
+
+    def test_independent_both_windows_not_shifted(self):
+        baseline = _independent(1, 2)
+        current = _independent(3, 4)
+        shifted, report = correlation_regime_shift(
+            current, baseline, corr_jump=0.2, min_factor=0.5)
+        assert shifted is False
+        assert report["suggested_leverage_factor"] == 1.0
+        assert report["reasons"] == []
+
+    def test_correlation_decline_not_shifted(self):
+        baseline = _synchronized(5)
+        current = _independent(6, 7)
+        shifted, report = correlation_regime_shift(
+            current, baseline, corr_jump=0.2, min_factor=0.5)
+        assert shifted is False
+        assert report["suggested_leverage_factor"] == 1.0
+        assert report["corr_delta"] < 0
+
+    def test_mismatched_strategy_set_rejected(self):
+        baseline = _independent(1, 2)
+        current = {"x": _series(9), "y": _series(10)}
+        with pytest.raises(ValueError):
+            correlation_regime_shift(current, baseline, corr_jump=0.2)
+
+    @pytest.mark.parametrize("bad_jump", [-0.1, np.nan, np.inf, "0.2"])
+    def test_invalid_corr_jump_rejected(self, bad_jump):
+        with pytest.raises(ValueError):
+            correlation_regime_shift(_independent(1, 2), _independent(3, 4),
+                                     corr_jump=bad_jump)
+
+    @pytest.mark.parametrize("bad_factor", [0.0, 1.5, -0.1, np.nan, "0.5"])
+    def test_invalid_min_factor_rejected(self, bad_factor):
+        with pytest.raises(ValueError):
+            correlation_regime_shift(_independent(1, 2), _independent(3, 4),
+                                     corr_jump=0.2, min_factor=bad_factor)
+
+    def test_report_fields_complete(self):
+        shifted, report = correlation_regime_shift(
+            _synchronized(8), _independent(1, 2), corr_jump=0.2)
+        assert set(report.keys()) == {
+            "strategies", "current_avg_correlation", "baseline_avg_correlation",
+            "corr_delta", "shifted", "suggested_leverage_factor", "reasons"}
+        assert report["shifted"] == shifted

@@ -10,9 +10,11 @@ from .sizing import target_lots, vol_target_scale, quantile_threshold
 from .circuit import CircuitBreaker, CircuitState
 from .risk_budget import (
     risk_budget_weights,
+    risk_parity_weights,
     correlation_pairs,
     average_pairwise_correlation,
     correlation_breaker,
+    correlation_regime_shift,
 )
 from .return_profile import describe_returns
 from .drawdown_tier import drawdown_tier_factor
@@ -28,9 +30,11 @@ __all__ = [
     "CircuitBreaker",
     "CircuitState",
     "risk_budget_weights",
+    "risk_parity_weights",
     "correlation_pairs",
     "average_pairwise_correlation",
     "correlation_breaker",
+    "correlation_regime_shift",
     "describe_returns",
     "drawdown_tier_factor",
 ]
