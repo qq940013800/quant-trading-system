@@ -98,7 +98,7 @@
 | 库 | 定位 | 可复用什么 | 坑 |
 |---|---|---|---|
 | **Microsoft qlib** | 端到端量化研究平台 | 表达式因子引擎、point-in-time 数据层、滚动训练编排的设计 | **全栈侵入**：自带数据格式与工作流，接管你的目录与依赖；A 股/日频假设强；**本系统禁止全栈引入**（设计文档⑤），只参照设计 |
-| **nautilus_trader** | 事件驱动交易平台（Rust 内核 + Python API） | 事件模型、订单状态机、回放架构、适配器分层 | LGPL 系许可需评估；概念多、学习曲线陡；与 MT5 的适配需自建；架构复杂度对小系统过量 |
+| **nautilus_trader** | 事件驱动交易平台（Rust-native 内核 + PyO3/Python 控制面；单引擎覆盖研究/确定性仿真/实盘） | 内核分层（Data/Execution/Risk Engine、Portfolio、Cache、MessageBus）、订单生命周期与状态机、三环境共享内核、对账组件、适配器端口-分层；详见 3.3.1 | LGPL 系许可（PyPI/pyproject 标 `LGPL-3.0-or-later`，官方 llms.txt 另写 `LGPL-3.0-only`，**采用前必须复核仓库 LICENSE 原文**）；v2.0.0rc8 仍为预发布、要求 Python 3.13/3.14，稳定线 v1.231.0；概念体量大、学习曲线陡；MT5/OKX 适配器需自建；Rust/PyO3 工具链与本系统纯 Python 研究层不符；架构复杂度对单标的 M5 阶段过量 |
 | **vn.py** | 国内期货/CTP 生态的交易框架 | Gateway/事件引擎/风控钩子的分层，中文文档 | 生态绑定国内柜台；与 MT5 不匹配；重型（GUI + 数据库）；可直接借鉴其"网关-引擎-应用"分层 |
 | **QuantConnect LEAN** | 多资产开源引擎（C#） | 数据/算法/风控/结果四层分离、回测与实盘同一份算法代码 | C#/.NET 技术栈；云平台与本地行为差异需核对；定制需读大量代码；以官方文档为准 |
 | **zipline-reloaded** | 社区维护的 zipline 分支 | Pipeline（因子声明式定义 + 自动对齐）、bundle 数据管理 | 美股票日频假设强；与分钟/tick 及 MT5 数据模型差异大；维护靠社区，需评估长期性 |
@@ -107,6 +107,29 @@
 | **freqtrade** | 加密现货/合约机器人 | 策略接口、回测/超参/干跑流水线、通知与风控钩子 | 面向加密交易所（ccxt）；GPL 系许可；其"超参优化"文化与 trials 纪律冲突 |
 | **hummingbot** | 做市/套利机器人 | 连接器抽象、库存与报价逻辑、做市策略骨架 | 面向加密；做市假设（费率、返佣、库存模型）与 MT5 不符；重型 |
 | **FinRL** | 强化学习交易框架 | RL 环境封装、论文复现流水线 | 教学/研究定位；奖励设计与过拟合风险极高；**本系统明确不做 DRL 方向预测** |
+
+#### 3.3.1 NautilusTrader 深入对照（2026-11 复核官方文档）
+
+**定位与形态**【事实·可查证】：开源 production-grade 引擎，核心用 Rust 实现（`crates/`），PyO3 聚合成 `nautilus_trader._libnautilus` 扩展，Python 只做策略逻辑/配置/编排的控制面；也可纯 Rust 写策略。同一 `NautilusKernel` 被三类环境上下文共享：`Backtest`（历史数据 + 模拟执行）、`Sandbox`（实时数据 + 模拟执行）、`Live`（实时数据 + 实盘/纸面账户）。
+
+**核心组件与执行流**【事实·可查证】：
+- 组件：`NautilusKernel`（编排/生命周期）、`MessageBus`（pub-sub/请求-响应/命令事件，可挂 Redis 外部后端）、`Cache`（内存订单/持仓/账户/品种，可挂缓存库）、`DataEngine`、`ExecutionEngine`、`RiskEngine`、`Portfolio`、`Trader`。
+- 一笔订单：策略 `submit_order` → `RiskEngine` 校验（订单字段、余额、数量、名义价值、reduce-only、交易状态、提交/改单限速）→ 失败返回 `OrderDenied` 且**不到达交易所** → `ExecutionEngine` 路由到对应 `ExecutionClient` → 适配器经 REST/WebSocket 下单 → 回执 `Accepted/Filled/Canceled/Rejected/Expired` 回写 Cache 并触发 Portfolio 与持仓更新；实盘由 `ExecutionManager` 跟踪对账状态、`LiveNode` 做周期检查/截止/取消。
+- 线程模型：节点核心**单线程串行**消费消息、跑策略、风控、缓存读写；网络/适配器/日志/持久化在独立 Tokio 后台线程，经通道回灌核心线程。
+- 生命周期：组件走有限状态机（`ComponentState` + `ComponentTrigger` 约束合法迁移）；`Actor` trait 负责按 ID 定向消息分发，`Component` trait 负责 start/stop/resume/reset/dispose 生命周期，二者可组合。
+- 约束：同一进程内**不支持并发多节点**（日志/时间戳全局态、线程本地运行态非隔离）。
+
+**对照本系统（模块名为本地代码盘点）【推断】**：
+
+| Nautilus 设计 | 本系统对应 | 差距 / 可借鉴点 |
+|---|---|---|
+| RiskEngine 前置校验：余额、reduce-only、交易状态、限速 | `core/execution/pretrade_gate.py`（数量非负、价格存在、名义价值、总/净敞口、保证金/费用/资金费估算） | 已覆盖数量/名义/敞口/费用；**未显式校验**：账户可用余额是否够保证金+费用、reduce-only 语义、提交/改单限速、熔断/退役状态下是否禁开新仓；这些是 pre-trade 闸可补的校验维度（阈值仍由调用方注入） |
+| 三环境共享内核，同一份策略跑 Backtest/Sandbox/Live | `core/backtest/engine.py`（事件驱动回测）+ `core/execution/gate_shadow.py`（shadow 对照） | 已有回测与 shadow 影子期；**缺 Sandbox 中间态**（实时数据 + 模拟执行），介于离线回测与实盘之间；对应设计 4.5「研究/生产同一份代码、隔离的是环境」 |
+| ExecutionManager + LiveNode 周期对账 | `core/execution/reconcile.py`（对账底座） | 底座在；周期对账/漂移告警调度接线属阻塞项 #108/#155，未在运行时落地；Nautilus 的「对账状态跟踪 + 截止/取消归属」可作设计参照 |
+| 单线程核心串行、IO 后台线程、通道回灌 | 当前 worker/quick_trade 接线 core 闸前的并发边界未定 | 参照点：状态变更串行化可避免竞态；本系统当前规模不必引入消息总线，但并发接线前应明确「谁串行改持仓/谁只产快照」 |
+| Actor/Component 状态机与职责分离 | `core/strategies/*`、`core/control/circuit.py`（三态机） | 策略/组件生命周期与消息分发可借鉴「生命周期」与「消息处理」分离；当前单进程内尚不需要独立 Actor 注册表 |
+
+**不引入结论（沿用设计文档⑤）**：只参照上述设计，**不整栈引入**。理由：① LGPL 传染义务与商用闭源边界须法务/人工确认；② Rust/PyO3 构建链与本系统「研究层只依赖 numpy/pandas、可选 sklearn/lightgbm 降级」的最小依赖原则冲突；③ v2 仍 rc、Python 版本要求高于本地 3.12；④ MT5/OKX 适配器需自建，引入后仍要自己写执行适配；⑤ 单标的 M5 阶段，其多 venue/多资产/分布式能力是过度设计。出现「整栈引入」提案即触发人工评审。
 
 ### 3.4 组合、统计与优化
 
@@ -222,7 +245,9 @@
 | 幂等订单 | `Signal.signal_id` 幂等键 + `Signal.seq` 单调序号（设计③/⑥） | 已有定义；**增强**：EA 侧去重窗口与乱序处理的单测（当前 MQL5 侧未覆盖） | 重复 `signal_id` 只成交一次；乱序到达被丢弃并告警 |
 | kill switch 分层 | `core/risk/circuit.py`（日内三态机） | 已有策略/账户级；**增强**：系统级（数据中断/回执丢失）与"不依赖策略进程"的独立性验证 | 幽灵进程场景演练：杀掉策略进程后 EA 仍能拒单 |
 | 研究/生产同一份特征代码 | `core/features/*` + `as_of` 装饰器 | 已有 | 同一特征在回测与信号生成路径调用同一函数（静态检查） |
-| 影子期对比 | 无 | **新建**：新版本只产 `Decision` 快照、不下单，逐笔 diff | shadow 期一致率与差异清单入报告 |
+| 影子期对比 | `core/execution/gate_shadow.py` | 已有底座；**增强**：shadow 一致率与差异清单入报告 | shadow 期逐笔 diff，不下单 |
+| pre-trade 校验维度补全（参照 Nautilus RiskEngine） | `core/execution/pretrade_gate.py` | **可选增强**：可用余额/费用充足性、reduce-only 语义、提交限速、熔断-退役禁开新仓；阈值调用方注入 | 非法/超阈订单在到交易所前被拒并留原因码；不触实盘资金路径前先以纯函数+单测落地 |
+| Sandbox 中间态（实时数据 + 模拟执行） | 无（回测离线、shadow 只产快照） | **低优先新建（研究/集成层）**：先用实时行情喂模拟撮合，不接真实下单 | 同一策略在回测/Sandbox/实盘路径调用同一特征与决策函数 |
 | 数据版本 manifest | `core/data/loader.py`、`validator.py`（有校验无 manifest） | **新建**：`(tz_offset, 生成 commit, 行数, 缺口清单, 哈希)` 随数据落盘 | 任一历史结论可反查数据版本哈希 |
 | 时间戳/时区契约 | `core/data/timezone.py`、`test_timezone_dst.py` | 已有 | DST 切换日 offset 单测；禁止硬编码 UTC+2/+3 |
 | 库引入纪律 | AGENTS.md 硬规则 8/9；设计文档⑤「禁止引入」 | 已有 | PR 模板加"为何不能用已有依赖"一栏；GPL 系依赖需人工确认 |
@@ -246,5 +271,8 @@
 | 组合优化在单标的下是过度设计 | 由"优化器放大协方差估计误差"推导 | 【推断】待多策略阶段验证 |
 | 事件驱动为上线依据、向量化仅作否证 | 由"向量化无法表达部分成交与队列"推导 | 【行业共识】 |
 | 本系统缺口三项（回放 E2E、kill switch 独立性、数据 manifest） | 代码盘点（`core/` 73 个模块） | 【事实·可查证】 |
+| NautilusTrader 组件/执行流/三环境/线程模型/状态机 | 官方文档 `docs/nightly/concepts/architecture`、`overview`、`strategies`、`adapters`（2026-11 复核） | 【事实·可查证】以官方最新版为准 |
+| NautilusTrader 版本与 Python 要求 | 官方 open-source 页、PyPI `nautilus_trader` | 【事实·可查证】v2 为预发布，落地前复核当前稳定版 |
+| NautilusTrader 许可 | PyPI 元数据 `LGPL-3.0-or-later`、仓库 pyproject；官方 llms.txt 写 `LGPL-3.0-only`，口径不一致 | 【待验证假设】不构成法律意见；采用前必须复核仓库 LICENSE 原文并人工确认 |
 
 **维护**：开源生态变化快，本表每季度复核一次（维护状态、许可证、是否出现新的替代项目）；被证伪的结论保留并标注 `【已证伪·日期·证据】`，不删除（`README.md` §6）。
