@@ -27,6 +27,34 @@ from enum import Enum
 from typing import Optional, Callable
 
 
+def _finite(name: str, val: float) -> float:
+    if not np.isfinite(val):
+        raise ValueError(f"{name} 必须为有限数值，收到 {val!r}")
+    return val
+
+
+def _as_int(name: str, val: int) -> int:
+    if isinstance(val, bool) or not isinstance(val, int):
+        raise ValueError(f"{name} 必须为整数，收到 {val!r}")
+    return val
+
+
+def _positive_finite(name: str, val: float) -> float:
+    val = _finite(name, val)
+    if val <= 0:
+        raise ValueError(f"{name} 必须 > 0，收到 {val!r}")
+    return val
+
+
+def _ratio(name: str, val: float, *, lo: float, hi: float,
+           closed_lo: bool = True, closed_hi: bool = True) -> float:
+    val = _finite(name, val)
+    if ((closed_lo and val < lo) or (not closed_lo and val <= lo)
+            or (closed_hi and val > hi) or (not closed_hi and val >= hi)):
+        raise ValueError(f"{name} 必须位于 [{lo}, {hi}] 区间，收到 {val!r}")
+    return val
+
+
 # ------------------------------------------------------------------
 # 数据类
 # ------------------------------------------------------------------
@@ -68,6 +96,24 @@ class OptimizationConfig:
     ab_alpha: float = 0.05            # AB测试显著性
     exploration_ratio: float = 0.3    # 探索比例（多臂老虎机）
     random_seed: int = 42
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.base_strategy_name, str) \
+                or not self.base_strategy_name.strip():
+            raise ValueError("base_strategy_name 必须为非空字符串")
+        self.max_trials = _as_int("max_trials", self.max_trials)
+        if self.max_trials < 1:
+            raise ValueError(f"max_trials 必须 >= 1，收到 {self.max_trials}")
+        self.min_sharpe = _positive_finite("min_sharpe", self.min_sharpe)
+        self.max_overfitting_score = _ratio(
+            "max_overfitting_score", self.max_overfitting_score,
+            lo=0.0, hi=1.0)
+        self.ab_alpha = _ratio("ab_alpha", self.ab_alpha,
+                               lo=0.0, hi=1.0,
+                               closed_lo=False, closed_hi=False)
+        self.exploration_ratio = _ratio(
+            "exploration_ratio", self.exploration_ratio, lo=0.0, hi=1.0)
+        self.random_seed = _as_int("random_seed", self.random_seed)
 
 
 # ------------------------------------------------------------------
@@ -157,7 +203,8 @@ class MultiArmedBandit:
     """
 
     def __init__(self, exploration_ratio: float = 0.3):
-        self.epsilon = exploration_ratio
+        self.epsilon = _ratio("exploration_ratio", exploration_ratio,
+                             lo=0.0, hi=1.0)
         self.scores: dict[str, float] = {}
 
     def update(self, candidate_name: str, score: float):
@@ -189,8 +236,8 @@ class CandidateScorer:
     """
 
     def __init__(self, min_sharpe: float = 1.0, max_dd: float = 0.20):
-        self.min_sharpe = min_sharpe
-        self.max_dd = max_dd
+        self.min_sharpe = _positive_finite("min_sharpe", min_sharpe)
+        self.max_dd = _positive_finite("max_dd", max_dd)
 
     def score(self, candidate: CandidateStrategy) -> float:
         """计算综合评分（0-100）。"""

@@ -144,3 +144,54 @@ class TestAutoStrategyOptimizer:
         )
         best = optimizer.run({"period": 14})
         assert best is None
+
+
+class TestConfigGuards:
+    @pytest.mark.parametrize("kw", [
+        {"max_trials": 0}, {"max_trials": 5.0}, {"max_trials": True},
+        {"min_sharpe": 0.0}, {"min_sharpe": -1.0}, {"min_sharpe": np.nan},
+        {"max_overfitting_score": 1.5}, {"max_overfitting_score": -0.2},
+        {"max_overfitting_score": np.nan},
+        {"ab_alpha": 0.0}, {"ab_alpha": 1.0}, {"ab_alpha": 2.0},
+        {"exploration_ratio": -0.1}, {"exploration_ratio": 1.5},
+        {"exploration_ratio": np.nan},
+        {"random_seed": 1.5},
+        {"base_strategy_name": ""},
+    ])
+    def test_invalid_config_rejected(self, kw):
+        base = {"base_strategy_name": "trend"}
+        base.update(kw)
+        with pytest.raises(ValueError):
+            OptimizationConfig(**base)
+
+    def test_valid_config_accepted(self):
+        cfg = OptimizationConfig(
+            base_strategy_name="trend", max_trials=8, min_sharpe=1.2,
+            max_overfitting_score=0.3, ab_alpha=0.05,
+            exploration_ratio=0.3, random_seed=7)
+        assert cfg.max_trials == 8
+        assert cfg.random_seed == 7
+
+
+class TestBanditScorerGuards:
+    @pytest.mark.parametrize("eps", [-0.1, 1.2, np.nan])
+    def test_bandit_ratio_rejected(self, eps):
+        with pytest.raises(ValueError):
+            MultiArmedBandit(exploration_ratio=eps)
+
+    def test_bandit_closed_bounds_accepted(self):
+        assert MultiArmedBandit(0.0).epsilon == 0.0
+        assert MultiArmedBandit(1.0).epsilon == 1.0
+
+    @pytest.mark.parametrize("kw", [
+        {"min_sharpe": 0.0}, {"min_sharpe": -2.0}, {"min_sharpe": np.nan},
+        {"max_dd": 0.0}, {"max_dd": -0.1}, {"max_dd": np.nan},
+    ])
+    def test_scorer_threshold_rejected(self, kw):
+        with pytest.raises(ValueError):
+            CandidateScorer(**kw)
+
+    def test_scorer_valid_accepted(self):
+        scorer = CandidateScorer(min_sharpe=1.0, max_dd=0.20)
+        assert scorer.min_sharpe == 1.0
+        assert scorer.max_dd == 0.20
