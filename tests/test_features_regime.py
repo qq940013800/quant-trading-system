@@ -86,3 +86,26 @@ def test_swing_no_lookahead(bars):
     assert set(s) == {"dist_high", "dist_low"}
     with pytest.raises(LookAheadError):
         nearest_confirmed_swing(bars, as_of, k=3)
+
+
+class TestRegimeThresholdGuards:
+    @pytest.mark.parametrize("kw", [
+        {"adx_q_lo": np.nan}, {"adx_q_lo": np.inf}, {"adx_q_lo": True},
+        {"adx_q_hi": np.nan}, {"adx_q_hi": -np.inf}, {"adx_q_hi": False},
+        {"mr_hurst_thresh": np.nan}, {"mr_hurst_thresh": np.inf},
+    ])
+    def test_invalid_threshold_rejected(self, kw):
+        base = dict(adx_val=40.0, hurst_val=0.6, atr_pct=0.3,
+                    adx_q_lo=15.0, adx_q_hi=35.0)
+        base.update(kw)
+        with pytest.raises(ValueError):
+            regime_weights(**base)
+
+    def test_q_hi_not_above_q_lo_rejected(self):
+        with pytest.raises(ValueError, match="adx_q_hi"):
+            regime_weights(40.0, 0.6, 0.3, adx_q_lo=35.0, adx_q_hi=15.0)
+
+    def test_valid_thresholds_accepted(self):
+        w = regime_weights(40.0, 0.6, 0.3, adx_q_lo=10.0, adx_q_hi=30.0,
+                           mr_hurst_thresh=0.55)
+        assert abs(sum(w.values()) - 1.0) < 1e-9

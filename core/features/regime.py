@@ -13,6 +13,13 @@ import pandas as pd
 from .base import as_of, _arrays, _wilder_ewma
 
 
+def _finite(name: str, val: float) -> float:
+    if not isinstance(val, (int, float)) or isinstance(val, bool) \
+            or not np.isfinite(val):
+        raise ValueError(f"{name} 必须为有限数值，收到 {val!r}")
+    return float(val)
+
+
 @as_of
 def adx(history: list, as_of: pd.Timestamp, period: int = 14) -> float:
     """Wilder ADX(period)，返回 as_of 处最新值。ADX 是趋势强度指标（不分方向）。"""
@@ -102,13 +109,16 @@ def regime_weights(adx_val: float, hurst_val: float, atr_pct: float, *,
       w_range = (1 - atr_pct) * (1 - w_trend)          # 低波盘整
     最后归一化使三权重和为 1（防御型归一化，全 NaN 时返回均匀分布）。
     """
+    q_lo = _finite("adx_q_lo", adx_q_lo)
+    q_hi = _finite("adx_q_hi", adx_q_hi)
+    mr_thr = _finite("mr_hurst_thresh", mr_hurst_thresh)
+    if q_hi <= q_lo:
+        raise ValueError("adx_q_hi must be > adx_q_lo (distribution quantiles)")
     if np.isnan(adx_val) or np.isnan(hurst_val) or np.isnan(atr_pct):
         return {"w_trend": 1.0 / 3, "w_mr": 1.0 / 3, "w_range": 1.0 / 3}
-    span = adx_q_hi - adx_q_lo
-    if span <= 0:
-        raise ValueError("adx_q_hi must be > adx_q_lo (distribution quantiles)")
-    w_trend = float(np.clip((adx_val - adx_q_lo) / span, 0.0, 1.0))
-    w_mr = float(np.clip(mr_hurst_thresh - hurst_val, 0.0, 1.0)) * (1.0 - w_trend)
+    span = q_hi - q_lo
+    w_trend = float(np.clip((adx_val - q_lo) / span, 0.0, 1.0))
+    w_mr = float(np.clip(mr_thr - hurst_val, 0.0, 1.0)) * (1.0 - w_trend)
     w_range = float(1.0 - atr_pct) * (1.0 - w_trend)
     total = w_trend + w_mr + w_range
     if total <= 0:
