@@ -414,6 +414,8 @@
 
 - ✅ **#280 回测空记录三态复验与滚动夏普隐藏机制统一（前端修复）**：修复 `_renderRollingSharpe` 隐藏状态双轨残留——原空分支/成功分支用 `style.display` 控制图表，而 `_btBlankDetail` 用 `hidden` 属性；从空态切回成功时 `hidden=true` 残留，被 UA `[hidden]{display:none}` 覆盖导致滚动夏普曲线不显示。统一改走 `_btSetHidden`（`hidden` 属性），与持仓/交易面板同一机制；移除未用的 `empty` 局部变量。验证：`node --check` 通过；真实 Chrome 三态实机切换——id=1（result=`{}`，空对象）4 KPI/画像/持仓/交易/散点/分布/年度全部回退 `--`、0 行 0 点；id=8（no_signals，1200 点曲线、0 交易、净值零波动）持仓/交易/散点为空，年度 9 行/分布 12 柱由曲线现算，零波动序列 sortino/skew/kurt 回退 `--`（分母为 0，无统计意义），后端真实 0（pf 0.00、trades 0、winLoss 0/0、avgWL 0.00/0.00）按值渲染；id=9 完整链路回填与 #274–#278 基准一致（+30.12% / 0.25 / -32.92% / 0.39 / 0.341 / 8.891 / 0/58 / 58 交易 / 7 持仓 / 58 散点 / 12 分布 / 9 年度）；id=9→id=1→id=9 切换回归，滚动图表从空态恢复显示、无残留隐藏；控制台无 error/warn、无横向溢出（scrollW=clientW=1889）。**剩余风险/未验证**：前端 DOM/空值逻辑仍无自动化 JS 单测（仓库无 JS runner，tests 全 Python，技术债见下）；滚动夏普/年度/月度前端现算口径待后端预聚合固化（P2-11）；GitHub 远端本轮经代理已推送成功，本地/Gitee/GitHub 三方 HEAD 一致 `438b4f2`；未触发 `/run` 新回测。
 
+- ✅ **#281 企业级量化系统架构优化 ADR 落盘（纯文档，不改生产代码）**：新建 `docs/design/architecture-optimization-roadmap.md`，作为蓝图 v2（`docs/knowledge/08_system_blueprint.md`）的现状复核与路线更新。复核 G1–G13 当前状态：G1 kill switch / G2 对账纯函数底座已落地（`core/control/kill_switch.py` 262 行、`core/execution/reconcile.py` 336 行），生产接线仍阻塞；G3 四策略类（TrendBreakout/MeanReversion/StructureBreak/SupplyDemand）已落地待端到端回测验证；G4/G7/G8/G9/G11/G13 部分落地；G5 CPCV、G6 数据 manifest 仍缺；G10 配置外置、G12 多标的待人工决策。文档含第一性原理盈利方程、三不变量、ML 边界（不生成方向、LLM 不进下单路径）、五面+控制面+注册表目标分层、P1/P2 缺口到既有专题设计的映射、P0/P1/P2 路线与上线门禁、5 项待人工确认决策与风险登记簿；专题细节不重复，只索引 `docs/design/` 既有方案。**剩余风险/未验证**：ADR 为待评审草稿，未改任何生产代码；实盘下单/对账/持仓归集等阻塞项未接线（待 OKX Key 与人工拍板）；样本外绩效与真实成交充分性 unknown；前端 JS 测试栈选型待决策；未跑容器内 pytest。
+
 
 ### 🔴 P1（核心口径，决定看板能否反映真实绩效）
 
