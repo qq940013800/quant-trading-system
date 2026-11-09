@@ -38,6 +38,17 @@ class DeploymentResult:
     reasons: list[str]
     audit: dict[str, Any]
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.allowed, bool):
+            raise ValueError(
+                f"deployment.allowed must be a bool, got {type(self.allowed).__name__}")
+        if not isinstance(self.reasons, list) or any(
+                not isinstance(r, str) or not r.strip() for r in self.reasons):
+            raise ValueError(f"deployment.reasons must be a list of non-empty strings: {self.reasons!r}")
+        if not isinstance(self.audit, dict):
+            raise ValueError(
+                f"deployment.audit must be a dict, got {type(self.audit).__name__}")
+
 
 def check_strategy_deployment(
     version: StrategyVersion,

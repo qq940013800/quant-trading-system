@@ -4,8 +4,11 @@ from __future__ import annotations
 
 from datetime import datetime
 
+import pytest
+
 from core.registry import ModelStage, ModelVersion, StrategyStatus, StrategyVersion
 from core.registry.deployment_guard import (
+    DeploymentResult,
     check_model_deployment,
     check_strategy_deployment,
 )
@@ -133,3 +136,30 @@ def test_model_unknown_env_rejected():
     res = check_model_deployment(_model(ModelStage.STAGED), "sandbox")
     assert not res.allowed
     assert "unknown_environment" in res.reasons
+
+
+# ---------------------------------------------------------------- 快照守卫
+
+@pytest.mark.parametrize("bad", [0, 1, "yes", None])
+def test_snapshot_allowed_must_be_bool(bad):
+    with pytest.raises(ValueError, match="allowed"):
+        DeploymentResult(allowed=bad, reasons=[], audit={})
+
+
+@pytest.mark.parametrize("bad", ["retired", [1, 2], [""], None])
+def test_snapshot_reasons_must_be_str_list(bad):
+    with pytest.raises(ValueError, match="reasons"):
+        DeploymentResult(allowed=False, reasons=bad, audit={})
+
+
+@pytest.mark.parametrize("bad", ["{}", [], None])
+def test_snapshot_audit_must_be_dict(bad):
+    with pytest.raises(ValueError, match="audit"):
+        DeploymentResult(allowed=True, reasons=[], audit=bad)
+
+
+def test_snapshot_valid_accepted():
+    res = DeploymentResult(allowed=True, reasons=["retired"], audit={"env": "paper"})
+    assert res.allowed is True
+    assert res.reasons == ["retired"]
+    assert res.audit == {"env": "paper"}
