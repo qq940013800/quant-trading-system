@@ -21,6 +21,28 @@ import numpy as np
 from .stress_test import StressTester, PRESET_SCENARIOS, StressTestResult
 
 
+def _finite(name: str, val: float) -> float:
+    if not isinstance(val, (int, float)) or isinstance(val, bool) \
+            or not np.isfinite(val):
+        raise ValueError(f"{name} 必须为有限数值，收到 {val!r}")
+    return float(val)
+
+
+def _nonneg_finite(name: str, val: float) -> float:
+    v = _finite(name, val)
+    if v < 0:
+        raise ValueError(f"{name} 必须为非负有限数值，收到 {val!r}")
+    return v
+
+
+def _exposure(val: float) -> float:
+    if not isinstance(val, (int, float)) or isinstance(val, bool) \
+            or not np.isfinite(val) or not (0 <= val <= 1):
+        raise ValueError(
+            f"current_exposure 必须为 [0,1] 内有限数值，收到 {val!r}")
+    return float(val)
+
+
 @dataclass
 class IntegratedReport:
     """集成报告：回测结果 + 压力测试结果。
@@ -62,6 +84,7 @@ class BacktestStressIntegration:
         Returns:
             集成报告
         """
+        current_exposure = _exposure(current_exposure)
         # 1. 运行所有预设压力情景
         stress_results = self.tester.run_all_presets(current_exposure)
 
@@ -126,6 +149,9 @@ class BacktestStressIntegration:
                       max_drawdown: float = 0.15,
                       current_exposure: float = 0.02) -> dict:
         """快速分析：只输入关键指标，不需要完整回测结果。"""
+        sharpe = _finite("sharpe", sharpe)
+        max_drawdown = _nonneg_finite("max_drawdown", max_drawdown)
+        current_exposure = _exposure(current_exposure)
         fake_metrics = {
             "sharpe": sharpe,
             "max_drawdown": max_drawdown,

@@ -78,3 +78,34 @@ class TestBacktestStressIntegration:
         assert self.integration._risk_level(70) == "medium"
         assert self.integration._risk_level(50) == "high"
         assert self.integration._risk_level(30) == "critical"
+
+
+class TestIntegrationGuardGuards:
+    def setup_method(self):
+        self.integration = BacktestStressIntegration(initial_equity=100000)
+
+    @pytest.mark.parametrize("bad", [-0.01, 1.5, float("nan"), float("inf"), True])
+    def test_invalid_analyze_exposure_rejected(self, bad):
+        with pytest.raises(ValueError):
+            self.integration.analyze({"max_drawdown": 0.1}, current_exposure=bad)
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf")])
+    def test_invalid_sharpe_rejected(self, bad):
+        with pytest.raises(ValueError):
+            self.integration.quick_analyze(sharpe=bad, max_drawdown=0.1)
+
+    @pytest.mark.parametrize("bad", [-0.1, float("nan")])
+    def test_invalid_max_drawdown_rejected(self, bad):
+        with pytest.raises(ValueError):
+            self.integration.quick_analyze(sharpe=1.0, max_drawdown=bad)
+
+    @pytest.mark.parametrize("bad", [1.5, float("nan")])
+    def test_invalid_quick_exposure_rejected(self, bad):
+        with pytest.raises(ValueError):
+            self.integration.quick_analyze(
+                sharpe=1.0, max_drawdown=0.1, current_exposure=bad)
+
+    def test_valid_quick_analyze_accepted(self):
+        result = self.integration.quick_analyze(
+            sharpe=-0.5, max_drawdown=0.1, current_exposure=0.02)
+        assert "risk_score" in result

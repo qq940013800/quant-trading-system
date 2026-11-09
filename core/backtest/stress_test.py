@@ -26,6 +26,14 @@ def _positive_finite(name: str, val: float) -> float:
     return val
 
 
+def _exposure(val: float) -> float:
+    if not isinstance(val, (int, float)) or isinstance(val, bool) \
+            or not np.isfinite(val) or not (0 <= val <= 1):
+        raise ValueError(
+            f"current_exposure 必须为 [0,1] 内有限数值，收到 {val!r}")
+    return float(val)
+
+
 @dataclass
 class StressScenario:
     """压力测试情景定义。
@@ -144,6 +152,7 @@ class StressTester:
         Returns:
             压力测试结果
         """
+        current_exposure = _exposure(current_exposure)
         equity = self.initial_equity
 
         # 1. 价格冲击导致的直接损失

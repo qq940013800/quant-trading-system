@@ -114,3 +114,18 @@ class TestConstructorGuards:
         t = StressTester(initial_equity=200000.0, max_leverage=5.0)
         assert t.initial_equity == 200000.0
         assert t.max_leverage == 5.0
+
+
+class TestExposureGuards:
+    @pytest.mark.parametrize("bad", [-0.01, 1.5, np.nan, np.inf, True])
+    def test_invalid_exposure_rejected(self, bad):
+        tester = StressTester(initial_equity=100000)
+        scenario = PRESET_SCENARIOS["2008_financial_crisis"]
+        with pytest.raises(ValueError):
+            tester.run_scenario(scenario, current_exposure=bad)
+
+    def test_valid_exposure_accepted(self):
+        tester = StressTester(initial_equity=100000)
+        scenario = PRESET_SCENARIOS["2008_financial_crisis"]
+        result = tester.run_scenario(scenario, current_exposure=0.05)
+        assert result.scenario_name == scenario.name
