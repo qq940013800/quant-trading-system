@@ -37,6 +37,12 @@ from .evolution_rules import (
     score_health,
 )
 from .data_manifest import DatasetManifest, ManifestError, build_manifest
+from .alt_data_availability import (
+    AvailabilityError,
+    AvailabilityReport,
+    AvailabilityViolation,
+    assess_alt_data_availability,
+)
 
 __all__ = [
     "Decision",
@@ -74,4 +80,8 @@ __all__ = [
     "DatasetManifest",
     "ManifestError",
     "build_manifest",
+    "AvailabilityError",
+    "AvailabilityReport",
+    "AvailabilityViolation",
+    "assess_alt_data_availability",
 ]
