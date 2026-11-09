@@ -10,13 +10,24 @@ meta-labeling（López de Prado）：第一层方向骨架由规则层给出，�
 """
 from __future__ import annotations
 
+import math
+
 import numpy as np
+
+
+def _finite_num(name: str, val) -> float:
+    if isinstance(val, bool) or not isinstance(val, (int, float)):
+        raise ValueError(f"models.meta_label: {name} must be a number: {val!r}")
+    f = float(val)
+    if not math.isfinite(f):
+        raise ValueError(f"models.meta_label: {name} must be finite: {val!r}")
+    return f
 
 
 class MetaLabeler:
     def __init__(self, base_model, q_lo: float = 0.30, q_hi: float = 0.70):
-        if not (np.isfinite(q_lo) and np.isfinite(q_hi)):
-            raise ValueError("q_lo/q_hi must be finite")
+        q_lo = _finite_num("q_lo", q_lo)
+        q_hi = _finite_num("q_hi", q_hi)
         if not 0.0 <= q_lo < q_hi <= 1.0:
             raise ValueError("require 0 <= q_lo < q_hi <= 1")
         self.base_model = base_model
