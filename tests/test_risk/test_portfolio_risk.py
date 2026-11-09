@@ -206,3 +206,34 @@ class TestPortfolioRiskGuard:
     def test_rejects_invalid_max_strategies(self, bad):
         with pytest.raises(ValueError):
             PortfolioRiskConfig(max_strategies=bad)
+
+    @pytest.mark.parametrize("bad", ["", "  ", 123])
+    def test_rejects_bad_strategy_id(self, bad):
+        with pytest.raises(ValueError):
+            StrategyRisk(strategy_id=bad)
+
+    @pytest.mark.parametrize("bad", [float("nan"), -0.01])
+    def test_rejects_bad_risk_per_trade(self, bad):
+        with pytest.raises(ValueError):
+            StrategyRisk(strategy_id="s", risk_per_trade=bad)
+
+    @pytest.mark.parametrize("bad", [float("nan"), -0.02])
+    def test_rejects_bad_current_exposure(self, bad):
+        with pytest.raises(ValueError):
+            StrategyRisk(strategy_id="s", current_exposure=bad)
+
+    @pytest.mark.parametrize("bad", [-1, 1.5, True])
+    def test_rejects_bad_cluster(self, bad):
+        with pytest.raises(ValueError):
+            StrategyRisk(strategy_id="s", correlation_cluster=bad)
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf")])
+    def test_rejects_bad_daily_pnl(self, bad):
+        with pytest.raises(ValueError):
+            StrategyRisk(strategy_id="s", daily_pnl=bad)
+
+    @pytest.mark.parametrize("bad", [float("nan"), 0.0, -1.0])
+    def test_rejects_bad_equity(self, bad):
+        mgr = PortfolioRiskManager()
+        with pytest.raises(ValueError):
+            mgr.set_equity(bad)

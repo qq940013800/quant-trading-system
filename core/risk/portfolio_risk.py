@@ -19,6 +19,32 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 
+def _finite(name: str, val: float) -> float:
+    if isinstance(val, bool) or not isinstance(val, (int, float)) \
+            or not math.isfinite(val):
+        raise ValueError(f"{name} 必须为有限数值，收到 {val!r}")
+    return float(val)
+
+
+def _nonneg_finite(name: str, val: float) -> float:
+    f = _finite(name, val)
+    if f < 0:
+        raise ValueError(f"{name} 必须为非负有限数，收到 {f!r}")
+    return f
+
+
+def _nonneg_int(name: str, val: int) -> int:
+    if isinstance(val, bool) or not isinstance(val, int) or val < 0:
+        raise ValueError(f"{name} 必须为非负整数，收到 {val!r}")
+    return val
+
+
+def _nonempty_str(name: str, val: object) -> str:
+    if not isinstance(val, str) or not val.strip():
+        raise ValueError(f"{name} 必须为非空字符串，收到 {val!r}")
+    return val
+
+
 @dataclass
 class StrategyRisk:
     """单个策略的风险参数。
@@ -35,6 +61,13 @@ class StrategyRisk:
     current_exposure: float = 0.0
     correlation_cluster: int = 0
     daily_pnl: float = 0.0
+
+    def __post_init__(self) -> None:
+        _nonempty_str("strategy_id", self.strategy_id)
+        _nonneg_finite("risk_per_trade", self.risk_per_trade)
+        _nonneg_finite("current_exposure", self.current_exposure)
+        _nonneg_int("correlation_cluster", self.correlation_cluster)
+        _finite("daily_pnl", self.daily_pnl)
 
 
 @dataclass
@@ -87,7 +120,10 @@ class PortfolioRiskManager:
 
     def set_equity(self, equity: float) -> None:
         """设置当前权益。"""
-        self._equity = float(equity)
+        f = _finite("equity", equity)
+        if f <= 0:
+            raise ValueError(f"equity 必须 > 0，收到 {f!r}")
+        self._equity = f
 
     def add_strategy(self, risk: StrategyRisk) -> None:
         """注册一个策略到组合。"""
