@@ -12,7 +12,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from .base import as_of, _arrays, expanding_percentile_rank
+from .base import as_of, _arrays, expanding_percentile_rank, _min_int
 
 
 @as_of
@@ -22,8 +22,7 @@ def realized_vol(history: list, as_of: pd.Timestamp, window: int = 48) -> float:
     window=48 对应 M5 的 4 小时；年化/缩放因子不在此处硬编码——返回的是
     原始 std，跨品种缩放由调用方配置决定。
     """
-    if window < 2:
-        raise ValueError(f"window must be >= 2, got {window}")
+    window = _min_int("window", window, 2)
     if len(history) < window + 1:
         return np.nan
     close = _arrays(history)["close"]
@@ -42,6 +41,7 @@ def atr_percentile_rank(history: list, as_of: pd.Timestamp,
     """
     if len(history) != len(atr_series):
         raise ValueError("history/atr_series length mismatch")
+    min_history = _min_int("min_history", min_history, 0)
     cur = atr_series[len(history) - 1]
     if not np.isfinite(cur):
         return np.nan

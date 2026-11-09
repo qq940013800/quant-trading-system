@@ -109,3 +109,21 @@ class TestRegimeThresholdGuards:
         w = regime_weights(40.0, 0.6, 0.3, adx_q_lo=10.0, adx_q_hi=30.0,
                            mr_hurst_thresh=0.55)
         assert abs(sum(w.values()) - 1.0) < 1e-9
+
+
+class TestVolatilityWindowGuards:
+    @pytest.mark.parametrize("bad", [1, 48.5, True, np.nan, "48"])
+    def test_invalid_window_rejected(self, bars, bad):
+        with pytest.raises(ValueError):
+            realized_vol(bars[:51], bars[50].ts_utc, window=bad)
+
+    def test_valid_window_accepted(self, bars):
+        v = realized_vol(bars[:51], bars[50].ts_utc, window=20)
+        assert v is not None
+
+    @pytest.mark.parametrize("bad", [-1, 96.5, True, np.nan])
+    def test_invalid_min_history_rejected(self, bars, bad):
+        atr_arr = np.full(51, 1.0)
+        with pytest.raises(ValueError):
+            atr_percentile_rank(bars[:51], bars[50].ts_utc, atr_arr,
+                                min_history=bad)
