@@ -19,6 +19,8 @@ from itertools import combinations
 import numpy as np
 import pandas as pd
 
+from core.models.cv import PurgedCVError, combinatorial_purged_folds
+
 
 def _finite(name: str, val: float) -> float:
     if not isinstance(val, (int, float)) or isinstance(val, bool) \
@@ -295,14 +297,14 @@ def combinatorial_purged_cv(returns: pd.Series, n_splits: int = 6,
                               purge_fraction: float = 0.05) -> dict:
     """组合净化交叉验证（CPCV）。
 
-    第一性原理：传统交叉验证有数据泄露问题——
-    训练集和测试集边界的数据互相影响。
-    CPCV 通过"净化"（purge）和" embargo"来防止泄露。
+    切分底座复用 :func:`core.models.cv.combinatorial_purged_folds`：序列切成
+    ``n_splits`` 等界块，每折取 k=1 块作 test，其余块经 purge + embargo
+    净化后作 train，避免 train/test 边界标签泄漏。
 
     Args:
         returns: 收益率序列
-        n_splits: 分成多少折
-        purge_fraction: 边界净化比例
+        n_splits: 等界块数
+        purge_fraction: 边界净化比例（折算 embargo 宽度）
 
     Returns:
         dict:
@@ -316,41 +318,33 @@ def combinatorial_purged_cv(returns: pd.Series, n_splits: int = 6,
         raise ValueError(f"purge_fraction 必须位于 [0,1)，收到 {pf!r}")
     n = len(returns)
     fold_size = n // n_splits_v
-    
+
     if fold_size < 30:
         return {"train_sharpes": [], "test_sharpes": [], "ratio": 1.0}
-    
-    purge_size = int(fold_size * pf)
 
-    train_sharpes = []
-    test_sharpes = []
+    embargo_bars = int(fold_size * pf)
+    train_sharpes: list[float] = []
+    test_sharpes: list[float] = []
 
-    for i in range(n_splits_v):
-        # 测试集：第 i 折
-        test_start = i * fold_size
-        test_end = test_start + fold_size
-        
-        # 训练集：除了测试集，还要净化边界
-        train_mask = np.ones(n, dtype=bool)
-        train_mask[test_start:test_end] = False
-        
-        # 净化：测试集前后的 purge_size 个点也从训练集去掉
-        purge_start = max(0, test_start - purge_size)
-        purge_end = min(n, test_end + purge_size)
-        train_mask[purge_start:purge_end] = False
-        
-        train_returns = returns[train_mask]
-        test_returns = returns.iloc[test_start:test_end]
-        
+    try:
+        folds = combinatorial_purged_folds(
+            n=n, n_blocks=n_splits_v, k=1, embargo_bars=embargo_bars)
+    except PurgedCVError:
+        return {"train_sharpes": [], "test_sharpes": [], "ratio": 1.0}
+
+    for train_idx, test_idx in folds:
+        train_returns = returns.iloc[train_idx]
+        test_returns = returns.iloc[test_idx]
+
         if len(train_returns) < 30 or len(test_returns) < 10:
             continue
-        
+
         train_sr = compute_sharpe(train_returns, bars_per_year=252)
         test_sr = compute_sharpe(test_returns, bars_per_year=252)
-        
+
         train_sharpes.append(train_sr)
         test_sharpes.append(test_sr)
-    
+
     # 计算衰减比
     if train_sharpes and test_sharpes:
         avg_train = np.mean(train_sharpes)
@@ -358,7 +352,7 @@ def combinatorial_purged_cv(returns: pd.Series, n_splits: int = 6,
         ratio = avg_test / avg_train if avg_train > 0 else 1.0
     else:
         ratio = 1.0
-    
+
     return {
         "train_sharpes": train_sharpes,
         "test_sharpes": test_sharpes,

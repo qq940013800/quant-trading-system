@@ -2,11 +2,17 @@
 """tests/test_models_cv.py —— purged walk-forward：embargo/防泄漏约束断言。"""
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import pytest
 
 from _tp_bootstrap import ROOT  # noqa: F401
-from core.models.cv import purged_walk_forward, PurgedCVError
+from core.models.cv import (
+    PurgedCVError,
+    combinatorial_purged_folds,
+    purged_walk_forward,
+)
 
 
 def test_embargo_smaller_than_label_window_raises():
@@ -73,3 +79,71 @@ class TestConstructorGuards:
         folds = purged_walk_forward(n=1000, embargo_bars=12, n_splits=4,
                                    label_window_bars=12)
         assert len(folds) == 4
+
+
+# ------------------------------------------------------------------
+# CPCV 组合净化交叉验证（combinatorial purged CV）
+# ------------------------------------------------------------------
+class TestCombinatorialPurgedFolds:
+    def test_number_of_folds_matches_combinations(self):
+        folds = combinatorial_purged_folds(
+            n=120, n_blocks=6, k=2, embargo_bars=6, label_window_bars=6)
+        assert len(folds) == math.comb(6, 2)
+
+    def test_train_test_disjoint(self):
+        folds = combinatorial_purged_folds(
+            n=120, n_blocks=6, k=2, embargo_bars=6, label_window_bars=6)
+        for tr, te in folds:
+            assert set(tr.tolist()).isdisjoint(set(te.tolist()))
+
+    def test_purge_and_embargo_bands_excluded(self):
+        n, blocks, k, embargo = 120, 6, 2, 6
+        edges = [round(i * n / blocks) for i in range(blocks + 1)]
+        folds = combinatorial_purged_folds(
+            n=n, n_blocks=blocks, k=k, embargo_bars=embargo, label_window_bars=embargo)
+        for tr, te in folds:
+            train_set = set(tr.tolist())
+            for idx in te.tolist():
+                # 找到该 test 样本所属块
+                b = next(b for b in range(blocks) if edges[b] <= idx < edges[b + 1])
+                s, e = edges[b], edges[b + 1]
+                # purge 前端带、embargo 后端带不得落入 train
+                for leak in range(max(0, s - embargo), s):
+                    assert leak not in train_set
+                for leak in range(e, min(e + embargo, n)):
+                    assert leak not in train_set
+
+    def test_k_two_produces_multiblock_test(self):
+        folds = combinatorial_purged_folds(
+            n=120, n_blocks=6, k=2, embargo_bars=6, label_window_bars=6)
+        # k=2：存在 test 由两段不连续区间组成的折
+        multiblock = False
+        for _, te in folds:
+            diff = np.diff(te)
+            if (diff > 1).any():
+                multiblock = True
+                break
+        assert multiblock
+
+    @pytest.mark.parametrize("kw", [
+        {"n_blocks": 1}, {"k": 0}, {"k": 6},
+        {"n_blocks": 6.0}, {"k": 2.0}, {"k": True},
+        {"embargo_bars": 3.0}, {"embargo_bars": -1},
+        {"label_window_bars": 12.0},
+    ])
+    def test_invalid_layout_rejected(self, kw):
+        base = dict(n=120, n_blocks=6, k=2, embargo_bars=6,
+                    label_window_bars=6)
+        base.update(kw)
+        with pytest.raises(PurgedCVError):
+            combinatorial_purged_folds(**base)
+
+    def test_embargo_smaller_than_label_window_raises(self):
+        with pytest.raises(PurgedCVError):
+            combinatorial_purged_folds(
+                n=120, n_blocks=6, k=2, embargo_bars=3, label_window_bars=12)
+
+    def test_valid_layout_accepted(self):
+        folds = combinatorial_purged_folds(
+            n=120, n_blocks=6, k=2, embargo_bars=6, label_window_bars=6)
+        assert len(folds) > 0

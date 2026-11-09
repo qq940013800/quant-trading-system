@@ -14,6 +14,8 @@
 """
 from __future__ import annotations
 
+from itertools import combinations
+
 import numpy as np
 
 
@@ -93,4 +95,73 @@ def purged_walk_forward(n: int, embargo_bars: int, n_splits: int, *,
                       np.arange(s, e, dtype=np.int64)))
     if len(folds) < 1:
         raise PurgedCVError("no valid fold produced; increase n or reduce embargo/splits")
+    return folds
+
+
+def combinatorial_purged_folds(n: int, n_blocks: int, k: int, embargo_bars: int, *,
+                               label_window_bars: int | None = None
+                               ) -> list[tuple[np.ndarray, np.ndarray]]:
+    """CPCV（López de Prado 组合净化交叉验证）。
+
+    把序列切成 ``n_blocks`` 个等界块，取 C(n_blocks, k) 种 k 块并集作为
+    test，其余块经 purge + embargo 净化后作为 train。与
+    :func:`purged_walk_forward` 的区别：test 可由多个不连续块组成（组合
+    交叉），折数为组合数 C(n_blocks, k)，而非顺序单链。
+
+    Parameters
+    ----------
+    n : 样本总数；
+    n_blocks : 等界块数（>= 2）；
+    k : 每折并入 test 的块数（1 <= k <= n_blocks-1）；
+    embargo_bars : embargo/purge 宽度（bar 数），必须 >= label_window_bars；
+    label_window_bars : 标签最大视野（= max_holding_bars，可选）。
+
+    Returns
+    -------
+    [(train_idx, test_idx), ...]，每折 train/test 为排序后的 int64 索引数组。
+    """
+    n = _as_nonneg_int("n", n)
+    n_blocks = _as_int("n_blocks", n_blocks)
+    k = _as_int("k", k)
+    embargo_bars = _as_nonneg_int("embargo_bars", embargo_bars)
+    if label_window_bars is not None:
+        label_window_bars = _as_nonneg_int("label_window_bars", label_window_bars)
+    if n < 1:
+        raise PurgedCVError(f"n 必须 ≥1，收到 {n!r}")
+    if n_blocks < 2:
+        raise PurgedCVError(f"n_blocks 必须 >= 2，收到 {n_blocks!r}")
+    if not (1 <= k <= n_blocks - 1):
+        raise PurgedCVError(
+            f"k 必须位于 [1, n_blocks-1]，收到 k={k}, n_blocks={n_blocks}")
+    if label_window_bars is not None and embargo_bars < label_window_bars:
+        raise PurgedCVError(
+            f"embargo_bars({embargo_bars}) < label_window_bars({label_window_bars}): "
+            "purge 宽度不足以覆盖标签视野，训练集会泄漏测试段标签")
+
+    edges = [round(i * n / n_blocks) for i in range(n_blocks + 1)]
+    blocks: list[tuple[int, int]] = [(edges[b], edges[b + 1]) for b in range(n_blocks)]
+
+    folds: list[tuple[np.ndarray, np.ndarray]] = []
+    for test_blocks in combinations(range(n_blocks), k):
+        test_idx: set[int] = set()
+        train_idx: set[int] = set(range(n))
+        for b in test_blocks:
+            s, e = blocks[b]
+            test_idx.update(range(s, e))
+            train_idx -= set(range(s, e))
+        # purge：剔除 train 中与 test 标签窗口重叠的 test 前端带
+        for b in test_blocks:
+            s, _ = blocks[b]
+            train_idx -= set(range(max(0, s - embargo_bars), s))
+        # embargo：剔除每个 test 块之后的 embargo_bars 个样本
+        for b in test_blocks:
+            _, e = blocks[b]
+            train_idx -= set(range(e, min(e + embargo_bars, n)))
+        if not train_idx or not test_idx:
+            continue
+        folds.append((np.array(sorted(train_idx), dtype=np.int64),
+                      np.array(sorted(test_idx), dtype=np.int64)))
+    if not folds:
+        raise PurgedCVError(
+            "no valid CPCV fold produced; increase n or reduce embargo/blocks")
     return folds
