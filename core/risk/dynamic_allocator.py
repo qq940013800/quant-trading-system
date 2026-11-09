@@ -22,6 +22,20 @@ import numpy as np
 logger = logging.getLogger("core.risk.allocator")
 
 
+def _as_int(name: str, val: int) -> int:
+    if isinstance(val, bool) or not isinstance(val, int):
+        raise ValueError(f"{name} 必须为整数，收到 {val!r}")
+    return val
+
+
+def _ratio(name: str, val: float, *, lo: float, hi: float) -> float:
+    if not np.isfinite(val):
+        raise ValueError(f"{name} 必须为有限数值，收到 {val!r}")
+    if val < lo or val > hi:
+        raise ValueError(f"{name} 必须位于 [{lo}, {hi}] 区间，收到 {val!r}")
+    return float(val)
+
+
 @dataclass
 class StrategyPerformance:
     """单个策略的绩效指标。"""
@@ -70,9 +84,18 @@ class DynamicAllocator:
             explore_period_days: 新策略探索期天数
             base_explore_weight: 探索期基础权重
         """
-        self.min_trades_for_score = min_trades_for_score
-        self.explore_period_days = explore_period_days
-        self.base_explore_weight = base_explore_weight
+        self.min_trades_for_score = _as_int(
+            "min_trades_for_score", min_trades_for_score)
+        if self.min_trades_for_score < 1:
+            raise ValueError(
+                f"min_trades_for_score 必须 >= 1，收到 {self.min_trades_for_score}")
+        self.explore_period_days = _as_int(
+            "explore_period_days", explore_period_days)
+        if self.explore_period_days < 1:
+            raise ValueError(
+                f"explore_period_days 必须 >= 1，收到 {self.explore_period_days}")
+        self.base_explore_weight = _ratio(
+            "base_explore_weight", base_explore_weight, lo=0.0, hi=1.0)
         self.performances: Dict[str, StrategyPerformance] = {}
 
     def update_performance(self, perf: StrategyPerformance) -> None:
