@@ -123,3 +123,23 @@ def test_split_dataset_partitions_and_never_returns_silent(syn_bars, tmp_path):
     assert len(parts["KNOWN"]) == len(syn_bars)
     assert parts["CLEAN"] == []
     assert parts["HELD_OUT"] == []   # silent set never returned
+
+
+class TestValidatorGuards:
+    @pytest.mark.parametrize("kwargs", [
+        {"bar_minutes": 0}, {"bar_minutes": -1}, {"bar_minutes": 1.5},
+        {"bar_minutes": True},
+        {"outlier_window": 0}, {"outlier_window": -2}, {"outlier_window": 3.0},
+        {"outlier_window": True},
+        {"outlier_mult": 0.0}, {"outlier_mult": -1.0},
+        {"outlier_mult": float("nan")}, {"outlier_mult": float("inf")},
+        {"outlier_mult": True},
+    ])
+    def test_invalid_params_rejected(self, syn_bars, kwargs):
+        with pytest.raises(ValidationError):
+            validate_bars(syn_bars, **kwargs)
+
+    def test_valid_params_accepted(self, syn_bars):
+        report = validate_bars(syn_bars, bar_minutes=5,
+                               outlier_window=20, outlier_mult=4.0)
+        assert report.total_bars == len(syn_bars)
