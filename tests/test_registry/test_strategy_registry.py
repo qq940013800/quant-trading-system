@@ -326,3 +326,51 @@ class TestPerformanceSnapshotGuards:
             win_rate=0.5, profit_factor=1.2, total_trades=42,
             avg_r_multiple=0.1, deflated_sharpe=-0.2, pbo=0.3)
         assert snap.total_trades == 42
+
+
+def _sv(**kw) -> StrategyVersion:
+    base = dict(
+        strategy_id="trend_breakout", version="v1.0.0",
+        created_at=datetime.now(), parameters={"p1": 1.0})
+    base.update(kw)
+    return StrategyVersion(**base)
+
+
+class TestStrategyVersionGuards:
+    @pytest.mark.parametrize("bad", ["", "  ", 123, None])
+    def test_strategy_id_must_be_nonempty_str(self, bad):
+        with pytest.raises(ValueError):
+            _sv(strategy_id=bad)
+
+    @pytest.mark.parametrize("bad", ["", "  ", 42])
+    def test_version_must_be_nonempty_str(self, bad):
+        with pytest.raises(ValueError):
+            _sv(version=bad)
+
+    @pytest.mark.parametrize("bad", ["2026-01-01", 123, None])
+    def test_created_at_must_be_datetime(self, bad):
+        with pytest.raises(ValueError):
+            _sv(created_at=bad)
+
+    @pytest.mark.parametrize("bad", [[], "x", ({"p1": 1.0},)])
+    def test_parameters_must_be_dict(self, bad):
+        with pytest.raises(ValueError):
+            _sv(parameters=bad)
+
+    def test_parent_version_rejects_non_str(self):
+        with pytest.raises(ValueError):
+            _sv(parent_version=123)
+
+    @pytest.mark.parametrize("field", ["changelog", "description"])
+    def test_text_fields_must_be_str(self, field):
+        with pytest.raises(ValueError):
+            _sv(**{field: 123})
+
+    def test_performance_must_be_snapshot_or_none(self):
+        with pytest.raises(ValueError):
+            _sv(performance={"sharpe": 1.0})
+
+    def test_valid_version_accepted(self):
+        sv = _sv(parent_version="v0.9.0", performance=PerformanceSnapshot())
+        assert sv.strategy_id == "trend_breakout"
+        assert sv.performance is not None

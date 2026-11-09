@@ -20,9 +20,27 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Optional
 
 logger = logging.getLogger("core.registry")
+
+
+def _nonempty_str(name: str, val: object) -> str:
+    if not isinstance(val, str) or not val.strip():
+        raise ValueError(f"{name} 必须为非空字符串，收到 {val!r}")
+    return val
+
+
+def _opt_str(name: str, val: object) -> Optional[str]:
+    if val is not None and not isinstance(val, str):
+        raise ValueError(f"{name} 必须为字符串或 None，收到 {val!r}")
+    return val
+
+
+def _dict(name: str, val: object) -> dict:
+    if not isinstance(val, dict):
+        raise ValueError(f"{name} 必须为 dict，收到 {type(val).__name__}")
+    return val
 
 
 class StrategyStatus(Enum):
@@ -118,6 +136,26 @@ class StrategyVersion:
 
     # 内部状态
     _frozen: bool = field(default=False, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        _nonempty_str("strategy_id", self.strategy_id)
+        _nonempty_str("version", self.version)
+        if not isinstance(self.created_at, datetime):
+            raise ValueError(
+                f"created_at 必须为 datetime，收到 {type(self.created_at).__name__}")
+        _dict("parameters", self.parameters)
+        _opt_str("parent_version", self.parent_version)
+        if not isinstance(self.changelog, str):
+            raise ValueError(
+                f"changelog 必须为 str，收到 {type(self.changelog).__name__}")
+        if not isinstance(self.description, str):
+            raise ValueError(
+                f"description 必须为 str，收到 {type(self.description).__name__}")
+        if self.performance is not None \
+                and not isinstance(self.performance, PerformanceSnapshot):
+            raise ValueError(
+                "performance 必须为 PerformanceSnapshot 或 None，"
+                f"收到 {type(self.performance).__name__}")
 
     def freeze_parameters(self) -> None:
         """冻结参数，进入不可修改状态。
