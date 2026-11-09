@@ -38,6 +38,13 @@ def has_gmm() -> bool:
     return _HAS_GMM
 
 
+def _int_param(name: str, val, *, minimum: int) -> int:
+    if isinstance(val, bool) or not isinstance(val, int) or val < minimum:
+        raise ValueError(
+            f"regime.gmm: {name} must be an integer >= {minimum}, got {val!r}")
+    return val
+
+
 class GMMRegimeModel:
     version = "regime-gmm-v1"
 
@@ -50,8 +57,8 @@ class GMMRegimeModel:
         if n_components != 3:
             raise ValueError("n_components must be 3 (aligned to trend/mr/ranging)")
         self.n_components = n_components
-        self.random_state = random_state
-        self.n_init = n_init
+        self.random_state = _int_param("random_state", random_state, minimum=0)
+        self.n_init = _int_param("n_init", n_init, minimum=1)
         self._mean: np.ndarray | None = None
         self._std: np.ndarray | None = None
         self._gmm = None

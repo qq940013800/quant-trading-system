@@ -67,3 +67,27 @@ def test_gmm_unavailable_raises_contextual_runtimeerror(monkeypatch):
     monkeypatch.setattr(gmm_mod, "_HAS_GMM", False)
     with pytest.raises(RuntimeError, match="unavailable"):
         GMMRegimeModel()
+
+
+@pytest.mark.parametrize("bad", [True, 1.5, -1, "7", None])
+def test_gmm_random_state_must_be_nonneg_int(bad):
+    if not has_gmm():
+        pytest.importorskip("sklearn.mixture")
+    with pytest.raises(ValueError, match="random_state"):
+        GMMRegimeModel(random_state=bad)
+
+
+@pytest.mark.parametrize("bad", [True, 2.0, 0, "2", None])
+def test_gmm_n_init_must_be_positive_int(bad):
+    if not has_gmm():
+        pytest.importorskip("sklearn.mixture")
+    with pytest.raises(ValueError, match="n_init"):
+        GMMRegimeModel(n_init=bad)
+
+
+def test_gmm_valid_int_params_accepted():
+    if not has_gmm():
+        pytest.importorskip("sklearn.mixture")
+    model = GMMRegimeModel(random_state=0, n_init=3)
+    assert model.random_state == 0
+    assert model.n_init == 3
