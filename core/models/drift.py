@@ -11,6 +11,8 @@ import numpy as np
 
 def psi(expected: np.ndarray, actual: np.ndarray, bins: int = 10) -> float:
     """Population Stability Index。expected=训练分布，actual=当前分布。"""
+    if isinstance(bins, bool) or not isinstance(bins, int) or bins < 2:
+        raise ValueError(f"psi: bins 必须为 ≥2 整数，收到 {bins!r}")
     e = np.asarray(expected, dtype=np.float64)
     a = np.asarray(actual, dtype=np.float64)
     e = e[np.isfinite(e)]
@@ -28,8 +30,8 @@ def psi(expected: np.ndarray, actual: np.ndarray, bins: int = 10) -> float:
 def rolling_hit_rate(correct: np.ndarray, window: int) -> np.ndarray:
     """滚动窗口命中率（事后监控：OOS 命中率相对训练段的偏移报警用）。"""
     c = np.asarray(correct, dtype=np.float64)
-    if window < 2:
-        raise ValueError("window must be >= 2")
+    if isinstance(window, bool) or not isinstance(window, int) or window < 2:
+        raise ValueError("window must be >= 2 integer")
     out = np.full(c.shape, np.nan, dtype=np.float64)
     if c.size < window:
         return out

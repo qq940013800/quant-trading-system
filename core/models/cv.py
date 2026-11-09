@@ -21,6 +21,18 @@ class PurgedCVError(ValueError):
     """purged walk-forward 参数/布局违反契约。"""
 
 
+def _as_int(name: str, val: int) -> int:
+    if isinstance(val, bool) or not isinstance(val, int):
+        raise PurgedCVError(f"{name} 必须为整数，收到 {val!r}")
+    return val
+
+
+def _as_nonneg_int(name: str, val: int) -> int:
+    if isinstance(val, bool) or not isinstance(val, int) or val < 0:
+        raise PurgedCVError(f"{name} 必须为 ≥0 整数，收到 {val!r}")
+    return val
+
+
 def purged_walk_forward(n: int, embargo_bars: int, n_splits: int, *,
                         label_window_bars: int | None = None
                         ) -> list[tuple[np.ndarray, np.ndarray]]:
@@ -38,6 +50,13 @@ def purged_walk_forward(n: int, embargo_bars: int, n_splits: int, *,
     -------
     [(train_idx, test_idx), ...]，时间顺序排列；train 全部 < test 最小下标。
     """
+    n = _as_nonneg_int("n", n)
+    embargo_bars = _as_nonneg_int("embargo_bars", embargo_bars)
+    n_splits = _as_int("n_splits", n_splits)
+    if label_window_bars is not None:
+        label_window_bars = _as_nonneg_int("label_window_bars", label_window_bars)
+    if n < 1:
+        raise PurgedCVError(f"n 必须 ≥1，收到 {n!r}")
     if n_splits < 2:
         raise PurgedCVError(f"n_splits must be >= 2, got {n_splits}")
     if embargo_bars < 0:

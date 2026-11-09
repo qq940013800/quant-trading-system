@@ -54,3 +54,22 @@ def test_embargo_after_previous_test_blocks_excluded():
 def test_invalid_layout_raises():
     with pytest.raises(PurgedCVError):
         purged_walk_forward(n=20, embargo_bars=5, n_splits=4)  # warmup 太小
+
+
+class TestConstructorGuards:
+    @pytest.mark.parametrize("kw", [
+        {"n": 1000.0}, {"n": -1}, {"n": 0}, {"n": "1000"},
+        {"embargo_bars": 3.0}, {"embargo_bars": -1},
+        {"n_splits": 4.0}, {"n_splits": True},
+        {"label_window_bars": 12.0}, {"label_window_bars": -2},
+    ])
+    def test_non_integer_or_out_of_range_rejected(self, kw):
+        base = dict(n=1000, embargo_bars=12, n_splits=4)
+        base.update(kw)
+        with pytest.raises(PurgedCVError):
+            purged_walk_forward(**base)
+
+    def test_valid_integer_layout_accepted(self):
+        folds = purged_walk_forward(n=1000, embargo_bars=12, n_splits=4,
+                                   label_window_bars=12)
+        assert len(folds) == 4

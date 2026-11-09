@@ -65,3 +65,21 @@ def test_rolling_hit_rate_causal():
     rates = rolling_hit_rate(np.ones(10), window=5)
     assert rates[4] == 1.0   # 前 4 个样本窗口不足 → NaN 之后全 1
     assert np.isnan(rates[:4]).all()
+
+
+class TestDriftGuards:
+    @pytest.mark.parametrize("bins", [1, 10.0, "10", True])
+    def test_psi_bins_rejected(self, bins):
+        rng = np.random.default_rng(0)
+        with pytest.raises(ValueError):
+            psi(rng.normal(size=100), rng.normal(size=100), bins=bins)
+
+    @pytest.mark.parametrize("window", [1, 5.0, "5", True])
+    def test_hit_rate_window_rejected(self, window):
+        with pytest.raises(ValueError):
+            rolling_hit_rate(np.ones(10), window=window)
+
+    def test_valid_bins_and_window_accepted(self):
+        rng = np.random.default_rng(0)
+        assert isinstance(psi(rng.normal(size=200), rng.normal(size=200), bins=8), float)
+        assert rolling_hit_rate(np.ones(10), window=5).shape == (10,)
