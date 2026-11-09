@@ -45,6 +45,26 @@ def _default_model_factory() -> Model:
     return LogisticBaseline(C=1.0)
 
 
+def _config_err(detail: str, **extra: Any) -> None:
+    raise ModelLayerError(detail, layer="models.pipeline", **extra)
+
+
+def _nonempty_str(name: str, val: object) -> None:
+    if not isinstance(val, str) or not val.strip():
+        _config_err(f"{name} must be a non-empty string", **{name: val})
+
+
+def _finite_positive(name: str, val: object) -> None:
+    if isinstance(val, bool) or not isinstance(val, (int, float)) \
+            or not np.isfinite(float(val)) or float(val) <= 0:
+        _config_err(f"{name} must be a finite positive number", **{name: val})
+
+
+def _int(name: str, val: object, lo: int) -> None:
+    if isinstance(val, bool) or not isinstance(val, int) or val < lo:
+        _config_err(f"{name} must be an integer >= {lo}", **{name: val})
+
+
 # ---------------------------------------------------------------------------
 # 配置与快照
 # ---------------------------------------------------------------------------
@@ -73,6 +93,27 @@ class PipelineConfig:
     code_commit: Optional[str] = None
     parent_version: Optional[str] = None
     changelog: str = ""
+
+    def __post_init__(self) -> None:
+        _nonempty_str("model_id", self.model_id)
+        _nonempty_str("version", self.version)
+        if not isinstance(self.feature_names, list) \
+                or not self.feature_names \
+                or not all(isinstance(f, str) for f in self.feature_names):
+            _config_err("feature_names must be a non-empty list of strings",
+                       feature_names=self.feature_names)
+        _finite_positive("tp_mult", self.tp_mult)
+        _finite_positive("sl_mult", self.sl_mult)
+        _int("max_holding_bars", self.max_holding_bars, 1)
+        _int("embargo_bars", self.embargo_bars, 0)
+        _int("n_splits", self.n_splits, 2)
+        _int("warmup_bars", self.warmup_bars, 0)
+        if self.positive_label not in (0, 1):
+            _config_err("positive_label must be 0 or 1",
+                        positive_label=self.positive_label)
+        if self.seed is not None and (isinstance(self.seed, bool)
+                                       or not isinstance(self.seed, int)):
+            _config_err("seed must be None or an integer", seed=self.seed)
 
 
 @dataclass

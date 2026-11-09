@@ -117,3 +117,28 @@ class TestValidation:
         atr = pd.Series([], dtype=float)
         with pytest.raises(ModelLayerError):
             run_training([], atr, build_default_registry(), _config())
+
+
+class TestPipelineConfigGuards:
+    @pytest.mark.parametrize("bad_kwargs", [
+        {"model_id": ""}, {"model_id": None},
+        {"version": ""},
+        {"feature_names": []}, {"feature_names": [1]},
+        {"tp_mult": 0.0}, {"tp_mult": -1.0}, {"tp_mult": np.nan},
+        {"tp_mult": np.inf},
+        {"sl_mult": np.nan}, {"sl_mult": np.inf},
+        {"max_holding_bars": 0}, {"max_holding_bars": 1.5},
+        {"max_holding_bars": True},
+        {"embargo_bars": -1}, {"embargo_bars": True},
+        {"n_splits": 1}, {"n_splits": True},
+        {"warmup_bars": -1},
+        {"positive_label": 2}, {"positive_label": -1},
+        {"seed": 1.5}, {"seed": True},
+    ])
+    def test_invalid_config_rejected(self, bad_kwargs):
+        with pytest.raises(ModelLayerError):
+            _config(**bad_kwargs)
+
+    def test_valid_config_accepted(self):
+        cfg = _config(seed=None, embargo_bars=0, warmup_bars=0)
+        assert cfg.n_splits == 3
