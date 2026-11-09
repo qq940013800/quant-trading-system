@@ -10,6 +10,7 @@ _HAS_LGBM=False），真正实例化 Wrapper 时才 raise。测试用 pytest.imp
 """
 from __future__ import annotations
 
+import math
 from typing import Any, Optional
 
 import numpy as np
@@ -27,6 +28,29 @@ def has_lightgbm() -> bool:
     return _HAS_LGBM
 
 
+def _finite_num(name: str, val) -> float:
+    if isinstance(val, bool) or not isinstance(val, (int, float)):
+        raise ValueError(f"models.gbm: {name} must be a number: {val!r}")
+    f = float(val)
+    if not math.isfinite(f):
+        raise ValueError(f"models.gbm: {name} must be finite: {val!r}")
+    return f
+
+
+def _int_param(name: str, val, *, minimum: int) -> int:
+    if isinstance(val, bool) or not isinstance(val, int) or val < minimum:
+        raise ValueError(
+            f"models.gbm: {name} must be an integer >= {minimum}, got {val!r}")
+    return val
+
+
+def _ratio_open(name: str, val) -> float:
+    f = _finite_num(name, val)
+    if not 0.0 < f <= 1.0:
+        raise ValueError(f"models.gbm: {name} must be in (0, 1]: {val!r}")
+    return f
+
+
 class LightGBMWrapper:
     version = "gbm-lgbm-v1"
 
@@ -35,8 +59,15 @@ class LightGBMWrapper:
                  early_stopping_rounds: int = 30, random_state: int = 7):
         if not _HAS_LGBM:
             raise RuntimeError("lightgbm not installed; run without GBM mode")
+        max_depth = _int_param("max_depth", max_depth, minimum=3)
         if not 3 <= max_depth <= 6:
             raise ValueError("max_depth must be within 3-6 (design constraint)")
+        learning_rate = _ratio_open("learning_rate", learning_rate)
+        n_estimators = _int_param("n_estimators", n_estimators, minimum=1)
+        subsample = _ratio_open("subsample", subsample)
+        early_stopping_rounds = _int_param("early_stopping_rounds",
+                                            early_stopping_rounds, minimum=0)
+        random_state = _int_param("random_state", random_state, minimum=0)
         self.max_depth = max_depth
         self.params = {
             "objective": "binary",
