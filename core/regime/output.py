@@ -16,6 +16,12 @@ from typing import Dict
 from .rules import STATES
 
 
+def _nonempty_str(name: str, val: object) -> str:
+    if not isinstance(val, str) or not val.strip():
+        raise ValueError(f"{name} 必须为非空字符串，收到 {val!r}")
+    return val
+
+
 @dataclass(frozen=True)
 class RegimeOutput:
     state: str
@@ -36,3 +42,8 @@ class RegimeOutput:
         total = sum(self.probs.values())
         if abs(total - 1.0) > 1e-6:
             raise ValueError(f"probs must sum to 1, got {total!r}")
+        _nonempty_str("version", self.version)
+        _nonempty_str("threshold_dataset", self.threshold_dataset)
+        if not isinstance(self.degraded, bool):
+            raise ValueError(
+                f"degraded 必须为 bool，收到 {type(self.degraded).__name__}")
