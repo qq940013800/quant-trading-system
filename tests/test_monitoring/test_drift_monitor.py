@@ -307,3 +307,39 @@ class TestDriftBoundary:
             "current_sharpe", "current_win_rate", "current_max_dd",
             "n_alerts", "critical_alerts", "health_score",
         }
+
+
+class TestConstructorGuards:
+    def test_win_rate_out_of_range_rejected(self):
+        with pytest.raises(ValueError):
+            DriftMonitor(baseline_win_rate=1.2)
+        with pytest.raises(ValueError):
+            DriftMonitor(baseline_win_rate=-0.1)
+
+    def test_max_drawdown_negative_rejected(self):
+        with pytest.raises(ValueError):
+            DriftMonitor(baseline_max_dd=-0.05)
+
+    @pytest.mark.parametrize("threshold_kw", [
+        {"sharpe_drop_threshold": 0.0},
+        {"sharpe_drop_threshold": -0.2},
+        {"win_rate_drop_threshold": 0.0},
+        {"dd_increase_threshold": 0.0},
+    ])
+    def test_non_positive_threshold_rejected(self, threshold_kw):
+        with pytest.raises(ValueError):
+            DriftMonitor(**threshold_kw)
+
+    @pytest.mark.parametrize("bad_window", [0, -5, 1.5, True, "100"])
+    def test_window_size_invalid_rejected(self, bad_window):
+        with pytest.raises(ValueError):
+            DriftMonitor(window_size=bad_window)
+
+    def test_non_finite_baseline_sharpe_rejected(self):
+        with pytest.raises(ValueError):
+            DriftMonitor(baseline_sharpe=np.nan)
+
+    def test_valid_boundaries_accepted(self):
+        monitor = DriftMonitor(baseline_win_rate=0.0, baseline_max_dd=0.0)
+        assert monitor.baseline_win_rate == 0.0
+        assert monitor.baseline_max_dd == 0.0

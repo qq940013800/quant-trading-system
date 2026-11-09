@@ -14,10 +14,20 @@
 """
 from __future__ import annotations
 
+import math
 import numpy as np
 import pandas as pd
 from dataclasses import dataclass, field
 from typing import Optional
+
+
+def _finite(name: str, val: float) -> float:
+    v = float(val)
+    if not math.isfinite(v):
+        raise ValueError(
+            f"monitoring.drift: {name} 必须为有限数，收到 {val!r}"
+        )
+    return v
 
 
 @dataclass
@@ -52,12 +62,31 @@ class DriftMonitor:
                  dd_increase_threshold: float = 2.0, # 回撤扩大 2 倍告警
                  window_size: int = 100):  # 滑动窗口大小
 
-        self.baseline_sharpe = baseline_sharpe
-        self.baseline_win_rate = baseline_win_rate
-        self.baseline_max_dd = baseline_max_dd
-        self.sharpe_drop_threshold = sharpe_drop_threshold
-        self.win_rate_drop_threshold = win_rate_drop_threshold
-        self.dd_increase_threshold = dd_increase_threshold
+        self.baseline_sharpe = _finite("baseline_sharpe", baseline_sharpe)
+        bw = _finite("baseline_win_rate", baseline_win_rate)
+        if not (0.0 <= bw <= 1.0):
+            raise ValueError(
+                f"baseline_win_rate 必须 ∈ [0, 1]，收到 {baseline_win_rate!r}"
+            )
+        self.baseline_win_rate = bw
+        bdd = _finite("baseline_max_dd", baseline_max_dd)
+        if bdd < 0:
+            raise ValueError(f"baseline_max_dd 必须 ≥0，收到 {baseline_max_dd!r}")
+        self.baseline_max_dd = bdd
+        std = _finite("sharpe_drop_threshold", sharpe_drop_threshold)
+        if std <= 0:
+            raise ValueError(f"sharpe_drop_threshold 必须 >0，收到 {sharpe_drop_threshold!r}")
+        self.sharpe_drop_threshold = std
+        wrd = _finite("win_rate_drop_threshold", win_rate_drop_threshold)
+        if wrd <= 0:
+            raise ValueError(f"win_rate_drop_threshold 必须 >0，收到 {win_rate_drop_threshold!r}")
+        self.win_rate_drop_threshold = wrd
+        ddt = _finite("dd_increase_threshold", dd_increase_threshold)
+        if ddt <= 0:
+            raise ValueError(f"dd_increase_threshold 必须 >0，收到 {dd_increase_threshold!r}")
+        self.dd_increase_threshold = ddt
+        if isinstance(window_size, bool) or not isinstance(window_size, int) or window_size < 1:
+            raise ValueError(f"window_size 必须为 ≥1 整数，收到 {window_size!r}")
         self.window_size = window_size
 
         self.recent_returns: list[float] = []
