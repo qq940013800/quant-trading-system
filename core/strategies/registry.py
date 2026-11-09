@@ -25,6 +25,30 @@ _BUILTINS_ENSURED: bool = False
 
 def register_strategy(name: str, factory, *, version: str = "v1") -> None:
     """登记策略工厂 ``factory(**params) -> strategy instance``。"""
+    if not isinstance(name, str) or not name.strip():
+        raise ValueError({
+            "layer": "strategies.registry",
+            "detail": f"strategy name must be a non-empty str, got {name!r}",
+        })
+    if not callable(factory):
+        raise ValueError({
+            "layer": "strategies.registry",
+            "strategy": name,
+            "detail": f"factory must be callable, got {type(factory).__name__}",
+        })
+    if version is None:
+        raise ValueError({
+            "layer": "strategies.registry",
+            "strategy": name,
+            "detail": "version must not be None",
+        })
+    version = str(version)
+    if not version.strip():
+        raise ValueError({
+            "layer": "strategies.registry",
+            "strategy": name,
+            "detail": f"version must be a non-empty str, got {version!r}",
+        })
     if name in _REGISTRY:
         existing = _REGISTRY[name]
         raise ValueError({
@@ -34,7 +58,7 @@ def register_strategy(name: str, factory, *, version: str = "v1") -> None:
                       f"(version={existing.get('version')!r}); "
                       f"override intentionally unsupported",
         })
-    _REGISTRY[name] = {"factory": factory, "version": str(version)}
+    _REGISTRY[name] = {"factory": factory, "version": version}
 
 
 def get_strategy(name: str, **params):
