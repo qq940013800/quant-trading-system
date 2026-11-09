@@ -58,3 +58,18 @@ def test_rejects_nonfinite_inputs():
 def test_rejects_nonpositive_point_value():
     with pytest.raises(ValueError):
         simulate_fill(+1, 2000.0, 2.0, 0.5, 0.0, 0.5, 0.0)
+
+
+def _fill(**kw):
+    base = dict(direction=+1, ref_price=2000.0, spread=2.0, slippage=0.5,
+                commission_per_lot=0.0, lots=0.5, point_value=100.0)
+    base.update(kw)
+    return simulate_fill(**base)
+
+
+@pytest.mark.parametrize("field", ["ref_price", "spread", "slippage",
+                                   "commission_per_lot", "lots", "point_value"])
+@pytest.mark.parametrize("bad", [True, "2000", None])
+def test_rejects_non_numeric_inputs(field, bad):
+    with pytest.raises(ValueError):
+        _fill(**{field: bad})

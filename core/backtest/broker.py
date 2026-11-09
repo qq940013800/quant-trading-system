@@ -11,6 +11,9 @@ from dataclasses import dataclass
 
 
 def _finite(name: str, val: float) -> float:
+    if isinstance(val, bool) or not isinstance(val, (int, float)):
+        raise ValueError({"layer": "backtest.broker",
+                           "detail": f"{name} must be a number: {val!r}"})
     f = float(val)
     if not math.isfinite(f):
         raise ValueError({"layer": "backtest.broker",
