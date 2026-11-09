@@ -35,6 +35,18 @@ logger = logging.getLogger("core.regime")
 FEATURE_KEYS = ("adx", "hurst", "atr_pct")
 
 
+def _as_positive_int(name: str, val: int) -> int:
+    if isinstance(val, bool) or not isinstance(val, int) or val < 1:
+        raise ValueError(f"regime: {name} 必须为 ≥1 整数，收到 {val!r}")
+    return val
+
+
+def _as_int(name: str, val: int) -> int:
+    if isinstance(val, bool) or not isinstance(val, int):
+        raise ValueError(f"regime: {name} 必须为整数，收到 {val!r}")
+    return val
+
+
 class RegimeClassifier:
     version = "regime-rules-gmm-v1"
     threshold_dataset = "CLEAN"
@@ -51,19 +63,29 @@ class RegimeClassifier:
                  random_state: int = 7,
                  use_gmm: bool = True) -> None:
         # w_rule/w_gmm 是冻结的混合权重（config/params 传入），和必须为 1
+        if not (np.isfinite(w_rule) and np.isfinite(w_gmm)):
+            raise ValueError(
+                f"mixing weights must be finite, got "
+                f"w_rule={w_rule!r} w_gmm={w_gmm!r}")
         if w_rule < 0.0 or w_gmm < 0.0 or abs((w_rule + w_gmm) - 1.0) > 1e-9:
             raise ValueError(
                 f"mixing weights must be non-negative and sum to 1, "
                 f"got w_rule={w_rule!r} w_gmm={w_gmm!r}")
-        self.adx_period = adx_period
-        self.hurst_window = hurst_window
-        self.hurst_min_window = hurst_min_window
+        if not (np.isfinite(q_lo) and np.isfinite(q_hi)) or not (0.0 < q_lo < q_hi < 1.0):
+            raise ValueError(
+                f"quantile levels must satisfy 0 < q_lo < q_hi < 1, "
+                f"got q_lo={q_lo!r} q_hi={q_hi!r}")
+        if not isinstance(use_gmm, bool):
+            raise ValueError(f"use_gmm 必须为 bool，收到 {use_gmm!r}")
+        self.adx_period = _as_positive_int("adx_period", adx_period)
+        self.hurst_window = _as_positive_int("hurst_window", hurst_window)
+        self.hurst_min_window = _as_positive_int("hurst_min_window", hurst_min_window)
         self.q_lo = q_lo
         self.q_hi = q_hi
         self.w_rule = w_rule
         self.w_gmm = w_gmm
-        self.min_train_rows = min_train_rows
-        self.random_state = random_state
+        self.min_train_rows = _as_positive_int("min_train_rows", min_train_rows)
+        self.random_state = _as_int("random_state", random_state)
         self.use_gmm = use_gmm
         self._thr: RuleThresholds | None = None
         self._gmm: GMMRegimeModel | None = None

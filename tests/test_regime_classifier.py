@@ -136,3 +136,51 @@ def test_rule_only_mode_by_config(clean_bars):
     assert cfg_clf._gmm is None
     out = cfg_clf.predict(clean_bars[: 301], clean_bars[300].ts_utc)
     assert out.version.endswith("/rules-only")
+
+
+# ------------------------------------------------- 构造参数守卫
+class TestConstructorGuards:
+    @pytest.mark.parametrize("kw", [
+        {"adx_period": 0}, {"adx_period": -3}, {"adx_period": 14.0},
+        {"hurst_window": 0}, {"hurst_window": 256.5},
+        {"hurst_min_window": -1},
+        {"min_train_rows": 0}, {"min_train_rows": 60.0},
+    ])
+    def test_non_positive_integer_window_rejected(self, kw):
+        with pytest.raises(ValueError):
+            RegimeClassifier(**kw)
+
+    @pytest.mark.parametrize("kw", [
+        {"random_state": 7.0}, {"random_state": "7"},
+    ])
+    def test_random_state_must_be_int(self, kw):
+        with pytest.raises(ValueError):
+            RegimeClassifier(**kw)
+
+    @pytest.mark.parametrize("kw", [
+        {"q_lo": 0.5, "q_hi": 0.3}, {"q_lo": 0.0, "q_hi": 0.7},
+        {"q_lo": 0.3, "q_hi": 1.0}, {"q_lo": np.nan, "q_hi": 0.7},
+    ])
+    def test_quantile_levels_rejected(self, kw):
+        with pytest.raises(ValueError):
+            RegimeClassifier(**kw)
+
+    @pytest.mark.parametrize("kw", [
+        {"w_rule": 0.3, "w_gmm": 0.3}, {"w_rule": -0.2, "w_gmm": 1.2},
+        {"w_rule": np.nan, "w_gmm": 0.5},
+    ])
+    def test_mixing_weights_rejected(self, kw):
+        with pytest.raises(ValueError):
+            RegimeClassifier(**kw)
+
+    def test_use_gmm_must_be_bool(self):
+        with pytest.raises(ValueError):
+            RegimeClassifier(use_gmm=1)
+
+    def test_valid_construction_accepted(self):
+        clf = RegimeClassifier(
+            adx_period=14, hurst_window=256, hurst_min_window=64,
+            q_lo=0.30, q_hi=0.70, w_rule=0.5, w_gmm=0.5,
+            min_train_rows=60, random_state=7, use_gmm=True)
+        assert clf.adx_period == 14
+        assert clf.use_gmm is True
