@@ -127,7 +127,7 @@ class TestTotalSlippage:
             slippage_per_volume_frac=0.5,
             commission_per_lot=7.0,
         )
-        
+
         total = estimate_total_slippage(
             cost_model=model,
             order_frac=0.1,
@@ -135,3 +135,50 @@ class TestTotalSlippage:
             atr=2.0,
         )
         assert total > 0
+
+
+def _model() -> CostModel:
+    return CostModel(
+        base_spread=0.2, news_spread=0.5, gap_spread=1.0, gap_threshold=1.0,
+        base_slippage=0.1, slippage_per_volume_frac=0.5, commission_per_lot=7.0,
+    )
+
+
+class TestSlippageGuards:
+    @pytest.mark.parametrize("base,coeff,frac", [
+        (np.nan, 1.0, 0.1), (-0.1, 1.0, 0.1),
+        (0.1, np.inf, 0.1), (0.1, -1.0, 0.1),
+        (0.1, 1.0, np.nan), (True, 1.0, 0.1),
+    ])
+    def test_sqrt_rejects_invalid(self, base, coeff, frac):
+        with pytest.raises(ValueError):
+            sqrt_slippage(base, coeff, frac)
+
+    @pytest.mark.parametrize("order_size,market_volume", [
+        (-1.0, 100.0), (np.nan, 100.0),
+        (10.0, np.nan), (10.0, np.inf), (True, 100.0),
+    ])
+    def test_volume_impact_rejects_invalid(self, order_size, market_volume):
+        with pytest.raises(ValueError):
+            volume_impact_slippage(0.1, 1.0, order_size, market_volume)
+
+    @pytest.mark.parametrize("atr,current_vol,avg_vol", [
+        (np.nan, 0.5, 1.0), (2.0, -0.5, 1.0),
+        (2.0, 0.5, np.nan), (2.0, np.inf, 1.0), (True, 0.5, 1.0),
+    ])
+    def test_volatility_adjusted_rejects_invalid(self, atr, current_vol, avg_vol):
+        with pytest.raises(ValueError):
+            volatility_adjusted_slippage(0.1, atr, current_vol, avg_vol)
+
+    @pytest.mark.parametrize("order_frac,vol_ratio,atr", [
+        (np.nan, 1.0, 2.0), (0.1, -1.0, 2.0),
+        (0.1, 1.0, np.inf), (True, 1.0, 2.0),
+    ])
+    def test_estimate_total_rejects_invalid(self, order_frac, vol_ratio, atr):
+        with pytest.raises(ValueError):
+            estimate_total_slippage(_model(), order_frac, vol_ratio, atr)
+
+    def test_zero_volume_and_zero_avg_vol_degrade(self):
+        # 既有降级分支：零成交量/零均波动仍走降级，不抛错
+        assert volume_impact_slippage(0.1, 1.0, 10.0, 0.0) == pytest.approx(0.3)
+        assert volatility_adjusted_slippage(0.1, 2.0, 0.5, 0.0) == pytest.approx(0.1)

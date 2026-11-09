@@ -29,6 +29,22 @@ def _finite(name: str, val: float) -> float:
     return v
 
 
+def _nonneg_finite(name: str, val: object) -> float:
+    if isinstance(val, bool) or not isinstance(val, (int, float)) \
+            or not math.isfinite(float(val)) or float(val) < 0:
+        raise ValueError({"layer": "backtest.costs", "detail":
+                          f"{name} must be a finite non-negative number, got {val!r}"})
+    return float(val)
+
+
+def _ratio(name: str, val: object) -> float:
+    if isinstance(val, bool) or not isinstance(val, (int, float)) \
+            or not math.isfinite(float(val)):
+        raise ValueError({"layer": "backtest.costs", "detail":
+                          f"{name} must be a finite ratio, got {val!r}"})
+    return min(max(float(val), 0.0), 1.0)
+
+
 @dataclass(frozen=True)
 class CostModel:
     """成本参数容器（全部来自 config；无默认业务值硬编码在逻辑里）。
@@ -146,8 +162,10 @@ def sqrt_slippage(base_slippage: float, impact_coeff: float,
     Returns:
         滑点（价格单位）
     """
-    frac = min(max(order_fraction, 0.0), 1.0)
-    return float(base_slippage) + float(impact_coeff) * np.sqrt(frac)
+    frac = _ratio("order_fraction", order_fraction)
+    base = _nonneg_finite("base_slippage", base_slippage)
+    coeff = _nonneg_finite("impact_coeff", impact_coeff)
+    return base + coeff * np.sqrt(frac)
 
 
 def volume_impact_slippage(base_slippage: float, impact_coeff: float,
@@ -163,10 +181,14 @@ def volume_impact_slippage(base_slippage: float, impact_coeff: float,
     Returns:
         滑点（价格单位）
     """
+    base = _nonneg_finite("base_slippage", base_slippage)
+    coeff = _nonneg_finite("impact_coeff", impact_coeff)
+    _nonneg_finite("order_size", order_size)
+    _nonneg_finite("market_volume", market_volume)
     if market_volume <= 0:
-        return base_slippage * 3  # 流动性极差，滑点放大3倍
+        return base * 3  # 流动性极差，滑点放大3倍
     frac = order_size / market_volume
-    return sqrt_slippage(base_slippage, impact_coeff, frac)
+    return sqrt_slippage(base, coeff, frac)
 
 
 def volatility_adjusted_slippage(base_slippage: float, atr: float,
@@ -185,11 +207,15 @@ def volatility_adjusted_slippage(base_slippage: float, atr: float,
     Returns:
         调整后的滑点
     """
+    base = _nonneg_finite("base_slippage", base_slippage)
+    _nonneg_finite("atr", atr)
+    _nonneg_finite("current_vol", current_vol)
+    _nonneg_finite("avg_vol", avg_vol)
     if avg_vol <= 0:
-        return base_slippage
+        return base
     vol_ratio = current_vol / avg_vol
     # 波动率越高，滑点越大（次线性关系）
-    return float(base_slippage) * (1.0 + 0.5 * np.log(vol_ratio))
+    return base * (1.0 + 0.5 * np.log(vol_ratio))
 
 
 def estimate_total_slippage(cost_model: CostModel,
@@ -208,12 +234,15 @@ def estimate_total_slippage(cost_model: CostModel,
         总滑点估计
     """
     # 1. 基础滑点 + 线性冲击
-    base_slip = slippage_points(None, order_frac, cost_model)
-    
+    frac = _ratio("order_frac", order_frac)
+    vol_ratio = _nonneg_finite("current_vol_ratio", current_vol_ratio)
+    _nonneg_finite("atr", atr)
+    base_slip = slippage_points(None, frac, cost_model)
+
     # 2. 波动率调整
     vol_slip = volatility_adjusted_slippage(
         cost_model.base_slippage, atr,
-        current_vol=current_vol_ratio,
+        current_vol=vol_ratio,
         avg_vol=1.0,
     )
     
