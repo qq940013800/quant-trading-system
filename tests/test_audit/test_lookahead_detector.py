@@ -114,3 +114,27 @@ class TestQuickCheck:
         result = quick_lookahead_check([], current_idx=0, window_size=10)
         assert isinstance(result, dict)
         assert "passed" in result
+
+
+def _v(**kw) -> LookaheadViolation:
+    base = dict(location="check", violation_type="leak",
+                detail="detail text", severity="high")
+    base.update(kw)
+    return LookaheadViolation(**base)
+
+
+class TestViolationGuards:
+    def test_valid_violation_accepted(self):
+        v = _v(severity="critical")
+        assert v.severity == "critical"
+
+    @pytest.mark.parametrize("field", ["location", "violation_type", "detail"])
+    @pytest.mark.parametrize("bad", ["", "  ", 123, None])
+    def test_text_fields_must_be_nonempty_str(self, field, bad):
+        with pytest.raises(ValueError):
+            _v(**{field: bad})
+
+    @pytest.mark.parametrize("bad", ["low", "HIGH", 1, None])
+    def test_severity_must_be_valid(self, bad):
+        with pytest.raises(ValueError):
+            _v(severity=bad)

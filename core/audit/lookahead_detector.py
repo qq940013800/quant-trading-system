@@ -26,6 +26,18 @@ class LookaheadViolation:
     detail: str            # 详细描述
     severity: str = "high" # 严重程度
 
+    _VALID_SEVERITIES = ("high", "critical")
+
+    def __post_init__(self) -> None:
+        for name in ("location", "violation_type", "detail"):
+            val = getattr(self, name)
+            if not isinstance(val, str) or not val.strip():
+                raise ValueError(f"{name} 必须为非空字符串，收到 {val!r}")
+        if self.severity not in self._VALID_SEVERITIES:
+            raise ValueError(
+                f"severity 必须为 {self._VALID_SEVERITIES} 之一，"
+                f"收到 {self.severity!r}")
+
     def __repr__(self):
         return f"LookaheadViolation({self.violation_type}: {self.detail})"
 
