@@ -113,6 +113,10 @@ class PerformanceSnapshot:
                 or self.total_trades < 0:
             raise ValueError(
                 f"total_trades 必须为非负整数，收到 {self.total_trades!r}")
+        if not isinstance(self.evaluated_at, datetime):
+            raise ValueError(
+                f"evaluated_at 必须为 datetime，收到 "
+                f"{type(self.evaluated_at).__name__}")
 
 
 @dataclass

@@ -327,6 +327,15 @@ class TestPerformanceSnapshotGuards:
             avg_r_multiple=0.1, deflated_sharpe=-0.2, pbo=0.3)
         assert snap.total_trades == 42
 
+    @pytest.mark.parametrize("bad", ["2026-01-01", 1700000000, None, "now"])
+    def test_evaluated_at_must_be_datetime(self, bad):
+        with pytest.raises(ValueError):
+            PerformanceSnapshot(evaluated_at=bad)
+
+    def test_evaluated_at_datetime_accepted(self):
+        snap = PerformanceSnapshot(evaluated_at=datetime(2026, 1, 1))
+        assert snap.evaluated_at.year == 2026
+
 
 def _sv(**kw) -> StrategyVersion:
     base = dict(
