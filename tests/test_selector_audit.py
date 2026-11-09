@@ -101,3 +101,41 @@ def test_construction_validates_weights():
         SelectionRecord(**base, strategy_weights={"a": -0.1, "b": 1.1})  # 负权重
     with pytest.raises(SelectionAuditError):
         SelectionRecord(**base, strategy_weights={})                    # 空 dict
+
+
+def _record(**over) -> dict:
+    d = dict(
+        ts_utc="2024-01-01T00:05:00+00:00", state="trend",
+        regime_probs={"trend": 1.0},
+        strategy_weights={"a": 1.0},
+        expert_signals={}, blend_strength=0.0,
+        strategy_versions={}, degraded=False)
+    d.update(over)
+    return d
+
+
+class TestSelectionProbGuards:
+    @pytest.mark.parametrize("bad", [
+        {"trend": -0.1, "mean_reversion": 1.1},
+        {"trend": 0.5},
+        {"trend": float("nan"), "mean_reversion": 1.0},
+        {"trend": float("inf"), "mean_reversion": 0.0},
+        {"trend": True},
+    ])
+    def test_invalid_regime_probs_rejected(self, bad):
+        with pytest.raises(SelectionAuditError):
+            SelectionRecord(**_record(regime_probs=bad))
+
+    @pytest.mark.parametrize("bad", [
+        {"a": float("nan"), "b": 1.0},
+        {"a": float("inf"), "b": 0.0},
+    ])
+    def test_invalid_strategy_weights_finite_rejected(self, bad):
+        with pytest.raises(SelectionAuditError):
+            SelectionRecord(**_record(strategy_weights=bad))
+
+    def test_valid_prob_vector_accepted(self):
+        rec = SelectionRecord(**_record(
+            regime_probs={"trend": 0.8, "mr": 0.1, "ranging": 0.1},
+            strategy_weights={"a": 0.8, "b": 0.2}))
+        assert rec.blend_strength == 0.0

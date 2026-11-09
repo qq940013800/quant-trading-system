@@ -58,8 +58,21 @@ class SelectionRecord:
             raise SelectionAuditError({**ctx, "detail": "state must not be None"})
         if not isinstance(self.regime_probs, dict) or not self.regime_probs:
             raise SelectionAuditError({**ctx, "detail": "regime_probs must be non-empty dict"})
+        probs = list(self.regime_probs.values())
+        if any(isinstance(v, bool) or not isinstance(v, (int, float))
+               or not np.isfinite(v) or v < -1e-9 for v in probs):
+            raise SelectionAuditError({**ctx,
+                "detail": "regime_probs must be finite >= 0"})
+        p_total = float(sum(probs))
+        if abs(p_total - 1.0) > 1e-6:
+            raise SelectionAuditError({**ctx,
+                "detail": f"regime_probs must sum to 1, got {p_total!r}"})
         if not isinstance(self.strategy_weights, dict) or not self.strategy_weights:
             raise SelectionAuditError({**ctx, "detail": "strategy_weights must be non-empty dict"})
+        if any(isinstance(v, bool) or not isinstance(v, (int, float))
+               or not np.isfinite(v) for v in self.strategy_weights.values()):
+            raise SelectionAuditError({**ctx,
+                "detail": "strategy_weights must be finite"})
         w_total = float(sum(self.strategy_weights.values()))
         if abs(w_total - 1.0) > 1e-6:
             raise SelectionAuditError({**ctx,
