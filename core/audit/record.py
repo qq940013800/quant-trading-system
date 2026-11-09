@@ -33,6 +33,19 @@ class SignalLikeError(Exception):
         super().__init__(f"SignalLikeError: {self.context}")
 
 
+def _finite(name: str, val: float) -> float:
+    if isinstance(val, bool) or not isinstance(val, (int, float)) \
+            or not np.isfinite(val):
+        raise SignalLikeError(f"{name} 必须为有限数值，收到 {val!r}")
+    return float(val)
+
+
+def _nonempty_str(name: str, val: Any) -> str:
+    if not isinstance(val, str) or not val.strip():
+        raise SignalLikeError(f"{name} 必须为非空字符串，收到 {val!r}")
+    return val
+
+
 def _to_jsonable(obj: Any) -> Any:
     """递归把 dataclass / Timestamp / numpy 标量转成 JSON 可序列化结构。"""
     if obj is None or isinstance(obj, (str, bool)):
@@ -91,15 +104,24 @@ class Decision:
     r_multiple_at_close: Optional[float] = None
 
     def __post_init__(self) -> None:
+        _nonempty_str("decision_id", self.decision_id)
+        _nonempty_str("model_version", self.model_version)
+        _nonempty_str("decision_rule_version", self.decision_rule_version)
+        if not isinstance(self.accepted, bool):
+            raise SignalLikeError(
+                f"accepted 必须为 bool，收到 {self.accepted!r}")
+        lots = _finite("final_signed_lots", self.final_signed_lots)
+        if self.r_multiple_at_close is not None:
+            _finite("r_multiple_at_close", self.r_multiple_at_close)
         if self.threshold_dataset not in ("CLEAN", "KNOWN"):
             raise SignalLikeError(
                 f"threshold_dataset must be CLEAN|KNOWN, got {self.threshold_dataset}")
-        if self.accepted and self.final_signed_lots <= 0:
+        if self.accepted and lots <= 0:
             raise SignalLikeError(
-                f"accepted decision must have lots>0, got {self.final_signed_lots}")
-        if not self.accepted and self.final_signed_lots != 0:
+                f"accepted decision must have lots>0, got {lots}")
+        if not self.accepted and lots != 0:
             raise SignalLikeError(
-                f"rejected decision must have lots==0, got {self.final_signed_lots}")
+                f"rejected decision must have lots==0, got {lots}")
 
 
 def decision_to_dict(decision: Decision) -> dict:

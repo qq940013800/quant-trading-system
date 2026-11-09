@@ -79,3 +79,41 @@ def test_decision_to_dict_handles_nan():
                    threshold_dataset="CLEAN", decision_rule_version="rules-v1")
     d = decision_to_dict(dec)
     assert d["feature_snapshot"]["x"] is None    # NaN -> null，JSON 合法
+
+
+def _decision(**overrides):
+    ts = H.make_bar(1, 0, 0, 0, 0).ts_utc
+    base = dict(decision_id="D1", signal=_sig(ts), feature_snapshot={},
+                model_version="rules-v1", risk_state=_state(), accepted=True,
+                reject_reason=None, final_signed_lots=2.5,
+                threshold_dataset="CLEAN", decision_rule_version="rules-v1")
+    base.update(overrides)
+    return Decision(**base)
+
+
+def test_nonempty_id_version_rejected():
+    for field in ("decision_id", "model_version", "decision_rule_version"):
+        with pytest.raises(Exception):
+            _decision(**{field: "  "})
+
+
+def test_accepted_must_be_bool():
+    with pytest.raises(Exception):
+        _decision(accepted=1)
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), True, -0.0])
+def test_lots_must_be_finite_positive_when_accepted(bad):
+    with pytest.raises(Exception):
+        _decision(final_signed_lots=bad)
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf")])
+def test_r_multiple_must_be_finite(bad):
+    with pytest.raises(Exception):
+        _decision(r_multiple_at_close=bad)
+
+
+def test_valid_decision_with_r_multiple_accepted():
+    dec = _decision(r_multiple_at_close=1.25)
+    assert dec.r_multiple_at_close == 1.25
