@@ -10,10 +10,12 @@
 """
 from __future__ import annotations
 
+import dataclasses
 import math
 
 import pytest
 
+from core.models.ml_trend_strategy import StrategyConfig
 from core.registry.strategy_router import (
     StrategyDescriptor,
     StrategyWeightRouter,
@@ -93,6 +95,22 @@ def test_registered_strategy_names(router):
     assert "demo_breakout" in names
     assert "ml_trend_meta" in names
     assert "demo_mean_reversion" in names
+
+
+def test_ml_strategy_params_use_quantile_thresholds(router):
+    """ml_trend_meta 路由参数不得残留固定概率切点（meta_threshold），
+    必须用训练分布分位 meta_q_lo/meta_q_hi；params 键须为 StrategyConfig
+    已声明字段子集，不得出现死键。"""
+    desc = router.get("ml_trend_meta")
+    assert desc is not None
+    params = desc.params
+    assert "meta_threshold" not in params, "残留固定概率切点 meta_threshold"
+    assert params["meta_q_lo"] == pytest.approx(0.30)
+    assert params["meta_q_hi"] == pytest.approx(0.70)
+    assert 0.0 <= params["meta_q_lo"] < params["meta_q_hi"] <= 1.0
+    config_fields = {f.name for f in dataclasses.fields(StrategyConfig)}
+    unknown = set(params) - config_fields
+    assert not unknown, f"ml_trend_meta params 含未声明字段: {sorted(unknown)}"
 
 
 def test_unregister_removes_strategy():

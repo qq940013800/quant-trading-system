@@ -416,6 +416,8 @@
 
 - ✅ **#281 企业级量化系统架构优化 ADR 落盘（纯文档，不改生产代码）**：新建 `docs/design/architecture-optimization-roadmap.md`，作为蓝图 v2（`docs/knowledge/08_system_blueprint.md`）的现状复核与路线更新。复核 G1–G13 当前状态：G1 kill switch / G2 对账纯函数底座已落地（`core/control/kill_switch.py` 262 行、`core/execution/reconcile.py` 336 行），生产接线仍阻塞；G3 四策略类（TrendBreakout/MeanReversion/StructureBreak/SupplyDemand）已落地待端到端回测验证；G4/G7/G8/G9/G11/G13 部分落地；G5 CPCV、G6 数据 manifest 仍缺；G10 配置外置、G12 多标的待人工决策。文档含第一性原理盈利方程、三不变量、ML 边界（不生成方向、LLM 不进下单路径）、五面+控制面+注册表目标分层、P1/P2 缺口到既有专题设计的映射、P0/P1/P2 路线与上线门禁、5 项待人工确认决策与风险登记簿；专题细节不重复，只索引 `docs/design/` 既有方案。**剩余风险/未验证**：ADR 为待评审草稿，未改任何生产代码；实盘下单/对账/持仓归集等阻塞项未接线（待 OKX Key 与人工拍板）；样本外绩效与真实成交充分性 unknown；前端 JS 测试栈选型待决策；未跑容器内 pytest。
 
+- ✅ **#284 清理 ML 路由残留固定概率切点死键（G4 收口，纯研究层）**：`core/registry/strategy_router.py` `build_demo_router` 中 `ml_trend_meta` 注册 params 原含 `meta_threshold: 0.55` 死键——`StrategyConfig` 无此字段，策略实现已用 `meta_q_lo/meta_q_hi` 训练分布分位映射（`np.quantile` 导出 `_q_lo_val/_q_hi_val`），该 0.55 既不被读取又违背不变量 3（阈值来自分布、非固定概率切点）。删除死键，替换为 `meta_q_lo:0.30`/`meta_q_hi:0.70`，与 config 默认对齐；`regime_profile` 内 0.45/0.55 为各态路由画像权重（非概率切点），保留。单测 `tests/test_strategy_registry.py` 新增 `test_ml_strategy_params_use_quantile_thresholds`：断言无 `meta_threshold`、分位满足 `0 ≤ q_lo < q_hi ≤ 1`、params 键为 `StrategyConfig` 已声明字段子集（防再出现死键）。验证：宿主 .venv 跑 router 21 passed；ml_trend + test_registry + router 合计 207 passed；strategies 67 passed，无回归。**剩余风险/未验证**：`demo_mean_reversion` 占位策略 params（rsi_period/bollinger_period）无可交易实现对应字段，属显式未实现占位标注，本次未纳入子集校验；路由器 params 为审计快照字典，当前无下游 `**params` 展开到 StrategyConfig，未来接线时须按字段子集装配；未跑容器内全量 pytest；未触实盘/DB/configs。
+
 
 ### 🔴 P1（核心口径，决定看板能否反映真实绩效）
 

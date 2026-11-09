@@ -212,7 +212,10 @@ def build_demo_router() -> StrategyWeightRouter:
             "exit_period": 10,
             "atr_period": 14,
             "meta_C": 1.0,
-            "meta_threshold": 0.55,
+            # meta 阈值为训练集预测概率的分位数（不变量 3：阈值来自分布），
+            # 不是固定概率切点；与 StrategyConfig.meta_q_lo/meta_q_hi 对齐。
+            "meta_q_lo": 0.30,
+            "meta_q_hi": 0.70,
             "risk_per_trade": 0.01,
             "atr_stop_mult": 2.0,
             "atr_trail_mult": 3.0,
