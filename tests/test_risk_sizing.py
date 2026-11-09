@@ -7,7 +7,12 @@ import math
 
 import pytest
 
-from core.risk.sizing import quantile_threshold, target_lots, vol_target_scale
+from core.risk.sizing import (
+    quantile_threshold,
+    target_lots,
+    vol_target_scale,
+    assess_vol_target_tracking,
+)
 
 
 def test_lots_floors_to_lot_step():
@@ -125,3 +130,64 @@ def test_vol_target_rejects_nonfinite_inputs():
                              (float("inf"), 0.1), (0.1, float("inf"))):
         with pytest.raises(ValueError):
             vol_target_scale(realized, target)
+
+
+def test_tracking_exact_target_within_tolerance():
+    res = assess_vol_target_tracking(realized_vol=0.15, target_vol=0.15, scale=1.0)
+    assert res["relative_error"] == pytest.approx(0.0)
+    assert res["within_tolerance"] is True
+    assert res["predicted_vol"] == pytest.approx(0.15)
+
+
+def test_tracking_unscaled_exceeds_tolerance():
+    res = assess_vol_target_tracking(realized_vol=0.15, target_vol=0.10, scale=1.0)
+    assert res["relative_error"] == pytest.approx(0.5)
+    assert res["within_tolerance"] is False
+
+
+def test_tracking_after_vol_scale_hits_target():
+    scale = vol_target_scale(0.15, 0.10)
+    res = assess_vol_target_tracking(realized_vol=0.15, target_vol=0.10, scale=scale)
+    assert res["predicted_vol"] == pytest.approx(0.10, abs=1e-9)
+    assert res["relative_error"] < 1e-9
+    assert res["within_tolerance"] is True
+
+
+def test_tracking_zero_scale_empty_position_outside_tolerance():
+    res = assess_vol_target_tracking(realized_vol=0.15, target_vol=0.10, scale=0.0)
+    assert res["predicted_vol"] == pytest.approx(0.0)
+    assert res["relative_error"] == pytest.approx(1.0)
+    assert res["within_tolerance"] is False
+
+
+def test_tracking_report_fields_complete():
+    res = assess_vol_target_tracking(realized_vol=0.12, target_vol=0.10, scale=0.9)
+    assert set(res.keys()) == {
+        "realized_vol", "target_vol", "scale", "predicted_vol",
+        "relative_error", "within_tolerance", "tolerance"}
+    assert res["tolerance"] == pytest.approx(0.20)
+
+
+@pytest.mark.parametrize("bad_rv", [0.0, -0.1, float("nan"), float("inf"), "0.1", True])
+def test_tracking_rejects_bad_realized_vol(bad_rv):
+    with pytest.raises(ValueError):
+        assess_vol_target_tracking(realized_vol=bad_rv, target_vol=0.10, scale=1.0)
+
+
+@pytest.mark.parametrize("bad_tv", [0.0, -0.1, float("nan"), "0.1", True])
+def test_tracking_rejects_bad_target_vol(bad_tv):
+    with pytest.raises(ValueError):
+        assess_vol_target_tracking(realized_vol=0.10, target_vol=bad_tv, scale=1.0)
+
+
+@pytest.mark.parametrize("bad_scale", [-0.1, float("nan"), "0.5"])
+def test_tracking_rejects_bad_scale(bad_scale):
+    with pytest.raises(ValueError):
+        assess_vol_target_tracking(realized_vol=0.10, target_vol=0.10, scale=bad_scale)
+
+
+@pytest.mark.parametrize("bad_tol", [-0.1, 1.1, float("nan"), "0.2"])
+def test_tracking_rejects_bad_tolerance(bad_tol):
+    with pytest.raises(ValueError):
+        assess_vol_target_tracking(realized_vol=0.10, target_vol=0.10,
+                                   tolerance=bad_tol)

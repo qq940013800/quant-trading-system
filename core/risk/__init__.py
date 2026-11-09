@@ -6,7 +6,7 @@
 """
 from .state import RiskState
 from .stops import StopWideningError, update_stop, initial_stop
-from .sizing import target_lots, vol_target_scale, quantile_threshold
+from .sizing import target_lots, vol_target_scale, quantile_threshold, assess_vol_target_tracking
 from .circuit import CircuitBreaker, CircuitState
 from .risk_budget import (
     risk_budget_weights,
@@ -26,6 +26,7 @@ __all__ = [
     "initial_stop",
     "target_lots",
     "vol_target_scale",
+    "assess_vol_target_tracking",
     "quantile_threshold",
     "CircuitBreaker",
     "CircuitState",

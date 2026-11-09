@@ -113,3 +113,69 @@ def vol_target_scale(realized_vol: float, target_vol: float) -> float:
         raise ValueError({"layer": "risk.sizing", "detail":
                            f"vol must be >0: realized={realized_vol}, target={target_vol}"})
     return float(min(1.0, target_vol / realized_vol))
+
+
+def _real_nonneg(name: str, val: object) -> float:
+    if isinstance(val, bool) or not isinstance(val, (int, float)):
+        raise ValueError({"layer": "risk.sizing", "detail":
+                           f"{name} must be a real number: {val!r}"})
+    f = _finite(name, val)
+    if f < 0:
+        raise ValueError({"layer": "risk.sizing", "detail": f"{name} must be >=0: {f}"})
+    return f
+
+
+def assess_vol_target_tracking(
+    *,
+    realized_vol: float,
+    target_vol: float,
+    scale: float = 1.0,
+    tolerance: float = 0.20,
+) -> dict[str, object]:
+    """波动目标跟踪误差评估：缩放后预估组合波动 vs 目标波动。
+
+    蓝图 G8 验收口径"组合波动目标误差 <20%"。纯判定，不调仓、不下单；
+    ``scale`` 由调用方注入（通常取 :func:`vol_target_scale` 的结果）。
+
+    Args:
+        realized_vol: 当前实测组合波动（有限、>0）。
+        target_vol: 目标波动（有限、>0）。
+        scale: 仓位/杠杆缩放系数（有限、≥0；0 表示空仓）。
+        tolerance: 相对误差容差，落在 [0,1]，默认 0.20。
+
+    Returns:
+        含实测/目标波动、缩放系数、缩放后预估波动 ``predicted_vol``、
+        相对误差 ``relative_error``、是否在容差内 ``within_tolerance`` 与容差的报告。
+    """
+    if isinstance(realized_vol, bool) or not isinstance(realized_vol, (int, float)):
+        raise ValueError({"layer": "risk.sizing", "detail":
+                           f"realized_vol must be a real number: {realized_vol!r}"})
+    if isinstance(target_vol, bool) or not isinstance(target_vol, (int, float)):
+        raise ValueError({"layer": "risk.sizing", "detail":
+                           f"target_vol must be a real number: {target_vol!r}"})
+    rv = _finite("realized_vol", realized_vol)
+    tv = _finite("target_vol", target_vol)
+    if rv <= 0 or tv <= 0:
+        raise ValueError({"layer": "risk.sizing", "detail":
+                           f"vol must be >0: realized={rv}, target={tv}"})
+    sc = _real_nonneg("scale", scale)
+    tol = _finite("tolerance", tolerance)
+    if isinstance(tolerance, bool) or not isinstance(tolerance, (int, float)) \
+            or not 0.0 <= tol <= 1.0:
+        raise ValueError({"layer": "risk.sizing", "detail":
+                           f"tolerance must be in [0,1]: {tolerance!r}"})
+
+    predicted = rv * sc
+    rel_err = abs(predicted - tv) / tv
+    within = rel_err <= tol
+
+    return {
+        "realized_vol": rv,
+        "target_vol": tv,
+        "scale": sc,
+        "predicted_vol": predicted,
+        "relative_error": rel_err,
+        "within_tolerance": bool(within),
+        "tolerance": tol,
+    }
+
