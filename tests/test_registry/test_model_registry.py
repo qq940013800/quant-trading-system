@@ -149,3 +149,37 @@ class TestSeedGuards:
     def test_valid_seed_accepted(self, seed):
         m = _make(seed=seed)
         assert m.seed == seed
+
+
+class TestSnapshotGuards:
+    @pytest.mark.parametrize("bad", ["", "  ", 123, None])
+    def test_model_id_must_be_nonempty_str(self, bad):
+        with pytest.raises(ValueError):
+            _make(model_id=bad)
+
+    @pytest.mark.parametrize("bad", ["", "  ", 42])
+    def test_version_must_be_nonempty_str(self, bad):
+        with pytest.raises(ValueError):
+            _make(version=bad)
+
+    @pytest.mark.parametrize("bad", ["2026-01-01", 123, None])
+    def test_created_at_must_be_datetime(self, bad):
+        with pytest.raises(ValueError):
+            _make(created_at=bad)
+
+    @pytest.mark.parametrize("bad", [["x", 1], "x", (["x"],)])
+    def test_feature_versions_must_be_str_list(self, bad):
+        with pytest.raises(ValueError):
+            _make(feature_versions=bad)
+
+    @pytest.mark.parametrize("field", ["label_spec", "data_range",
+                                       "hyperparams", "metrics"])
+    def test_dict_fields_must_be_dict(self, field):
+        with pytest.raises(ValueError):
+            _make(**{field: []})
+
+    @pytest.mark.parametrize("field", ["parent_version", "code_commit",
+                                       "artifact_uri", "artifact_checksum"])
+    def test_optional_str_fields_reject_empty_or_non_str(self, field):
+        with pytest.raises(ValueError):
+            _make(**{field: 123})

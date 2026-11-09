@@ -29,6 +29,31 @@ from typing import Any, Optional
 logger = logging.getLogger("core.registry.model")
 
 
+def _nonempty_str(name: str, val: object) -> str:
+    if not isinstance(val, str) or not val.strip():
+        raise ValueError(f"{name} 必须为非空字符串，收到 {val!r}")
+    return val
+
+
+def _opt_str(name: str, val: object) -> Optional[str]:
+    if val is not None and not isinstance(val, str):
+        raise ValueError(f"{name} 必须为字符串或 None，收到 {val!r}")
+    return val
+
+
+def _dict(name: str, val: object) -> dict:
+    if not isinstance(val, dict):
+        raise ValueError(f"{name} 必须为 dict，收到 {type(val).__name__}")
+    return val
+
+
+def _str_list(name: str, val: object) -> list:
+    if not isinstance(val, list) or any(
+            not isinstance(x, str) or not x.strip() for x in val):
+        raise ValueError(f"{name} 必须为非空字符串列表，收到 {val!r}")
+    return val
+
+
 class ModelStage(Enum):
     """模型阶段状态机（严格流转，禁跨级跳实盘）。"""
 
@@ -80,6 +105,23 @@ class ModelVersion:
     _frozen: bool = field(default=False, init=False, repr=False)
 
     def __post_init__(self) -> None:
+        _nonempty_str("model_id", self.model_id)
+        _nonempty_str("version", self.version)
+        if not isinstance(self.created_at, datetime):
+            raise ValueError(
+                f"created_at 必须为 datetime，收到 {type(self.created_at).__name__}")
+        if not isinstance(self.changelog, str):
+            raise ValueError(
+                f"changelog 必须为 str，收到 {type(self.changelog).__name__}")
+        _str_list("feature_versions", self.feature_versions)
+        _dict("label_spec", self.label_spec)
+        _dict("data_range", self.data_range)
+        _dict("hyperparams", self.hyperparams)
+        _dict("metrics", self.metrics)
+        _opt_str("parent_version", self.parent_version)
+        _opt_str("code_commit", self.code_commit)
+        _opt_str("artifact_uri", self.artifact_uri)
+        _opt_str("artifact_checksum", self.artifact_checksum)
         if self.seed is not None:
             if isinstance(self.seed, bool) or not isinstance(self.seed, int) \
                     or self.seed < 0:
