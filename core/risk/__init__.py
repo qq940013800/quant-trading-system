@@ -15,6 +15,7 @@ from .risk_budget import (
     correlation_breaker,
 )
 from .return_profile import describe_returns
+from .drawdown_tier import drawdown_tier_factor
 
 __all__ = [
     "RiskState",
@@ -31,4 +32,5 @@ __all__ = [
     "average_pairwise_correlation",
     "correlation_breaker",
     "describe_returns",
+    "drawdown_tier_factor",
 ]

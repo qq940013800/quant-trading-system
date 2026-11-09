@@ -23,6 +23,7 @@ import pandas as pd
 from ..audit.record import Decision, write_decision
 from ..risk.circuit import CircuitBreaker
 from ..risk.sizing import target_lots, vol_target_scale
+from ..risk.drawdown_tier import drawdown_tier_factor
 from ..risk.state import RiskState
 from ..risk.stops import (StopWideningError, compute_current_r,
                           initial_stop, update_stop)
@@ -196,6 +197,10 @@ def run_backtest(bars: list, strategy: Strategy,
     breakeven_r = float(cfg.get("breakeven_r", 1.0))
     breakeven_offset_r = float(cfg.get("breakeven_offset_r", 0.1))
     news_window = list(cfg.get("news_window", []) or [])
+    # 回撤分级降档：步长/每档系数/最大档位来自 config，默认沿用历史海龟口径 10%/×0.8/不封顶
+    dd_step = float(cfg.get("drawdown_step", 0.10))
+    dd_tier_mult = float(cfg.get("drawdown_tier_mult", 0.8))
+    dd_max_steps = cfg.get("drawdown_max_steps", None)
     audit_path = cfg.get("audit_path")
     bars_per_year = int(cfg.get("bars_per_year", 74880))
     decision_rule_version = str(cfg.get("decision_rule_version", "rules-v1"))
@@ -213,12 +218,12 @@ def run_backtest(bars: list, strategy: Strategy,
     next_decision_seq = 1
 
     def _drawdown_tier() -> float:
-        # 海龟分级降档：每回撤 -10% ×0.8（阈值来自 config，这里只做分级算术）
-        if peak_equity <= 0:
-            return 1.0
-        dd = equity / peak_equity - 1.0
-        steps = max(0, int(np.floor(-dd / 0.10)))
-        return float(0.8 ** steps)
+        # 海龟分级降档：每回撤一档 ×dd_tier_mult（步长/系数来自 config，算术在 risk 纯函数）
+        return drawdown_tier_factor(
+            equity, peak_equity,
+            dd_step=dd_step, tier_mult=dd_tier_mult,
+            max_steps=dd_max_steps,
+        )
 
     def _realized_vol(history: list) -> float:
         if len(history) < 3:
