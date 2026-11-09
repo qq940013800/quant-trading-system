@@ -14,6 +14,7 @@ from core.experiment.strategy_lifecycle import (
     WatchThresholds,
     assess_crowding,
     assess_decay,
+    assess_persistence,
     recommend_retirement,
     stage_of_state,
 )
@@ -261,6 +262,59 @@ class TestRecommendRetirement:
         rec = recommend_retirement(decay, crowd, m, WatchThresholds())
         assert rec.recommendation == "watch"
         assert "retire_prolonged_decay" not in rec.reasons
+
+
+class TestAssessPersistence:
+    def test_tail_consecutive_count_reaches_threshold(self):
+        rep = assess_persistence([False, True, False, True, True], 2)
+        assert rep.consecutive_count == 2
+        assert rep.persistent is True
+
+    def test_below_threshold_not_persistent(self):
+        rep = assess_persistence([False, True, False, True], 2)
+        assert rep.consecutive_count == 1
+        assert rep.persistent is False
+
+    def test_all_red_persistent(self):
+        rep = assess_persistence([True, True, True], 3)
+        assert rep.consecutive_count == 3
+        assert rep.persistent is True
+
+    def test_empty_flags_not_persistent(self):
+        rep = assess_persistence([], 2)
+        assert rep.consecutive_count == 0
+        assert rep.persistent is False
+
+    @pytest.mark.parametrize("bad_n", [0, -1, 2.0, True, "3"])
+    def test_invalid_min_consecutive_rejected(self, bad_n):
+        with pytest.raises(ValueError):
+            assess_persistence([True, True], bad_n)
+
+    def test_non_sequence_flags_rejected(self):
+        with pytest.raises(ValueError):
+            assess_persistence({"a": True}, 2)
+
+    def test_persistent_red_retires_when_decayed(self):
+        m = dict(HEALTHY_DECAY, current_sharpe=0.5)  # 衰减态，期望仍为正
+        decay = assess_decay(m, WatchThresholds())
+        crowd = assess_crowding(HEALTHY_CROWD, WatchThresholds())
+        persistence = assess_persistence([True, True, True], 3)
+        rec = recommend_retirement(decay, crowd, m, WatchThresholds(),
+                                   persistence=persistence)
+        assert rec.recommendation == "retire"
+        assert "retire_persistent_red" in rec.reasons
+        assert rec.flags["persistent_red"] == 1.0
+        assert rec.flags["consecutive_red"] == 3.0
+
+    def test_non_persistent_decay_only_watches(self):
+        m = dict(HEALTHY_DECAY, current_sharpe=0.5)
+        decay = assess_decay(m, WatchThresholds())
+        crowd = assess_crowding(HEALTHY_CROWD, WatchThresholds())
+        persistence = assess_persistence([True, False, True], 2)
+        rec = recommend_retirement(decay, crowd, m, WatchThresholds(),
+                                   persistence=persistence)
+        assert rec.recommendation == "watch"
+        assert "retire_persistent_red" not in rec.reasons
 
 
 class TestLaunchCriteriaGuards:

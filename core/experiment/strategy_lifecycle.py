@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import Optional, Sequence
 import math
 
 
@@ -318,6 +318,7 @@ class RetireReason(str, Enum):
     STRUCTURAL_BREAK = "retire_structural_break"     # 市场结构突变
     CAPACITY_EXHAUSTED = "retire_capacity_exhausted" # 容量耗尽
     PROLONGED_DECAY = "retire_prolonged_decay"       # 持续衰减且样本充分
+    PERSISTENT_RED = "retire_persistent_red"         # 连续 N 期红灯持续性触发
     VOLUNTARY = "retire_voluntary"                    # 主动退役
 
 
@@ -371,6 +372,21 @@ class DecayReport:
 
     def to_dict(self) -> dict:
         return {"decayed": self.decayed, "reasons": list(self.reasons),
+                "flags": dict(self.flags)}
+
+
+@dataclass(frozen=True)
+class PersistenceReport:
+    """信号持续性报告（纯数据）：尾部连续红灯期数是否达到阈值 N。"""
+    persistent: bool
+    consecutive_count: int
+    min_consecutive: int
+    flags: dict[str, float]
+
+    def to_dict(self) -> dict:
+        return {"persistent": self.persistent,
+                "consecutive_count": self.consecutive_count,
+                "min_consecutive": self.min_consecutive,
                 "flags": dict(self.flags)}
 
 
@@ -477,12 +493,48 @@ def assess_decay(metrics: dict,
     return DecayReport(decayed=bool(reasons), reasons=reasons, flags=flags)
 
 
+def assess_persistence(red_flags: Sequence[bool],
+                        min_consecutive: int) -> PersistenceReport:
+    """纯判定：尾部连续红灯期数是否达到阈值 N（蓝图 G9 持续性）。
+
+    单期红灯只是波动信号；连续 N 期红灯才构成持续性衰减/拥挤依据。
+    ``red_flags`` 按时间从旧到新排列，计数取尾部（最近一期向前回溯）连续 True。
+
+    Args:
+        red_flags: 各期红灯标志（True=当期触发衰减/拥挤信号）。
+        min_consecutive: 触发持续性所需最少连续期数（正整数，调用方冻结传入）。
+    """
+    n = _as_int("min_consecutive", min_consecutive)
+    if n < 1:
+        raise ValueError(f"min_consecutive 必须 >= 1，收到 {n}")
+    if not isinstance(red_flags, Sequence):
+        raise ValueError("red_flags 必须为序列")
+    flags = [bool(x) for x in red_flags]
+    count = 0
+    for f in reversed(flags):
+        if f:
+            count += 1
+        else:
+            break
+    persistent = count >= n
+    return PersistenceReport(
+        persistent=persistent,
+        consecutive_count=count,
+        min_consecutive=n,
+        flags={"consecutive_count": float(count),
+               "min_consecutive": float(n)},
+    )
+
+
 def recommend_retirement(decay: DecayReport, crowd: CrowdingReport,
                          metrics: dict,
-                         thresholds: WatchThresholds) -> RetirementRecommendation:
+                         thresholds: WatchThresholds,
+                         persistence: Optional[PersistenceReport] = None
+                         ) -> RetirementRecommendation:
     """纯判定：综合衰减/拥挤/风控信号给出 keep / watch / retire 建议。
 
-    - retire：硬 breaches（风控上限、结构突变、容量耗尽、持续衰减且样本充分）。
+    - retire：硬 breaches（风控上限、结构突变、容量耗尽、持续衰减且样本充分、
+      连续 N 期红灯持续性触发）。
     - watch：出现软信号但未触发硬 breach。
     - keep：无显著信号。
 
@@ -519,6 +571,11 @@ def recommend_retirement(decay: DecayReport, crowd: CrowdingReport,
         reasons.append(RetireReason.VOLUNTARY.value)
         hard_breach = True
 
+    # 连续 N 期红灯持续性触发（硬，可选接入；当期仍处衰减态才成立）
+    if persistence is not None and persistence.persistent and decay.decayed:
+        reasons.append(RetireReason.PERSISTENT_RED.value)
+        hard_breach = True
+
     if hard_breach:
         recommendation = "retire"
     elif decay.decayed or crowd.crowded or reasons:
@@ -529,6 +586,9 @@ def recommend_retirement(decay: DecayReport, crowd: CrowdingReport,
     flags = {**decay.flags, **crowd.flags,
              "n_trades": float(n_trades),
              "hard_breach": 1.0 if hard_breach else 0.0}
+    if persistence is not None:
+        flags["persistent_red"] = 1.0 if persistence.persistent else 0.0
+        flags["consecutive_red"] = float(persistence.consecutive_count)
 
     return RetirementRecommendation(
         recommendation=recommendation, reasons=reasons, flags=flags)
