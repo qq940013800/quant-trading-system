@@ -73,6 +73,11 @@ class TestSimilarity:
         with pytest.raises(ValueError):
             similarity({"tags": []}, {"tags": []}, tag_weight=1.5)
 
+    @pytest.mark.parametrize("bad", [True, False, float("nan"), "0.5", None])
+    def test_tag_weight_rejects_non_ratio(self, bad):
+        with pytest.raises(ValueError):
+            similarity({"tags": []}, {"tags": []}, tag_weight=bad)
+
 
 class TestFindSimilar:
     def test_ranking_and_threshold(self):
@@ -97,6 +102,16 @@ class TestFindSimilar:
     def test_invalid_threshold_raises(self):
         with pytest.raises(ValueError):
             find_similar("x", [{"title": "y"}], threshold=2.0)
+
+    @pytest.mark.parametrize("bad", [True, False, float("nan"), "0.3"])
+    def test_threshold_rejects_non_ratio(self, bad):
+        with pytest.raises(ValueError):
+            find_similar("x", [{"title": "y"}], threshold=bad)
+
+    @pytest.mark.parametrize("bad", [True, False, float("inf"), -0.1])
+    def test_find_similar_tag_weight_rejects_non_ratio(self, bad):
+        with pytest.raises(ValueError):
+            find_similar("x", [{"title": "y"}], tag_weight=bad)
 
 
 class TestNoExternalDependency:

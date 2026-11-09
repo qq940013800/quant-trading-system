@@ -15,6 +15,7 @@
 """
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Optional, Sequence, Union
@@ -29,6 +30,15 @@ from .knowledge_normalize import (
 _LATIN_TOKEN_RE = re.compile(r"[a-z0-9]+")
 _CJK_RUN_RE = re.compile(r"[\u4e00-\u9fff]+")
 _TEXT_FIELDS = ("title", "symptom", "root_cause", "solution")
+
+
+def _ratio(name: str, val: Any, lo: float = 0.0, hi: float = 1.0) -> float:
+    if isinstance(val, bool) or not isinstance(val, (int, float)) \
+            or not math.isfinite(val):
+        raise ValueError(f"{name} 必须为有限数值，收到 {val!r}")
+    if not lo <= val <= hi:
+        raise ValueError(f"{name} 必须落在 [{lo}, {hi}]，收到 {val!r}")
+    return float(val)
 
 
 def _as_set(tags: Union[Iterable[str], None]) -> set[str]:
@@ -142,8 +152,7 @@ def similarity(entry_a: Any, entry_b: Any,
     Returns:
         MatchScore，含各分量与综合分。
     """
-    if not 0.0 <= tag_weight <= 1.0:
-        raise ValueError(f"tag_weight must be in [0, 1], got {tag_weight}")
+    _ratio("tag_weight", tag_weight)
 
     tags_a, tags_b = _entry_tags(entry_a), _entry_tags(entry_b)
     text_a, text_b = _entry_text(entry_a), _entry_text(entry_b)
@@ -183,8 +192,8 @@ def find_similar(query: Any, entries: Sequence[Any],
         [{"entry": <原始条目>, "score": float, "match": MatchScore}, ...]
         仅保留 score >= threshold；不做截断 limit，由调用方取用。
     """
-    if not 0.0 <= threshold <= 1.0:
-        raise ValueError(f"threshold must be in [0, 1], got {threshold}")
+    _ratio("threshold", threshold)
+    _ratio("tag_weight", tag_weight)
 
     if isinstance(query, (str, dict)):
         query = normalize_entry(query)
