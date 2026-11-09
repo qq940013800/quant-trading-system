@@ -20,6 +20,26 @@ import numpy as np
 import pandas as pd
 
 
+def _finite(name: str, val: float) -> float:
+    if not isinstance(val, (int, float)) or isinstance(val, bool) \
+            or not np.isfinite(val):
+        raise ValueError(f"{name} 必须为有限数值，收到 {val!r}")
+    return float(val)
+
+
+def _as_int(name: str, val: int) -> int:
+    if isinstance(val, bool) or not isinstance(val, int):
+        raise ValueError(f"{name} 必须为整数，收到 {val!r}")
+    return val
+
+
+def _min_int(name: str, val: int, lo: int) -> int:
+    v = _as_int(name, val)
+    if v < lo:
+        raise ValueError(f"{name} 必须 >= {lo}，收到 {v}")
+    return v
+
+
 # ------------------------------------------------------------------
 # 基础：Sharpe Ratio
 # ------------------------------------------------------------------
@@ -35,15 +55,17 @@ def compute_sharpe(returns: pd.Series, bars_per_year: int = 252,
     Returns:
         年化 Sharpe Ratio
     """
+    bpy = _min_int("bars_per_year", bars_per_year, 1)
+    _finite("risk_free", risk_free)
     if len(returns) < 2:
         return 0.0
-    
-    excess = returns - risk_free / bars_per_year
+
+    excess = returns - risk_free / bpy
     sd = excess.std(ddof=1)
     if sd == 0:
         return 0.0
-    
-    return float(excess.mean() / sd * np.sqrt(bars_per_year))
+
+    return float(excess.mean() / sd * np.sqrt(bpy))
 
 
 # ------------------------------------------------------------------
@@ -84,10 +106,16 @@ def deflated_sharpe_ratio(returns: pd.Series, trials: int = 1,
         - > 0.95：统计显著，策略可能真的有效
         - < 0.5：很可能是过拟合/运气
     """
+    trials_v = _min_int("trials", trials, 1)
+    bpy = _min_int("bars_per_year", bars_per_year, 1)
+    if skewness is not None:
+        _finite("skewness", skewness)
+    if kurtosis is not None:
+        _finite("kurtosis", kurtosis)
     if len(returns) < 30:
         return 0.5  # 样本太少，无法判断
-    
-    sr = compute_sharpe(returns, bars_per_year)
+
+    sr = compute_sharpe(returns, bpy)
     n = len(returns)
     
     # 计算偏度和峰度（pandas 的 kurtosis() 返回超额峰度；DSR 公式要求原始峰度 γ4）
@@ -104,20 +132,20 @@ def deflated_sharpe_ratio(returns: pd.Series, trials: int = 1,
     # Sharpe 的方差估计
     # Var(SR) ≈ (1 - skewness*SR + (kurtosis-1)/4 * SR^2) / (n-1)
     sr_annual = sr
-    sr_period = sr / np.sqrt(bars_per_year)  # 周期 Sharpe
+    sr_period = sr / np.sqrt(bpy)  # 周期 Sharpe
     
     var_sr = (1 - skewness * sr_period + (kurtosis - 1) / 4 * sr_period**2) / (n - 1)
     sd_sr = np.sqrt(var_sr) if var_sr > 0 else 0.001
     
     # 期望最大 Sharpe（多重检验修正）
-    if trials > 1:
+    if trials_v > 1:
         # 用极值分布近似
         gamma = 0.5772  # Euler-Mascheroni
         # 近似计算 Φ^(-1)(1 - 1/N)
         # 简化：用经验公式
         expected_max_sr = sd_sr * (
-            np.sqrt(2 * np.log(trials)) - 
-            (np.log(np.log(trials)) + np.log(4 * np.pi)) / (2 * np.sqrt(2 * np.log(trials)))
+            np.sqrt(2 * np.log(trials_v)) -
+            (np.log(np.log(trials_v)) + np.log(4 * np.pi)) / (2 * np.sqrt(2 * np.log(trials_v)))
         )
     else:
         expected_max_sr = 0.0
@@ -204,6 +232,7 @@ def probability_of_backtest_overfitting(
         raise TypeError("n_splits must be int")
     if not 0.0 < float(test_size) < 1.0:
         raise ValueError(f"test_size must be in (0,1), got {test_size}")
+    _min_int("max_combinations", max_combinations, 1)
 
     data = strategy_returns.to_numpy(dtype=np.float64)
     if data.ndim != 2 or data.shape[1] < 2:
@@ -281,18 +310,22 @@ def combinatorial_purged_cv(returns: pd.Series, n_splits: int = 6,
             - test_sharpes: 各折测试集 Sharpe
             - ratio: test/train Sharpe 比值（样本外衰减）
     """
+    n_splits_v = _min_int("n_splits", n_splits, 2)
+    pf = _finite("purge_fraction", purge_fraction)
+    if pf < 0.0 or pf >= 1.0:
+        raise ValueError(f"purge_fraction 必须位于 [0,1)，收到 {pf!r}")
     n = len(returns)
-    fold_size = n // n_splits
+    fold_size = n // n_splits_v
     
     if fold_size < 30:
         return {"train_sharpes": [], "test_sharpes": [], "ratio": 1.0}
     
-    purge_size = int(fold_size * purge_fraction)
-    
+    purge_size = int(fold_size * pf)
+
     train_sharpes = []
     test_sharpes = []
-    
-    for i in range(n_splits):
+
+    for i in range(n_splits_v):
         # 测试集：第 i 折
         test_start = i * fold_size
         test_end = test_start + fold_size
@@ -348,8 +381,10 @@ def overfitting_diagnostic(returns: pd.Series, trials: int = 1,
     Returns:
         诊断结果 dict
     """
-    sr = compute_sharpe(returns, bars_per_year)
-    dsr = deflated_sharpe_ratio(returns, trials, bars_per_year)
+    trials_v = _min_int("trials", trials, 1)
+    bpy = _min_int("bars_per_year", bars_per_year, 1)
+    sr = compute_sharpe(returns, bpy)
+    dsr = deflated_sharpe_ratio(returns, trials_v, bpy)
     cpcv_result = combinatorial_purged_cv(returns)
     
     # 综合判断

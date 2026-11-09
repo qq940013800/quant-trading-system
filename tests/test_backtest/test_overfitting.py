@@ -285,3 +285,63 @@ class TestDiagnosticCard:
         low = overfitting_diagnostic(base, trials=1)["deflated_sharpe"]
         high = overfitting_diagnostic(base, trials=100)["deflated_sharpe"]
         assert high <= low
+
+
+class TestOverfittingParamGuards:
+    @staticmethod
+    def _series(n: int = 252) -> pd.Series:
+        return pd.Series(np.random.default_rng(0).normal(0.001, 0.01, n))
+
+    @staticmethod
+    def _panel() -> pd.DataFrame:
+        return pd.DataFrame(
+            np.random.default_rng(1).normal(0.0005, 0.01, (252, 4)),
+            columns=list("abcd"))
+
+    @pytest.mark.parametrize("kw", [
+        {"bars_per_year": 0}, {"bars_per_year": -1},
+        {"bars_per_year": 100.0}, {"bars_per_year": True},
+        {"risk_free": np.nan}, {"risk_free": True},
+    ])
+    def test_compute_sharpe_invalid(self, kw):
+        with pytest.raises(ValueError):
+            compute_sharpe(self._series(), **kw)
+
+    @pytest.mark.parametrize("kw", [
+        {"trials": 0}, {"trials": -1}, {"trials": 5.0}, {"trials": True},
+        {"bars_per_year": 0}, {"skewness": np.nan}, {"kurtosis": np.inf},
+    ])
+    def test_dsr_invalid(self, kw):
+        with pytest.raises(ValueError):
+            deflated_sharpe_ratio(self._series(), **kw)
+
+    @pytest.mark.parametrize("kw", [
+        {"max_combinations": 0}, {"max_combinations": -1},
+        {"max_combinations": 10.0}, {"max_combinations": True},
+    ])
+    def test_pbo_invalid(self, kw):
+        with pytest.raises(ValueError):
+            probability_of_backtest_overfitting(self._panel(), **kw)
+
+    @pytest.mark.parametrize("kw", [
+        {"n_splits": 1}, {"n_splits": 0}, {"n_splits": 5.0},
+        {"n_splits": True}, {"purge_fraction": -0.1},
+        {"purge_fraction": 1.0}, {"purge_fraction": np.nan},
+    ])
+    def test_cpcv_invalid(self, kw):
+        with pytest.raises(ValueError):
+            combinatorial_purged_cv(self._series(), **kw)
+
+    @pytest.mark.parametrize("kw", [
+        {"trials": 0}, {"bars_per_year": 0},
+    ])
+    def test_diagnostic_invalid(self, kw):
+        with pytest.raises(ValueError):
+            overfitting_diagnostic(self._series(), **kw)
+
+    def test_valid_params_accepted(self):
+        sr = compute_sharpe(self._series(), bars_per_year=252, risk_free=0.02)
+        assert isinstance(sr, float)
+        dsr = deflated_sharpe_ratio(self._series(), trials=10,
+                                     bars_per_year=252)
+        assert 0.0 <= dsr <= 1.0
