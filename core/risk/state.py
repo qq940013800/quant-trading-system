@@ -7,7 +7,33 @@
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
+
+_CIRCUIT_STATES = ("normal", "breaker", "cooldown")
+
+
+def _finite(name: str, val: float) -> float:
+    if isinstance(val, bool) or not isinstance(val, (int, float)) \
+            or not math.isfinite(val):
+        raise ValueError({"layer": "risk.state",
+                          "detail": f"{name} 必须为有限数值，收到 {val!r}"})
+    return float(val)
+
+
+def _positive(name: str, val: float) -> float:
+    f = _finite(name, val)
+    if f <= 0:
+        raise ValueError({"layer": "risk.state",
+                          "detail": f"{name} 必须 > 0，收到 {f!r}"})
+    return f
+
+
+def _nonneg_int(name: str, val: int) -> int:
+    if isinstance(val, bool) or not isinstance(val, int) or val < 0:
+        raise ValueError({"layer": "risk.state",
+                          "detail": f"{name} 必须为非负整数，收到 {val!r}"})
+    return val
 
 
 @dataclass
@@ -26,6 +52,21 @@ class RiskState:
     circuit_state: str = "normal"  # "normal" | "breaker" | "cooldown"
     drawdown_tier: float = 1.0     # 回撤档位系数（海龟分级降档：每 -10% ×0.8）
     extra: dict = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        _finite("equity", self.equity)
+        _finite("atr0", self.atr0)
+        _positive("entry_dist", self.entry_dist)
+        _finite("stop_price", self.stop_price)
+        _nonneg_int("heat_units", self.heat_units)
+        if self.circuit_state not in _CIRCUIT_STATES:
+            raise ValueError({"layer": "risk.state",
+                              "detail": f"circuit_state 必须为 {_CIRCUIT_STATES}，"
+                                        f"收到 {self.circuit_state!r}"})
+        _positive("drawdown_tier", self.drawdown_tier)
+        if not isinstance(self.extra, dict):
+            raise ValueError({"layer": "risk.state",
+                              "detail": f"extra 必须为 dict，收到 {type(self.extra).__name__}"})
 
     def frozen_r_denominator(self) -> float:
         """R 倍数分母（价格单位）。强制使用入场冻结的 entry_dist，禁止重算。"""
