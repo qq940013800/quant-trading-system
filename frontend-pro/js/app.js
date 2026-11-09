@@ -554,6 +554,10 @@
         let drawdownChart = null;
         let equitySeries = null;
         let drawdownSeries = null;
+        let rollingChart = null;
+        let rollingSeries = null;
+        let _btDetailTrades = [];
+        let _btDetailResult = null;
 
         // 读取容器当前尺寸；容器隐藏/未就绪时回退兜底尺寸，避免图表落成默认 300×150
         function _chartSize(container, fallbackW, fallbackH) {
@@ -899,6 +903,7 @@
             if (winEl) winEl.textContent = '--';
             if (equitySeries) equitySeries.setData([]);
             if (drawdownSeries) drawdownSeries.setData([]);
+            _btBlankDetail();
         }
 
         // 真实模式判定：已登录且回测历史接口返回真实记录；false 时保留演示样例作为兜底
@@ -1038,6 +1043,7 @@
             if (!runId) {
                 initEquityChart([]);
                 initDrawdownChart([]);
+                _btBlankDetail();
                 return;
             }
             try {
@@ -1047,12 +1053,448 @@
                 const ddPts = result ? _btCurvePoints(result.equityCurve, 'drawdown') : [];
                 initEquityChart(equityPts);
                 initDrawdownChart(ddPts);
+                if (result) {
+                    _renderBacktestDetail(result);
+                } else {
+                    _btBlankDetail();
+                }
             } catch (e) {
                 debugLog('回测曲线加载失败: ' + e.message, 'warn');
                 initEquityChart([]);
                 initDrawdownChart([]);
+                _btBlankDetail();
             }
         }
+
+        // ========== 回测详情：完整 result 适配与前端统计 ==========
+        const _BT_RF = 0.02;
+        const _BT_PERIODS = 252;
+
+        function _btNum(v) { if (v == null || v === '') return null; const n = Number(v); return Number.isFinite(n) ? n : null; }
+
+        function _btEsc(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[c]));
+        }
+
+        function _btPctVal(v, digits = 2) {
+            const n = _btNum(v);
+            return n == null ? '--' : (n * 100).toFixed(digits) + '%';
+        }
+
+        function _btPctSigned(v, digits = 2) {
+            const n = _btNum(v);
+            if (n == null) return '--';
+            return (n >= 0 ? '+' : '-') + Math.abs(n * 100).toFixed(digits) + '%';
+        }
+
+        // 后端直出字段已是百分数值（如 30.1179 表示 30.12%），直接拼接，不再 ×100，对齐既有 _btPct 口径
+        function _btPctRaw(v, { signed = false, digits = 2 } = {}) {
+            const n = _btNum(v);
+            if (n == null) return '--';
+            const sign = signed ? (n >= 0 ? '+' : '-') : '';
+            return sign + Math.abs(n).toFixed(digits) + '%';
+        }
+
+        function _btMoney(v) {
+            const n = _btNum(v);
+            return n == null ? '--' : n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function _btFixed(v, d = 2) {
+            const n = _btNum(v);
+            return n == null ? '--' : n.toFixed(d);
+        }
+
+        function _btSideLabel(t) {
+            const s = String(t || '').toLowerCase();
+            if (s === 'long' || s === 'buy') return '多';
+            if (s === 'short' || s === 'sell') return '空';
+            return s || '--';
+        }
+
+        function _btDate(ts) {
+            if (ts == null || ts === '') return '--';
+            const d = new Date(typeof ts === 'number' ? ts * 1000 : ts);
+            if (isNaN(d.getTime())) return String(ts).slice(0, 10);
+            return d.toISOString().slice(0, 10);
+        }
+
+        function _btMean(xs) { return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null; }
+
+        function _btStd(xs) {
+            if (xs.length < 2) return null;
+            const m = _btMean(xs);
+            let s = 0;
+            for (const x of xs) s += (x - m) * (x - m);
+            return Math.sqrt(s / Math.max(1, xs.length - 1));
+        }
+
+        // 由权益曲线日净值推相邻日收益率
+        function _btReturns(curve) {
+            const vals = (curve || []).map(p => p && _btNum(p.value)).filter(x => x != null);
+            const rets = [];
+            for (let i = 1; i < vals.length; i++) {
+                if (vals[i - 1] > 0) rets.push(vals[i] / vals[i - 1] - 1);
+            }
+            return rets;
+        }
+
+        // 总体矩偏度/峰度（对齐原型：除以 n，峰度为未超额）
+        function _btSkewKurt(xs) {
+            const n = xs.length;
+            if (n < 3) return { skew: null, kurt: null };
+            const m = _btMean(xs), sd = _btStd(xs);
+            if (sd == null || sd === 0) return { skew: null, kurt: null };
+            let s3 = 0, s4 = 0;
+            for (const x of xs) { const z = (x - m) / sd; s3 += z * z * z; s4 += z * z * z * z; }
+            return { skew: s3 / n, kurt: s4 / n };
+        }
+
+        function _btSortino(rets) {
+            const m = _btMean(rets);
+            if (m == null) return null;
+            const down = rets.map(x => x < 0 ? x : 0);
+            const dsd = Math.sqrt(_btMean(down.map(x => x * x)) || 0);
+            if (dsd === 0) return null;
+            return ((m - _BT_RF / _BT_PERIODS) / dsd) * Math.sqrt(_BT_PERIODS);
+        }
+
+        function _btHoldDays(a, b) {
+            if (!a || !b) return null;
+            const ta = new Date(typeof a === 'number' ? a * 1000 : a).getTime();
+            const tb = new Date(typeof b === 'number' ? b * 1000 : b).getTime();
+            if (isNaN(ta) || isNaN(tb)) return null;
+            return Math.max(0, Math.round((tb - ta) / 86400000));
+        }
+
+        function _btSetText(id, txt) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = txt == null ? '--' : String(txt);
+        }
+
+        function _btSetHidden(id, hidden) {
+            const el = document.getElementById(id);
+            if (el) el.hidden = hidden;
+        }
+
+        function _btBlankDetail() {
+            _btDetailResult = null;
+            _btDetailTrades = [];
+            ['bt-annualized', 'bt-ann-vol', 'bt-profit-factor', 'bt-total-trades', 'bt-benchmark',
+             'bt-excess', 'bt-total-commission', 'bt-final-equity', 'bt-sortino', 'bt-calmar',
+             'bt-skew', 'bt-kurt', 'bt-win-loss', 'bt-avg-win-loss']
+                .forEach(id => _btSetText(id, '--'));
+            _btSetText('bt-holdings-count', '');
+            _btSetHidden('bt-holdings-wrap', true);
+            _btSetHidden('bt-holdings-empty', false);
+            const hb = document.getElementById('bt-holdings-body');
+            if (hb) hb.innerHTML = '';
+            _btSetText('bt-trade-summary', '');
+            _btSetHidden('bt-trades-wrap', true);
+            _btSetHidden('bt-trades-empty', false);
+            const tb = document.getElementById('bt-trades-body');
+            if (tb) tb.innerHTML = '';
+            _btSetHidden('bt-rolling-chart', true);
+            _btSetHidden('bt-rolling-empty', false);
+            if (rollingSeries) rollingSeries.setData([]);
+            ['bt-annual-body', 'bt-dist-body', 'bt-scatter-body'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerHTML = '';
+            });
+            _clearMonthlyHeatmap();
+        }
+
+        function _renderBacktestDetail(result) {
+            _btDetailResult = result;
+            const curve = Array.isArray(result.equityCurve) ? result.equityCurve : [];
+            const rets = _btReturns(curve);
+
+            // 扩展 KPI：优先后端直出字段（后端已为百分数值，不再 ×100）
+            _btSetText('bt-annualized', _btPctRaw(result.annualizedReturn, { signed: true }));
+            _btSetText('bt-ann-vol', _btPctRaw(result.annualizedVolatility));
+            _btSetText('bt-profit-factor', _btFixed(result.profitFactor));
+            _btSetText('bt-total-trades', _btNum(result.totalTrades) == null ? '--' : String(_btNum(result.totalTrades)));
+            _btSetText('bt-benchmark', _btPctRaw(result.benchmarkTotalReturn, { signed: true }));
+            const totalRet = _btNum(result.totalReturn);
+            const benchRet = _btNum(result.benchmarkTotalReturn);
+            const excess = _btNum(result.excessReturn) != null ? _btNum(result.excessReturn)
+                : (totalRet != null && benchRet != null ? totalRet - benchRet : null);
+            _btSetText('bt-excess', _btPctRaw(excess, { signed: true }));
+            _btSetText('bt-total-commission', _btMoney(result.totalCommission));
+            _btSetText('bt-final-equity', _btMoney(result.finalEquity));
+
+            // 画像：后端字段 + 权益曲线/交易明细前端现算
+            const wins = _btNum(result.winningTrades), losses = _btNum(result.losingTrades);
+            _btSetText('bt-win-loss', (wins == null || losses == null) ? '--' : `${wins} / ${losses}`);
+            const avgWin = _btNum(result.avgWin), avgLoss = _btNum(result.avgLoss);
+            _btSetText('bt-avg-win-loss', (avgWin == null || avgLoss == null) ? '--' : `${_btFixed(avgWin)} / ${_btFixed(avgLoss)}`);
+
+            _btSetText('bt-sortino', _btFixed(_btSortino(rets)));
+            const cagr = _btNum(result.annualizedReturn), maxDD = _btNum(result.maxDrawdown);
+            const calmar = (cagr != null && maxDD != null && Math.abs(maxDD) > 1e-12) ? cagr / Math.abs(maxDD) : null;
+            _btSetText('bt-calmar', _btFixed(calmar));
+            const sk = _btSkewKurt(rets);
+            _btSetText('bt-skew', _btFixed(sk.skew, 3));
+            _btSetText('bt-kurt', _btFixed(sk.kurt, 3));
+
+            const trades = result.closedTrades || result.trades || [];
+            _renderHoldings(result.positions);
+            _renderTrades(trades);
+            _renderRollingSharpe(curve, rets);
+            _renderAnnual(curve, rets);
+            _renderDistribution(rets);
+            _renderScatter(trades);
+            _renderMonthlyHeatmap(curve, rets);
+        }
+
+        function _renderHoldings(positions) {
+            const body = document.getElementById('bt-holdings-body');
+            if (!body) return;
+            const entries = positions && typeof positions === 'object'
+                ? Object.entries(positions).filter(([, v]) => v && typeof v === 'object') : [];
+            if (!entries.length) {
+                _btSetHidden('bt-holdings-wrap', true);
+                _btSetHidden('bt-holdings-empty', false);
+                _btSetText('bt-holdings-count', '');
+                body.innerHTML = '';
+                return;
+            }
+            const totalMv = entries.reduce((a, [, v]) => a + (_btNum(v.marketValue) || 0), 0);
+            let rows = '';
+            for (const [sym, v] of entries) {
+                const amount = _btNum(v.amount), avgCost = _btNum(v.avgCost), last = _btNum(v.lastPrice), mv = _btNum(v.marketValue);
+                const weight = totalMv > 0 && mv != null ? mv / totalMv : null;
+                const upnl = (avgCost != null && last != null && avgCost > 0) ? last / avgCost - 1 : null;
+                const cls = upnl == null ? '' : upnl >= 0 ? 'up' : 'down';
+                rows += `<tr>
+                    <td>${_btEsc(sym)}</td>
+                    <td>${amount == null ? '--' : amount.toFixed(4)}</td>
+                    <td>${avgCost == null ? '--' : avgCost.toFixed(4)}</td>
+                    <td>${last == null ? '--' : last.toFixed(4)}</td>
+                    <td>${mv == null ? '--' : _btMoney(mv)}</td>
+                    <td>${weight == null ? '--' : (weight * 100).toFixed(1) + '%'}</td>
+                    <td class="${cls}">${upnl == null ? '--' : _btPctSigned(upnl)}</td>
+                </tr>`;
+            }
+            body.innerHTML = rows;
+            _btSetHidden('bt-holdings-wrap', false);
+            _btSetHidden('bt-holdings-empty', true);
+            _btSetText('bt-holdings-count', `${entries.length} 笔持仓`);
+        }
+
+        function _renderTrades(trades) {
+            _btDetailTrades = Array.isArray(trades) ? trades : [];
+            _applyTradeFilter();
+        }
+
+        function _applyTradeFilter() {
+            const body = document.getElementById('bt-trades-body');
+            if (!body) return;
+            const filterSel = document.getElementById('bt-trade-filter');
+            const searchEl = document.getElementById('bt-trade-search');
+            const filter = (filterSel && filterSel.value) || 'all';
+            const q = ((searchEl && searchEl.value) || '').trim().toLowerCase();
+            const all = _btDetailTrades;
+            let rows = '', netSum = 0, commSum = 0, shown = 0;
+            for (const t of all) {
+                const profit = _btNum(t.profit);
+                if (filter === 'win' && !(profit != null && profit > 0)) continue;
+                if (filter === 'loss' && !(profit != null && profit <= 0)) continue;
+                const sym = String(t.symbol || '');
+                if (q && !sym.toLowerCase().includes(q)) continue;
+                shown++;
+                if (profit != null) netSum += profit;
+                const comm = _btNum(t.commission);
+                if (comm != null) commSum += comm;
+                const entryPx = _btNum(t.entry_price);
+                const qty = _btNum(t.quantity) == null ? _btNum(t.amount) : _btNum(t.quantity);
+                const retPct = (entryPx != null && qty != null && entryPx * qty > 0 && profit != null)
+                    ? profit / (entryPx * qty) : null;
+                const holdDays = _btHoldDays(t.entry_time, t.exit_time);
+                const exitPx = _btNum(t.exit_price);
+                const cls = profit == null ? '' : profit >= 0 ? 'up' : 'down';
+                rows += `<tr>
+                    <td>${_btEsc(sym)}</td>
+                    <td>${_btSideLabel(t.side)}</td>
+                    <td>${_btDate(t.entry_time)}</td>
+                    <td>${_btDate(t.exit_time)}</td>
+                    <td>${holdDays == null ? '--' : holdDays}</td>
+                    <td>${entryPx == null ? '--' : entryPx.toFixed(4)}</td>
+                    <td>${exitPx == null ? '--' : exitPx.toFixed(4)}</td>
+                    <td>${qty == null ? '--' : qty.toFixed(4)}</td>
+                    <td class="${cls}">${profit == null ? '--' : _btMoney(profit)}</td>
+                    <td class="${cls}">${retPct == null ? '--' : _btPctSigned(retPct)}</td>
+                    <td>${_btEsc(t.close_reason || '--')}</td>
+                </tr>`;
+            }
+            body.innerHTML = rows;
+            const emptyEl = document.getElementById('bt-trades-empty');
+            if (all.length === 0) {
+                _btSetHidden('bt-trades-wrap', true);
+                _btSetHidden('bt-trades-empty', false);
+                if (emptyEl) emptyEl.textContent = '暂无已平仓交易记录';
+            } else if (shown === 0) {
+                _btSetHidden('bt-trades-wrap', true);
+                _btSetHidden('bt-trades-empty', false);
+                if (emptyEl) emptyEl.textContent = '当前筛选或搜索无匹配交易';
+            } else {
+                _btSetHidden('bt-trades-wrap', false);
+                _btSetHidden('bt-trades-empty', true);
+            }
+            const sum = document.getElementById('bt-trade-summary');
+            if (sum) sum.textContent = all.length
+                ? `显示 ${shown}/${all.length} 笔 · 净盈亏 ${_btMoney(netSum)} · 费用 ${_btMoney(commSum)}`
+                : '';
+        }
+
+        function _renderRollingSharpe(curve, rets) {
+            const empty = document.getElementById('bt-rolling-empty');
+            const chartEl = document.getElementById('bt-rolling-chart');
+            const W = 63;
+            if (rets.length < W || !chartEl) {
+                if (rollingSeries) rollingSeries.setData([]);
+                if (empty) empty.hidden = false;
+                if (chartEl) chartEl.style.display = 'none';
+                return;
+            }
+            if (empty) empty.hidden = true;
+            chartEl.style.display = '';
+            const dates = curve.map(p => p && p.time);
+            const pts = [];
+            for (let i = W - 1; i < rets.length; i++) {
+                const w = rets.slice(i - W + 1, i + 1);
+                const m = _btMean(w), s = _btStd(w);
+                const val = (s != null && s > 0) ? ((m - _BT_RF / _BT_PERIODS) / s) * Math.sqrt(_BT_PERIODS) : 0;
+                const t = Math.floor(Date.parse(dates[i + 1] || '') / 1000);
+                if (Number.isFinite(t)) pts.push({ time: t, value: val });
+            }
+            if (!rollingChart) {
+                rollingChart = LightweightCharts.createChart(chartEl, {
+                    layout: { background: { color: 'transparent' }, textColor: '#848e9c' },
+                    grid: { vertLines: { color: '#1e2329' }, horzLines: { color: '#1e2329' } },
+                    width: _chartSize(chartEl, 919, 180).width,
+                    height: 180,
+                });
+                rollingSeries = rollingChart.addLineSeries({ color: '#4CC2FF', lineWidth: 2 });
+            }
+            rollingChart.applyOptions(_chartSize(chartEl, 919, 180));
+            rollingSeries.setData(pts);
+        }
+
+        function _renderAnnual(curve, rets) {
+            const body = document.getElementById('bt-annual-body');
+            if (!body) return;
+            const dates = curve.map(p => p && p.time);
+            const byYear = {};
+            for (let i = 0; i < rets.length; i++) {
+                const d = new Date(typeof dates[i + 1] === 'number' ? dates[i + 1] * 1000 : dates[i + 1]);
+                if (isNaN(d.getTime())) continue;
+                const y = d.getFullYear();
+                byYear[y] = (byYear[y] || 0) + rets[i];
+            }
+            const years = Object.keys(byYear).sort();
+            if (!years.length) {
+                body.innerHTML = '<div class="panel-empty">序列不足</div>';
+                return;
+            }
+            const maxAbs = Math.max(...years.map(y => Math.abs(byYear[y])), 1e-9);
+            body.innerHTML = years.map(y => {
+                const v = byYear[y];
+                const w = Math.abs(v) / maxAbs * 100;
+                const cls = v >= 0 ? 'up' : 'down';
+                return `<div class="bar-row">
+                    <div class="bar-year">${y}</div>
+                    <div class="bar-track"><div class="bar-fill ${cls}" style="width:${w.toFixed(1)}%"></div></div>
+                    <div class="bar-value ${cls}">${_btPctSigned(v, 1)}</div>
+                </div>`;
+            }).join('');
+        }
+
+        function _renderDistribution(rets) {
+            const body = document.getElementById('bt-dist-body');
+            if (!body) return;
+            if (rets.length < 2) {
+                body.innerHTML = '<div class="panel-empty">序列不足</div>';
+                return;
+            }
+            const lo = Math.min(...rets), hi = Math.max(...rets);
+            const B = 12, span = hi - lo || 1e-9;
+            const counts = new Array(B).fill(0);
+            for (const r of rets) {
+                let k = Math.floor((r - lo) / span * B);
+                k = Math.min(B - 1, Math.max(0, k));
+                counts[k]++;
+            }
+            const maxC = Math.max(...counts, 1);
+            body.innerHTML = counts.map((c, i) => {
+                const mid = lo + (i + 0.5) * span / B;
+                const cls = mid >= 0 ? 'up' : 'down';
+                const label = `${((lo + i * span / B) * 100).toFixed(2)}% ~ ${(((lo + (i + 1) * span / B) * 100).toFixed(2))}%: ${c}`;
+                return `<div class="dist-bar ${cls}" style="height:${(c / maxC * 100).toFixed(1)}%" title="${_btEsc(label)}"></div>`;
+            }).join('');
+        }
+
+        function _renderScatter(trades) {
+            const body = document.getElementById('bt-scatter-body');
+            if (!body) return;
+            const list = (Array.isArray(trades) ? trades : []).map(t => _btNum(t.profit)).filter(x => x != null);
+            if (!list.length) {
+                body.innerHTML = '<div class="panel-empty">暂无成交盈亏</div>';
+                return;
+            }
+            const maxAbs = Math.max(...list.map(Math.abs), 1e-9);
+            const n = list.length;
+            const dots = list.map((p, i) => {
+                const x = n === 1 ? 50 : (i / (n - 1)) * 100;
+                const y = 50 - (p / maxAbs) * 45;
+                const cls = p >= 0 ? 'up' : 'down';
+                return `<div class="scatter-dot ${cls}" style="left:${x.toFixed(1)}%;top:${y.toFixed(1)}%"></div>`;
+            }).join('');
+            body.innerHTML = '<div class="scatter-axis"></div>' + dots;
+        }
+
+        function _renderMonthlyHeatmap(curve, rets) {
+            const grid = document.getElementById('monthly-heatmap-grid');
+            if (!grid) return;
+            const dates = curve.map(p => p && p.time);
+            const byMonth = {};
+            for (let i = 0; i < rets.length; i++) {
+                const d = new Date(typeof dates[i + 1] === 'number' ? dates[i + 1] * 1000 : dates[i + 1]);
+                if (isNaN(d.getTime())) continue;
+                const k = `${d.getFullYear()}-${d.getMonth()}`;
+                byMonth[k] = (byMonth[k] || 0) + rets[i];
+            }
+            const years = [...new Set(Object.keys(byMonth).map(k => Number(k.split('-')[0])))].sort();
+            if (!years.length) {
+                _clearMonthlyHeatmap();
+                return;
+            }
+            let html = '<div class="heatmap-header"></div>' +
+                Array.from({ length: 12 }, (_, m) => `<div class="heatmap-header" style="text-align:center;">${m + 1}月</div>`).join('');
+            for (const y of years) {
+                html += `<div class="heatmap-header">${y}</div>`;
+                for (let m = 0; m < 12; m++) {
+                    const v = byMonth[`${y}-${m}`];
+                    if (v == null) {
+                        html += '<div class="heatmap-cell">--</div>';
+                    } else {
+                        const cls = v >= 0 ? 'positive' : 'negative';
+                        html += `<div class="heatmap-cell ${cls}">${(v * 100).toFixed(1)}</div>`;
+                    }
+                }
+            }
+            grid.innerHTML = html;
+        }
+
+        // 交易明细筛选/搜索事件绑定（DOM 静态存在，脚本在 body 末尾执行）
+        (function _bindBtTradeFilters() {
+            const f = document.getElementById('bt-trade-filter');
+            const s = document.getElementById('bt-trade-search');
+            if (f) f.addEventListener('change', _applyTradeFilter);
+            if (s) s.addEventListener('input', _applyTradeFilter);
+        })();
 
         async function loadBacktestResults() {
             const resultsPanel = document.getElementById('backtest-results');

@@ -12,7 +12,7 @@
     
     
     
-    <link rel="stylesheet" href="css/main.css?v=20261108b">
+    <link rel="stylesheet" href="css/main.css?v=20261110a">
 </head>
 <body>
     <!-- 登录页面 -->
@@ -450,6 +450,70 @@
                                 <div class="result-value" id="bt-winrate">--</div>
                             </div>
                         </div>
+
+                        <!-- 扩展绩效指标（后端 result 直出；缺失留 --） -->
+                        <div class="results-grid bt-extended-grid">
+                            <div class="result-card">
+                                <div class="result-label">年化收益</div>
+                                <div class="result-value" id="bt-annualized">--</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="result-label">年化波动率</div>
+                                <div class="result-value" id="bt-ann-vol">--</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="result-label">盈亏比</div>
+                                <div class="result-value" id="bt-profit-factor">--</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="result-label">交易笔数</div>
+                                <div class="result-value" id="bt-total-trades">--</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="result-label">基准累计</div>
+                                <div class="result-value" id="bt-benchmark">--</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="result-label">超额收益</div>
+                                <div class="result-value" id="bt-excess">--</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="result-label">总费用</div>
+                                <div class="result-value" id="bt-total-commission">--</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="result-label">最终权益</div>
+                                <div class="result-value" id="bt-final-equity">--</div>
+                            </div>
+                        </div>
+
+                        <!-- 统计画像（由权益曲线/交易明细前端现算，口径见页面注记；序列不足留 --） -->
+                        <div class="profile-grid" id="bt-profile-grid">
+                            <div class="profile-card">
+                                <div class="profile-label">索提诺比率</div>
+                                <div class="profile-value" id="bt-sortino">--</div>
+                            </div>
+                            <div class="profile-card">
+                                <div class="profile-label">卡玛比率</div>
+                                <div class="profile-value" id="bt-calmar">--</div>
+                            </div>
+                            <div class="profile-card">
+                                <div class="profile-label">日收益偏度</div>
+                                <div class="profile-value" id="bt-skew">--</div>
+                            </div>
+                            <div class="profile-card">
+                                <div class="profile-label">日收益峰度</div>
+                                <div class="profile-value" id="bt-kurt">--</div>
+                            </div>
+                            <div class="profile-card">
+                                <div class="profile-label">盈利 / 亏损笔</div>
+                                <div class="profile-value" id="bt-win-loss">--</div>
+                            </div>
+                            <div class="profile-card">
+                                <div class="profile-label">平均盈利 / 亏损</div>
+                                <div class="profile-value" id="bt-avg-win-loss">--</div>
+                            </div>
+                        </div>
                         
                         <!-- 权益曲线 -->
                         <div class="equity-chart-container" id="equity-chart"></div>
@@ -543,6 +607,83 @@
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+
+                        <!-- 当前持仓（后端 positions；无持仓空态） -->
+                        <div class="bt-panel" id="bt-holdings-panel">
+                            <div class="panel-header">
+                                <div class="panel-title">当前持仓</div>
+                                <div class="panel-note" id="bt-holdings-count"></div>
+                            </div>
+                            <div class="panel-empty" id="bt-holdings-empty" hidden>暂无持仓数据</div>
+                            <div class="table-wrap" id="bt-holdings-wrap" hidden>
+                                <table class="bt-table">
+                                    <thead>
+                                        <tr>
+                                            <th>代码</th><th>数量</th><th>持仓成本</th><th>现价</th><th>市值</th><th>权重</th><th>未实现盈亏</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="bt-holdings-body"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- 已平仓交易明细（后端 closedTrades；可按盈亏/代码筛选） -->
+                        <div class="bt-panel" id="bt-trades-panel">
+                            <div class="panel-header">
+                                <div class="panel-title">已平仓交易</div>
+                                <div class="panel-tools">
+                                    <select id="bt-trade-filter" class="form-input bt-mini-select">
+                                        <option value="all">全部</option>
+                                        <option value="win">盈利</option>
+                                        <option value="loss">亏损</option>
+                                    </select>
+                                    <input id="bt-trade-search" class="form-input bt-mini-input" placeholder="搜索代码">
+                                    <span id="bt-trade-summary" class="panel-note"></span>
+                                </div>
+                            </div>
+                            <div class="panel-empty" id="bt-trades-empty" hidden>暂无已平仓交易记录</div>
+                            <div class="table-wrap" id="bt-trades-wrap" hidden>
+                                <table class="bt-table">
+                                    <thead>
+                                        <tr>
+                                            <th>代码</th><th>方向</th><th>入场</th><th>出场</th><th>持有天</th><th>入场价</th><th>出场价</th><th>数量</th><th>净盈亏</th><th>收益率</th><th>出场原因</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="bt-trades-body"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- 滚动夏普（63 交易日窗口，由权益曲线前端现算） -->
+                        <div class="bt-panel" id="bt-rolling-panel">
+                            <div class="panel-header">
+                                <div class="panel-title">滚动夏普（63 交易日窗口 · 前端现算）</div>
+                            </div>
+                            <div class="panel-empty" id="bt-rolling-empty" hidden>权益序列不足，无法计算滚动夏普</div>
+                            <div id="bt-rolling-chart" style="height: 180px;"></div>
+                        </div>
+
+                        <!-- 年度收益 / 日收益分布 / 逐笔盈亏散点（均由现有序列前端现算） -->
+                        <div class="bt-panel-row">
+                            <div class="bt-panel">
+                                <div class="panel-header"><div class="panel-title">年度收益（前端现算）</div></div>
+                                <div id="bt-annual-body" class="bar-list"></div>
+                            </div>
+                            <div class="bt-panel">
+                                <div class="panel-header"><div class="panel-title">日收益分布（前端现算）</div></div>
+                                <div id="bt-dist-body" class="dist-bars"></div>
+                            </div>
+                            <div class="bt-panel">
+                                <div class="panel-header"><div class="panel-title">逐笔盈亏（前端现算）</div></div>
+                                <div id="bt-scatter-body" class="scatter-wrap"></div>
+                            </div>
+                        </div>
+
+                        <!-- 后端未提供的分析项：不生成示例数值 -->
+                        <div class="bt-panel bt-gap-panel">
+                            <div class="panel-header"><div class="panel-title">未接入的分析项</div></div>
+                            <div class="gap-note">以下维度后端当前未提供，前端不生成示例数值：过拟合概率 PBO、Deflated Sharpe、IS/OOS 分段绩效、蒙特卡洛分位、参数敏感性网格、行业归属、基准净值曲线、毛净值曲线。</div>
                         </div>
                     </div>
                 </div>
@@ -2546,6 +2687,6 @@
         </div>
     </div>
     
-    <script src="js/app.js?v=20261108i"></script>
+    <script src="js/app.js?v=20261110j"></script>
 </body>
 </html>

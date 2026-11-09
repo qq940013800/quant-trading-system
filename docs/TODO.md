@@ -410,6 +410,9 @@
 - ✅ **#273 NautilusTrader 框架调研与对照（参照不引入）**：复核官方架构/overview/strategies/adapters 文档与 PyPI 元数据，沉淀到 `docs/knowledge/05_languages_and_codebases.md` §3.3 表 + 新增 §3.3.1（核心组件、订单执行流、三环境共享内核、单线程核心/后台 IO、Actor-Component 状态机、同进程多节点约束），并对照本地 `pretrade_gate`/`gate_shadow`/`reconcile`/`backtest/engine` 形成差距映射。结论：沿用设计文档⑤只参照设计、不整栈引入；可借鉴点为 pre-trade 校验维度（可用余额、reduce-only、限速、熔断-退役禁开仓）、Sandbox 中间态、对账状态跟踪归属。**剩余风险/未验证**：许可 PyPI/pyproject 标 `LGPL-3.0-or-later` 而官方 llms.txt 写 `LGPL-3.0-only`，口径不一致，采用前须复核仓库 LICENSE 原文并人工确认；v2.0.0rc8 为预发布、要求 Python 3.13/3.14，稳定版与 API 以官方最新为准；本条目为只读调研，未改任何代码、未加依赖、未跑单测。
 
 
+- ✅ **#274–#278 ML-Alpha 回测分析仪表盘并入真实回测页（前端，不引 ECharts）**：把静态原型分析框架接到 `/backtest/get` 真实回测结果，沿用 lightweight-charts + 原生 HTML/CSS/Canvas 自绘，未引入 ECharts。改动 `frontend-pro/index.html`（4 KPI 后扩 8 卡扩展绩效 + 6 卡统计画像 + 持仓表 + 平仓交易明细表〔盈亏筛选 + 代码搜索〕+ 滚动夏普面板 + 年度收益/日收益分布/逐笔盈亏散点三栏 + 未接入分析项说明面板；版本号 bump 至 main.css?v=20261110a、app.js?v=20261110j）、`frontend-pro/css/main.css`（复用既有变量与表格语言，新增面板/画像卡/条形/分布柱/散点/空态样式与 900px 响应式）、`frontend-pro/js/app.js`（适配层纯函数：日收益、样本标准差、Sortino、总体矩偏度/峰度、年度/月度累加、W=63 滚动夏普；KPI 优先后端直出百分数值 raw 口径不 ×100，前端由曲线/明细现算的小数仍 ×100；空序列与缺失字段回退 `--`，真实 0 按值渲染；交易筛选/搜索无匹配切空态）。**口径**：日频 252、rf=0.02；后端缺项（月度后端序列、PBO/DSR/CPCV、IS/OOS 分段、蒙特卡洛分位、参数敏感性、行业、毛/净值与基准净值曲线、过拟合定性解读）一律空态 `--`，不灌示例数字；原型 5 块定性解读区未移植（后端无归因/过拟合检验支撑）。验证：`node --check` 通过；HTTP 核对 id=9 真实负载（1200 曲线 / 58 交易 / 7 持仓）；node 复刻口径 dry-run 无 NaN/抛错；真实 Chrome 复核：18 项 KPI/画像回填与后端及 dry-run 一致（总收益 +30.12%、夏普 0.25、回撤 -32.92%、索提诺 0.39、卡玛 0.10、偏度 0.341、峰度 8.891、0/58、平均盈/亏 0.00/-68.18），持仓 7 行、交易 58 行、年度 9、分布 12 柱、散点 58 点、热力 130 格；筛选 all/loss/win 与代码搜索正常；空对象回退 `--`；既有权益/回撤曲线、对比表 3 行未回归；无横向溢出、控制台无 error/warn。**剩余风险/未验证**：id=8 no_signals 与 id=1–6 result 空记录的实机视图未直接切换（UI 自动选 completed_trades），空态路径经单调空对象与 `_btBlankDetail` 覆盖；前端 DOM/空值逻辑无自动化 JS 单测（仓库 tests 为 Python 基建）；滚动夏普/年度/月度为前端由日收益简单累加现算，口径待后端预聚合固化（见 P2-11）；未触发 `/run` 新回测。
+
+
 ### 🔴 P1（核心口径，决定看板能否反映真实绩效）
 
 | # | 事项 | 真实状态 | 下一步动作 / 阻塞点 |
