@@ -27,6 +27,17 @@ class Fill:
     cost: float           # 本次成交总成本（USD，含点差/滑点折算 + 佣金）
     slippage_price: float  # 成交价相对 ref 的不利偏移（价格单位）
 
+    def __post_init__(self) -> None:
+        _finite("fill_price", self.fill_price)
+        _finite("cost", self.cost)
+        _finite("slippage_price", self.slippage_price)
+        if self.slippage_price < 0:
+            raise ValueError({"layer": "backtest.broker", "detail":
+                              f"slippage_price must be >=0: {self.slippage_price}"})
+        if self.cost < 0:
+            raise ValueError({"layer": "backtest.broker", "detail":
+                              f"cost must be >=0: {self.cost}"})
+
 
 def simulate_fill(direction: int, ref_price: float, spread: float,
                   slippage: float, commission_per_lot: float,

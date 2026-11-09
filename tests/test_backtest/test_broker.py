@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from core.backtest.broker import simulate_fill
+from core.backtest.broker import Fill, simulate_fill
 
 
 def test_long_fill_price_and_cost():
@@ -73,3 +73,26 @@ def _fill(**kw):
 def test_rejects_non_numeric_inputs(field, bad):
     with pytest.raises(ValueError):
         _fill(**{field: bad})
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), True, "1.0", None])
+def test_fill_rejects_nonfinite_fields(bad):
+    with pytest.raises(ValueError):
+        Fill(fill_price=bad, cost=10.0, slippage_price=1.5)
+    with pytest.raises(ValueError):
+        Fill(fill_price=2000.0, cost=bad, slippage_price=1.5)
+    with pytest.raises(ValueError):
+        Fill(fill_price=2000.0, cost=10.0, slippage_price=bad)
+
+
+def test_fill_rejects_negative_cost_or_slippage():
+    with pytest.raises(ValueError):
+        Fill(fill_price=2000.0, cost=-1.0, slippage_price=1.5)
+    with pytest.raises(ValueError):
+        Fill(fill_price=2000.0, cost=10.0, slippage_price=-0.5)
+
+
+def test_fill_valid_snapshot_accepted():
+    f = Fill(fill_price=2001.5, cost=10.0, slippage_price=1.5)
+    assert f.fill_price == pytest.approx(2001.5)
+    assert f.cost == 10.0
