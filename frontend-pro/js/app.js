@@ -1350,17 +1350,16 @@
         }
 
         function _renderRollingSharpe(curve, rets) {
-            const empty = document.getElementById('bt-rolling-empty');
             const chartEl = document.getElementById('bt-rolling-chart');
             const W = 63;
             if (rets.length < W || !chartEl) {
                 if (rollingSeries) rollingSeries.setData([]);
-                if (empty) empty.hidden = false;
-                if (chartEl) chartEl.style.display = 'none';
+                _btSetHidden('bt-rolling-chart', true);
+                _btSetHidden('bt-rolling-empty', false);
                 return;
             }
-            if (empty) empty.hidden = true;
-            chartEl.style.display = '';
+            _btSetHidden('bt-rolling-chart', false);
+            _btSetHidden('bt-rolling-empty', true);
             const dates = curve.map(p => p && p.time);
             const pts = [];
             for (let i = W - 1; i < rets.length; i++) {
