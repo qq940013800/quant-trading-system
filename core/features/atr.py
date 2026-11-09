@@ -10,7 +10,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from .base import as_of, _arrays, _wilder_ewma
+from .base import as_of, _arrays, _wilder_ewma, _min_int
 
 
 @as_of
@@ -20,8 +20,7 @@ def wilder_atr(history: list, as_of: pd.Timestamp, period: int = 14) -> float:
     period 为窗长参数（调用方配置传入）；阈值/窗长本身由 CLEAN 分布校准，
     不在此处绩效调参。history 长度 < period+1 时返回 NaN（不猜未来）。
     """
-    if period < 2:
-        raise ValueError(f"period must be >= 2, got {period}")
+    period = _min_int("period", period, 2)
     if len(history) < period + 1:
         return np.nan
     a = _arrays(history)

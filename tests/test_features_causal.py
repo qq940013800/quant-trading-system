@@ -94,3 +94,14 @@ class TestPanelWarmupGuards:
     def test_valid_warmup_accepted(self, bars):
         panel = build_feature_panel(bars, {}, warmup_bars=30)
         assert len(panel) == len(bars)
+
+
+class TestAtrPeriodGuards:
+    @pytest.mark.parametrize("bad", [1, 14.5, True, np.nan, "14"])
+    def test_invalid_period_rejected(self, bars, bad):
+        with pytest.raises(ValueError):
+            wilder_atr(bars[:51], bars[50].ts_utc, period=bad)
+
+    def test_valid_period_accepted(self, bars):
+        val = wilder_atr(bars[:51], bars[50].ts_utc, period=14)
+        assert val is not None
