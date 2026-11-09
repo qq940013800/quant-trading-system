@@ -127,3 +127,32 @@ class TestVolatilityWindowGuards:
         with pytest.raises(ValueError):
             atr_percentile_rank(bars[:51], bars[50].ts_utc, atr_arr,
                                 min_history=bad)
+
+
+class TestRegimePeriodGuards:
+    @pytest.mark.parametrize("bad", [1, 14.5, True, np.nan, "14"])
+    def test_invalid_adx_period_rejected(self, bars, bad):
+        with pytest.raises(ValueError):
+            adx(bars[:301], bars[300].ts_utc, period=bad)
+
+    @pytest.mark.parametrize("bad", [1, 512.5, True, np.nan])
+    def test_invalid_hurst_window_rejected(self, bars, bad):
+        with pytest.raises(ValueError):
+            hurst_exponent(bars[:301], bars[300].ts_utc, window=bad)
+
+    @pytest.mark.parametrize("bad", [0, 64.5, True, np.nan])
+    def test_invalid_hurst_min_window_rejected(self, bars, bad):
+        with pytest.raises(ValueError):
+            hurst_exponent(bars[:301], bars[300].ts_utc, window=128,
+                            min_window=bad)
+
+    def test_min_window_not_above_window_rejected(self, bars):
+        with pytest.raises(ValueError, match="min_window"):
+            hurst_exponent(bars[:301], bars[300].ts_utc, window=64,
+                           min_window=128)
+
+    def test_valid_periods_accepted(self, bars):
+        a = adx(bars[:301], bars[300].ts_utc, period=14)
+        h = hurst_exponent(bars[:301], bars[300].ts_utc, window=256,
+                           min_window=64)
+        assert a is not None and h is not None

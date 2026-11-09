@@ -10,7 +10,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from .base import as_of, _arrays, _wilder_ewma
+from .base import as_of, _arrays, _wilder_ewma, _min_int
 
 
 def _finite(name: str, val: float) -> float:
@@ -23,8 +23,7 @@ def _finite(name: str, val: float) -> float:
 @as_of
 def adx(history: list, as_of: pd.Timestamp, period: int = 14) -> float:
     """Wilder ADX(period)，返回 as_of 处最新值。ADX 是趋势强度指标（不分方向）。"""
-    if period < 2:
-        raise ValueError(f"period must be >= 2, got {period}")
+    period = _min_int("period", period, 2)
     if len(history) < 2 * period + 1:
         return np.nan
     a = _arrays(history)
@@ -61,6 +60,12 @@ def hurst_exponent(history: list, as_of: pd.Timestamp,
     H≈0.5 随机游走；H>0.5 趋势持续；H<0.5 反持续（均值回复）。
     window/min_window 是窗长参数（配置传入），非绩效调参。
     """
+    window = _min_int("window", window, 2)
+    min_window = _min_int("min_window", min_window, 1)
+    if min_window > window:
+        raise ValueError(
+            f"min_window must be <= window, got min_window={min_window}, window={window}"
+        )
     n = min(len(history), window)
     if n < min_window:
         return np.nan
