@@ -19,6 +19,8 @@ from __future__ import annotations
 import math
 from typing import Mapping, Sequence
 
+import numpy as np
+
 
 # ---------------------------------------------------------------------------
 # 内部守卫
@@ -37,6 +39,14 @@ def _check_threshold(value: float, name: str) -> float:
     if not math.isfinite(v) or not (0.0 < v <= 1.0):
         raise ValueError(f"{name} 必须落在 (0, 1]: {value!r}")
     return v
+
+
+def _positive_int(name: str, val: int) -> int:
+    if isinstance(val, bool) or not isinstance(val, int):
+        raise ValueError(f"{name} 必须为整数，收到 {val!r}")
+    if val < 1:
+        raise ValueError(f"{name} 必须 >= 1，收到 {val}")
+    return val
 
 
 def _check_returns(returns: Mapping[str, Sequence[float]]) -> list[str]:
@@ -199,3 +209,62 @@ def correlation_breaker(
         "reasons": reasons,
     }
     return triggered, report
+
+
+# ---------------------------------------------------------------------------
+# 等风险贡献（ERC / 风险平价）
+# ---------------------------------------------------------------------------
+def risk_parity_weights(returns: Mapping[str, Sequence[float]],
+                       *, max_iter: int = 1000, tol: float = 1e-9
+                       ) -> dict[str, float]:
+    """等风险贡献（ERC，风险平价）权重。
+
+    与 :func:`risk_budget_weights`（逆波动，忽略策略间相关性）不同，本函数
+    基于收益协方差矩阵迭代求解，使各策略对组合方差的风险贡献占比趋于相等；
+    相关结构高、风险重叠大的策略自动分到更低权重。纯函数：无 IO、不下单、
+    不做参数寻优，阈值由调用方注入。
+
+    Args:
+        returns: 策略ID → 收益序列（等长、长度 ≥2、元素有限）。
+        max_iter: 迭代上限（正整数）。
+        tol: 风险贡献占比偏离 1/n 的收敛容差（正数）。
+
+    Returns:
+        策略ID → ERC 权重，归一到和为 1.0。协方差退化（全部零方差或非
+        有限）时退化为等权。
+    """
+    ids = _check_returns(returns)
+    max_iter = _positive_int("max_iter", max_iter)
+    tol = _check_positive_finite(tol, "tol")
+    if tol <= 0.0:
+        raise ValueError(f"tol 必须 > 0，收到 {tol!r}")
+    n = len(ids)
+    if n == 1:
+        return {ids[0]: 1.0}
+
+    matrix = np.array([list(returns[s]) for s in ids], dtype=float)
+    cov = np.atleast_2d(np.cov(matrix, ddof=1))
+    vols = np.sqrt(np.diag(cov))
+
+    zero_vol = 1e-12
+    if not np.all(np.isfinite(cov)) or np.all(vols < zero_vol):
+        return {sid: 1.0 / n for sid in ids}
+
+    safe_vol = np.where(vols > zero_vol, vols, 1.0)
+    inv = np.where(vols > zero_vol, 1.0 / safe_vol, 1.0)
+    w = inv / inv.sum()
+
+    target = 1.0 / n
+    for _ in range(max_iter):
+        mrc = cov @ w
+        port_var = float(w @ mrc)
+        if port_var < 1e-24 or not math.isfinite(port_var):
+            return {sid: 1.0 / n for sid in ids}
+        share = (w * mrc) / port_var
+        if float(np.max(np.abs(share - target))) < tol:
+            break
+        adj = np.where(share > 1e-12, (target / share) ** 0.5, 1.0)
+        w = np.clip(w * adj, 1e-12, None)
+        w = w / w.sum()
+
+    return {sid: float(w[i]) for i, sid in enumerate(ids)}
