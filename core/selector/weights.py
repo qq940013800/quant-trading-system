@@ -31,6 +31,19 @@ class WeightStateError(ValueError):
         super().__init__(f"WeightStateError: {context}")
 
 
+def _finite_num(name: str, val) -> float:
+    if isinstance(val, bool) or not isinstance(val, (int, float)):
+        raise WeightStateError({
+            "layer": "selector.weights",
+            "detail": f"{name} must be a number: {val!r}"})
+    f = float(val)
+    if not math.isfinite(f):
+        raise WeightStateError({
+            "layer": "selector.weights",
+            "detail": f"{name} must be finite: {val!r}"})
+    return f
+
+
 class DeadbandWeightState:
     """一阶 EMA 平滑 + 双向 deadband + 连续 N bar 确认的权重状态机。
 
@@ -180,7 +193,12 @@ def shrink_params(global_defaults: Dict[str, float],
     决策 #9：阈值来自分布而非绩效）。lam<1 仅在 CLEAN 集参数稳定性
     分析（阶段 4）中离线使用，线上默认不开放。
     """
-    if not 0.0 <= float(lam) <= 1.0:
+    if not isinstance(global_defaults, dict) or not isinstance(local_estimates, dict):
+        raise WeightStateError({
+            "layer": "selector.weights",
+            "detail": "global_defaults/local_estimates must be dicts"})
+    lam = _finite_num("lam", lam)
+    if not 0.0 <= lam <= 1.0:
         raise WeightStateError({
             "layer": "selector.weights",
             "detail": f"lam must be in [0,1], got {lam!r}"})
@@ -189,8 +207,12 @@ def shrink_params(global_defaults: Dict[str, float],
             "layer": "selector.weights",
             "detail": f"key mismatch: global={sorted(global_defaults)} "
                       f"local={sorted(local_estimates)}"})
-    return {k: float(lam) * float(global_defaults[k])
-            + (1.0 - float(lam)) * float(local_estimates[k])
+    for k, v in global_defaults.items():
+        _finite_num(f"global_defaults[{k!r}]", v)
+    for k, v in local_estimates.items():
+        _finite_num(f"local_estimates[{k!r}]", v)
+    return {k: lam * float(global_defaults[k])
+            + (1.0 - lam) * float(local_estimates[k])
             for k in global_defaults}
 
 

@@ -98,6 +98,39 @@ def test_shrink_params_endpoints_and_midpoint():
         shrink_params(g, loc, 1.5)                 # lam 越界
 
 
+def _shrink(**kw):
+    base = dict(global_defaults={"x": 1.0, "y": 2.0},
+                local_estimates={"x": 3.0, "y": 0.0}, lam=0.5)
+    base.update(kw)
+    return shrink_params(**base)
+
+
+@pytest.mark.parametrize("bad", [True, False, "0.5", None, np.nan,
+                                 np.inf, 1.5, -0.1])
+def test_shrink_rejects_bad_lam(bad):
+    with pytest.raises(WeightStateError):
+        _shrink(lam=bad)
+
+
+@pytest.mark.parametrize("bad", [[("x", 1.0)], None, "dict"])
+def test_shrink_rejects_non_dict_mappings(bad):
+    with pytest.raises(WeightStateError):
+        _shrink(global_defaults=bad)
+
+
+@pytest.mark.parametrize("field", ["global_defaults", "local_estimates"])
+@pytest.mark.parametrize("bad", [np.nan, np.inf, True, "1.0"])
+def test_shrink_rejects_nonfinite_elements(field, bad):
+    g = {"x": 1.0, "y": 2.0}
+    loc = {"x": 3.0, "y": 0.0}
+    if field == "global_defaults":
+        g = {"x": bad, "y": 2.0}
+    else:
+        loc = {"x": bad, "y": 0.0}
+    with pytest.raises(WeightStateError):
+        shrink_params(g, loc, 0.5)
+
+
 def test_blend_strength():
     assert blend_strength({"a": 1, "b": -1},
                            {"a": 0.5, "b": 0.5}) == pytest.approx(0.0)
