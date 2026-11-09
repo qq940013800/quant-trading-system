@@ -11,9 +11,19 @@
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
+
+
+def _ratio(name: str, val: float, *, lo: float, hi: float) -> float:
+    if not isinstance(val, (int, float)) or isinstance(val, bool) \
+            or not math.isfinite(val):
+        raise ValueError(f"{name} 必须为有限数值，收到 {val!r}")
+    if val < lo or val > hi:
+        raise ValueError(f"{name} 必须位于 [{lo}, {hi}] 区间，收到 {val!r}")
+    return float(val)
 
 
 # ------------------------------------------------------------------
@@ -92,8 +102,12 @@ class StrategyMatcher:
 
     def __init__(self, strategies: list[StrategyProfile],
                  switch_threshold: float = 0.15):
+        if not isinstance(strategies, list):
+            raise ValueError(
+                f"strategies 必须为列表，收到 {type(strategies).__name__}")
         self.strategies = strategies
-        self.switch_threshold = switch_threshold
+        self.switch_threshold = _ratio(
+            "switch_threshold", switch_threshold, lo=0.0, hi=1.0)
 
     def _calc_fit_score(self, strategy: StrategyProfile,
                         market: MarketRegime) -> float:

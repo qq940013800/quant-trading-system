@@ -273,3 +273,20 @@ class TestEdgeCases:
         rankings = match_strategies(strategies, market)
         assert len(rankings) == 1
         assert rankings[0].profile.name == "trend"
+
+
+class TestMatcherGuards:
+    @pytest.mark.parametrize("bad", [{}, None, "trend", ("a", "b")])
+    def test_non_list_strategies_rejected(self, bad):
+        with pytest.raises(ValueError):
+            StrategyMatcher(bad)
+
+    @pytest.mark.parametrize("th", [-0.1, 1.2, np.nan])
+    def test_invalid_threshold_rejected(self, th):
+        with pytest.raises(ValueError):
+            StrategyMatcher([], switch_threshold=th)
+
+    def test_empty_list_and_valid_threshold_accepted(self):
+        matcher = StrategyMatcher([], switch_threshold=0.2)
+        assert matcher.switch_threshold == pytest.approx(0.2)
+        assert matcher.rank(MarketRegime("trending")) == []
