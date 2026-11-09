@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import inspect
 import math
+from dataclasses import fields
 
 import pytest
 
 from core.audit.attribution import (
     AttributionError,
+    AttributionResult,
     aggregate_attribution,
     split_trade_outcome,
 )
@@ -134,3 +136,57 @@ class TestNoExternalDependency:
         for banned in ("psycopg", "requests", "socket", "db_writer",
                        "sqlalchemy", "httpx", "urllib.request"):
             assert banned not in src, f"attribution.py 引入了外部依赖: {banned}"
+
+
+def _result(**kw) -> AttributionResult:
+    base = split_trade_outcome(
+        pnl=100.0, side="buy", entry_price=2000.0, exit_price=2010.0,
+        benchmark_return=0.0, notional=20000.0, cost=20.0)
+    data = {f.name: getattr(base, f.name) for f in fields(AttributionResult)}
+    data.update(kw)
+    return AttributionResult(**data)
+
+
+class TestAttributionResultGuards:
+    def test_valid_result_accepted(self):
+        res = _result()
+        assert res.side == "buy"
+        assert isinstance(res.notes, tuple)
+        assert all(isinstance(n, str) for n in res.notes)
+
+    def test_side_must_be_valid(self):
+        with pytest.raises(AttributionError):
+            _result(side="long")
+
+    @pytest.mark.parametrize("bad", [math.nan, math.inf, True, "100"])
+    def test_pnl_must_be_finite_num(self, bad):
+        with pytest.raises(AttributionError):
+            _result(pnl=bad)
+
+    @pytest.mark.parametrize("bad", [0.0, -1.0])
+    def test_entry_price_must_be_positive(self, bad):
+        with pytest.raises(AttributionError):
+            _result(entry_price=bad)
+
+    def test_notional_must_be_nonneg(self):
+        with pytest.raises(AttributionError):
+            _result(notional=-1.0)
+
+    def test_cost_must_be_nonneg(self):
+        with pytest.raises(AttributionError):
+            _result(cost=-1.0)
+
+    def test_holding_period_must_be_finite(self):
+        with pytest.raises(AttributionError):
+            _result(holding_period=math.nan)
+
+    @pytest.mark.parametrize("bad", [-1, 1.5, True])
+    def test_holding_bars_must_be_nonneg_int(self, bad):
+        with pytest.raises(AttributionError):
+            _result(holding_bars=bad)
+
+    def test_notes_must_be_tuple_of_str(self):
+        with pytest.raises(AttributionError):
+            _result(notes=["x"])
+        with pytest.raises(AttributionError):
+            _result(notes=(1, 2))

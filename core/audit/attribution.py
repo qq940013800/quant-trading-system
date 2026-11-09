@@ -44,6 +44,27 @@ def _finite(name: str, value: float) -> float:
     return v
 
 
+def _finite_num(name: str, value: object) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) \
+            or not math.isfinite(value):
+        raise AttributionError(f"{name} must be finite number", **{name: value})
+    return float(value)
+
+
+def _opt_finite(name: str, value: object) -> Optional[float]:
+    if value is None:
+        return None
+    return _finite_num(name, value)
+
+
+def _opt_nonneg_int(name: str, value: object) -> Optional[int]:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise AttributionError(f"{name} must be non-negative int", **{name: value})
+    return value
+
+
 @dataclass(frozen=True)
 class AttributionResult:
     """单笔交易归因结果（可审计快照）。"""
@@ -63,6 +84,29 @@ class AttributionResult:
     holding_period: Optional[float] = None
     holding_bars: Optional[int] = None
     notes: tuple[str, ...] = field(default_factory=tuple)
+
+    def __post_init__(self) -> None:
+        if self.side not in VALID_SIDES:
+            raise AttributionError(f"side must be one of {VALID_SIDES}",
+                                   side=self.side)
+        for name in ("pnl", "entry_price", "exit_price", "benchmark_return",
+                     "notional", "cost", "market_component", "alpha_component",
+                     "cost_component", "own_directional_return", "gross_pnl"):
+            _finite_num(name, getattr(self, name))
+        if self.entry_price <= 0:
+            raise AttributionError("entry_price must be > 0",
+                                   entry_price=self.entry_price)
+        if self.notional < 0:
+            raise AttributionError("notional must be >= 0",
+                                   notional=self.notional)
+        if self.cost < 0:
+            raise AttributionError("cost must be >= 0", cost=self.cost)
+        _opt_finite("holding_period", self.holding_period)
+        _opt_nonneg_int("holding_bars", self.holding_bars)
+        if not isinstance(self.notes, tuple) \
+                or any(not isinstance(n, str) for n in self.notes):
+            raise AttributionError("notes must be tuple of str",
+                                   notes=self.notes)
 
     def decomposition_residual(self, tol: float = 1e-6) -> float:
         """三分量加和与净盈亏的残差（应≈0）。"""
