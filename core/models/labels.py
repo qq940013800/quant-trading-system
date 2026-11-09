@@ -21,6 +21,21 @@ import pandas as pd
 logger = logging.getLogger("core.models")
 
 
+def _positive_finite(name: str, val: float) -> float:
+    if not isinstance(val, (int, float)) or isinstance(val, bool) \
+            or not np.isfinite(val) or val <= 0:
+        raise ValueError(f"{name} 必须为正有限数值，收到 {val!r}")
+    return float(val)
+
+
+def _min_int(name: str, val: int, lo: int) -> int:
+    if isinstance(val, bool) or not isinstance(val, int):
+        raise ValueError(f"{name} 必须为整数，收到 {val!r}")
+    if val < lo:
+        raise ValueError(f"{name} 必须 >= {lo}，收到 {val}")
+    return val
+
+
 def triple_barrier_labels(bars: list, atr: pd.Series, *,
                           tp_mult: float, sl_mult: float,
                           max_holding_bars: int) -> pd.Series:
@@ -37,10 +52,9 @@ def triple_barrier_labels(bars: list, atr: pd.Series, *,
     -------
     pd.Series，index 与 atr 对齐，取值 {-1, 0, +1}；atr0 缺失/未来不足返回 0。
     """
-    if tp_mult <= 0 or sl_mult <= 0:
-        raise ValueError("tp_mult/sl_mult must be positive")
-    if max_holding_bars < 1:
-        raise ValueError("max_holding_bars must be >= 1")
+    tp = _positive_finite("tp_mult", tp_mult)
+    sl = _positive_finite("sl_mult", sl_mult)
+    max_holding = _min_int("max_holding_bars", max_holding_bars, 1)
     n = len(bars)
     if n != len(atr):
         raise ValueError(f"bars/atr length mismatch: {n} vs {len(atr)}")
@@ -57,9 +71,9 @@ def triple_barrier_labels(bars: list, atr: pd.Series, *,
             labels[i] = 0
             continue
         p0 = close[i]
-        up = p0 + tp_mult * a0
-        dn = p0 - sl_mult * a0
-        end = min(i + max_holding_bars, n - 1)
+        up = p0 + tp * a0
+        dn = p0 - sl * a0
+        end = min(i + max_holding, n - 1)
         lab = 0
         for j in range(i + 1, end + 1):
             hit_up = high[j] >= up

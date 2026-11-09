@@ -114,3 +114,34 @@ def test_empty_input_returns_empty_series():
     lab = triple_barrier_labels([], pd.Series([], dtype=float),
                                 tp_mult=1.0, sl_mult=1.0, max_holding_bars=5)
     assert len(lab) == 0
+
+
+class TestLabelsParamGuards:
+    @pytest.mark.parametrize("kw", [
+        {"tp_mult": np.nan}, {"tp_mult": np.inf}, {"tp_mult": -1.0},
+        {"tp_mult": True}, {"sl_mult": np.nan}, {"sl_mult": 0.0},
+        {"sl_mult": False},
+    ])
+    def test_invalid_mult_rejected(self, kw):
+        bars = _make_bars([100.0] * 5)
+        base = dict(tp_mult=1.0, sl_mult=1.0, max_holding_bars=5)
+        base.update(kw)
+        with pytest.raises(ValueError):
+            triple_barrier_labels(bars, _atr_const(5), **base)
+
+    @pytest.mark.parametrize("kw", [
+        {"max_holding_bars": 5.0}, {"max_holding_bars": True},
+        {"max_holding_bars": -2},
+    ])
+    def test_invalid_holding_bars_rejected(self, kw):
+        bars = _make_bars([100.0] * 5)
+        base = dict(tp_mult=1.0, sl_mult=1.0, max_holding_bars=5)
+        base.update(kw)
+        with pytest.raises(ValueError):
+            triple_barrier_labels(bars, _atr_const(5), **base)
+
+    def test_valid_params_accepted(self):
+        bars = _make_bars([100.0 + 0.3 * i for i in range(12)])
+        lab = triple_barrier_labels(bars, _atr_const(12), tp_mult=1.5,
+                                    sl_mult=1.2, max_holding_bars=8)
+        assert len(lab) == 12
