@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -26,6 +27,39 @@ from urllib.parse import urljoin
 import requests
 
 logger = logging.getLogger(__name__)
+
+
+def _finite(name: str, val: float) -> float:
+    if not isinstance(val, (int, float)) or isinstance(val, bool) \
+            or not math.isfinite(val):
+        raise ValueError(f"{name} 必须为有限数值，收到 {val!r}")
+    return float(val)
+
+
+def _positive_finite(name: str, val: float) -> float:
+    v = _finite(name, val)
+    if v <= 0:
+        raise ValueError(f"{name} 必须 > 0，收到 {v!r}")
+    return v
+
+
+def _nonneg_finite(name: str, val: float) -> float:
+    v = _finite(name, val)
+    if v < 0:
+        raise ValueError(f"{name} 必须 >= 0，收到 {v!r}")
+    return v
+
+
+def _as_int(name: str, val: int) -> int:
+    if isinstance(val, bool) or not isinstance(val, int):
+        raise ValueError(f"{name} 必须为整数，收到 {val!r}")
+    return val
+
+
+def _nonempty_str(name: str, val: str) -> str:
+    if not isinstance(val, str) or not val.strip():
+        raise ValueError(f"{name} 必须为非空字符串，收到 {val!r}")
+    return val
 
 
 @dataclass
@@ -38,6 +72,21 @@ class BridgeConfig:
     retry_backoff: float = 0.5
     auth_token: Optional[str] = None
     request_log_enabled: bool = True
+
+    def __post_init__(self) -> None:
+        _nonempty_str("base_url", self.base_url)
+        if not isinstance(self.api_prefix, str):
+            raise ValueError(
+                f"api_prefix 必须为字符串，收到 {self.api_prefix!r}")
+        _positive_finite("timeout_seconds", self.timeout_seconds)
+        retries = _as_int("max_retries", self.max_retries)
+        if retries < 0:
+            raise ValueError(f"max_retries 必须 >= 0，收到 {retries}")
+        _nonneg_finite("retry_backoff", self.retry_backoff)
+        if not isinstance(self.request_log_enabled, bool):
+            raise ValueError(
+                f"request_log_enabled 必须为布尔值，"
+                f"收到 {self.request_log_enabled!r}")
 
 
 @dataclass

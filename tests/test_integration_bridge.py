@@ -200,3 +200,32 @@ class TestQuantDingerBridge:
         assert "health" in report
         assert "config" in report
         assert report["bridge"] == "quantdinger"
+
+
+class TestBridgeConfigGuards:
+    def _base(self, **kw):
+        base = dict(base_url="http://localhost:5000")
+        base.update(kw)
+        return BridgeConfig(**base)
+
+    @pytest.mark.parametrize("kw", [
+        {"base_url": ""}, {"base_url": None},
+        {"timeout_seconds": 0}, {"timeout_seconds": -1.0},
+        {"timeout_seconds": float("nan")},
+        {"max_retries": -1}, {"max_retries": 2.0}, {"max_retries": True},
+        {"retry_backoff": -0.1}, {"retry_backoff": float("nan")},
+        {"request_log_enabled": "yes"}, {"request_log_enabled": 1},
+    ])
+    def test_invalid_config_rejected(self, kw):
+        with pytest.raises(ValueError):
+            self._base(**kw)
+
+    def test_default_and_custom_valid_accepted(self):
+        cfg = BridgeConfig()
+        assert cfg.timeout_seconds == pytest.approx(10.0)
+        assert cfg.max_retries == 2
+        custom = BridgeConfig(
+            base_url="http://test:8080", timeout_seconds=5.0,
+            max_retries=0, retry_backoff=0.01, request_log_enabled=False)
+        assert custom.max_retries == 0
+        assert custom.request_log_enabled is False
