@@ -5,6 +5,7 @@ from __future__ import annotations
 import _bt_helpers as H  # noqa: F401
 import numpy as np
 import pandas as pd
+import pytest
 
 from core.backtest.metrics import compute_metrics
 
@@ -59,3 +60,24 @@ def test_all_winning_trades_profit_factor_infinite():
     m = compute_metrics(eq, [{"pnl_usd": 5.0}, {"pnl_usd": 3.0}])
     assert m["profit_factor"] == float("inf")
     assert m["win_rate"] == 1.0
+
+
+class TestMetricsParamGuards:
+    def _eq(self):
+        idx = pd.date_range("2021-01-04", periods=5, freq="5min", tz="UTC")
+        return pd.Series([100.0, 105.0, 110.0, 108.0, 105.0], index=idx)
+
+    @pytest.mark.parametrize("kw", [
+        {"bars_per_year": 0}, {"bars_per_year": -1},
+        {"bars_per_year": 100.0}, {"bars_per_year": True},
+        {"risk_free": np.nan}, {"risk_free": np.inf},
+        {"risk_free": True},
+    ])
+    def test_invalid_param_rejected(self, kw):
+        with pytest.raises(ValueError):
+            compute_metrics(self._eq(), [], **kw)
+
+    def test_valid_annualization_and_negative_rf_accepted(self):
+        m = compute_metrics(self._eq(), [], bars_per_year=100,
+                            risk_free=-0.02)
+        assert m["n_trades"] == 0
