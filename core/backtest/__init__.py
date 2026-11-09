@@ -4,6 +4,7 @@
 只在已收盘 bar 触发信号与退出决策；成本三档（平静/新闻±15min/跳空）+ 滑点 + 佣金。
 """
 from .costs import CostModel, spread_at, slippage_points, is_news_time
+from .tca import CostBreakdown, CostDeviation, decompose_costs, assess_cost_deviation
 from .broker import simulate_fill, Fill
 from .metrics import compute_metrics
 from .engine import (
@@ -16,6 +17,7 @@ from .engine import (
 
 __all__ = [
     "CostModel", "spread_at", "slippage_points", "is_news_time",
+    "CostBreakdown", "CostDeviation", "decompose_costs", "assess_cost_deviation",
     "simulate_fill", "Fill",
     "compute_metrics",
     "BacktestResult", "BarLike", "Position", "run_backtest",
