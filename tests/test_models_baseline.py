@@ -53,3 +53,23 @@ def test_unfitted_raises():
     m = LogisticBaseline()
     with pytest.raises(RuntimeError):
         m.predict_proba(np.zeros((1, 3)))
+
+
+class TestConstructorGuards:
+    @pytest.mark.parametrize("kw", [
+        {"C": 0}, {"C": -1.0}, {"C": np.nan},
+        {"max_iter": 0}, {"max_iter": 10.0}, {"max_iter": "50"},
+        {"tol": 0.0}, {"tol": np.nan},
+    ])
+    def test_logistic_rejected(self, kw):
+        with pytest.raises(ValueError):
+            LogisticBaseline(**kw)
+
+    @pytest.mark.parametrize("alpha", [-1.0, np.nan])
+    def test_ridge_rejected(self, alpha):
+        with pytest.raises(ValueError):
+            RidgeBaseline(alpha=alpha)
+
+    def test_valid_construction_accepted(self):
+        LogisticBaseline(C=2.0, max_iter=30, tol=1e-5)
+        RidgeBaseline(alpha=0.5)

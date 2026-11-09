@@ -15,6 +15,8 @@ import numpy as np
 
 class MetaLabeler:
     def __init__(self, base_model, q_lo: float = 0.30, q_hi: float = 0.70):
+        if not (np.isfinite(q_lo) and np.isfinite(q_hi)):
+            raise ValueError("q_lo/q_hi must be finite")
         if not 0.0 <= q_lo < q_hi <= 1.0:
             raise ValueError("require 0 <= q_lo < q_hi <= 1")
         self.base_model = base_model

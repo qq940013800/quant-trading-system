@@ -14,17 +14,33 @@ def _sigmoid(z: np.ndarray) -> np.ndarray:
     return 1.0 / (1.0 + np.exp(-np.clip(z, -40.0, 40.0)))
 
 
+def _finite(name: str, val: float) -> float:
+    if not np.isfinite(val):
+        raise ValueError(f"{name} 必须为有限数值，收到 {val!r}")
+    return val
+
+
+def _as_positive_int(name: str, val: int) -> int:
+    if isinstance(val, bool) or not isinstance(val, int) or val < 1:
+        raise ValueError(f"{name} 必须为 ≥1 整数，收到 {val!r}")
+    return val
+
+
 class LogisticBaseline:
     """L2 正则逻辑回归（IRLS / Newton-Raphson）。version 随训练冻结。"""
 
     version = "baseline-logistic-irls-v1"
 
     def __init__(self, C: float = 1.0, max_iter: int = 50, tol: float = 1e-6):
+        C = _finite("C", C)
         if C <= 0:
             raise ValueError("C must be > 0")
+        tol = _finite("tol", tol)
+        if tol <= 0:
+            raise ValueError("tol must be > 0")
         self.C = C
         self.lam = 1.0 / C  # L2 强度；intercept 不正则化
-        self.max_iter = max_iter
+        self.max_iter = _as_positive_int("max_iter", max_iter)
         self.tol = tol
         self.beta: np.ndarray | None = None
 
@@ -72,6 +88,7 @@ class RidgeBaseline:
     version = "baseline-ridge-v1"
 
     def __init__(self, alpha: float = 1.0):
+        alpha = _finite("alpha", alpha)
         if alpha < 0:
             raise ValueError("alpha must be >= 0")
         self.alpha = alpha

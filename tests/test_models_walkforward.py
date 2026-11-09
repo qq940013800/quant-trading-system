@@ -53,6 +53,20 @@ def test_meta_label_p_k_unit_interval():
     assert ml.version.startswith("meta-")
 
 
+class TestMetaLabelGuards:
+    @pytest.mark.parametrize("kw", [
+        {"q_lo": 0.70, "q_hi": 0.30}, {"q_lo": 0.0, "q_hi": 0.0},
+        {"q_lo": 1.0, "q_hi": 0.5}, {"q_lo": np.nan, "q_hi": 0.7},
+    ])
+    def test_quantile_levels_rejected(self, kw):
+        with pytest.raises(ValueError):
+            MetaLabeler(LogisticBaseline(), **kw)
+
+    def test_valid_quantile_levels_accepted(self):
+        ml = MetaLabeler(LogisticBaseline(), q_lo=0.30, q_hi=0.70)
+        assert ml.q_lo == 0.30
+
+
 def test_psi_stable_vs_shifted():
     rng = np.random.default_rng(0)
     ref = rng.normal(size=1000)
