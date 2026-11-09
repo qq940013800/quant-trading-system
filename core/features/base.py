@@ -25,6 +25,14 @@ import pandas as pd
 logger = logging.getLogger("core.features")
 
 
+def _min_int(name: str, val: int, lo: int) -> int:
+    if isinstance(val, bool) or not isinstance(val, int):
+        raise ValueError(f"{name} 必须为整数，收到 {val!r}")
+    if val < lo:
+        raise ValueError(f"{name} 必须 >= {lo}，收到 {val}")
+    return val
+
+
 class AsOfContractError(Exception):
     """as_of 契约违反（非前视类的其它契约错误：naive 时间戳、空 history、未排序等）。"""
 
@@ -159,12 +167,13 @@ def build_feature_panel(
     pd.DataFrame  index = ts_utc，附契约列 `available_at`（= 行 index 本身，
     因为特征只用 <= as_of 的已收盘 bar）。
     """
+    warmup = _min_int("warmup_bars", warmup_bars, 0)
     n = len(history)
     rows: list[dict] = []
     for i in range(n):
         as_of = history[i].ts_utc
         row: dict = {"available_at": as_of}
-        if i < warmup_bars:
+        if i < warmup:
             for name in features:
                 row[name] = np.nan
         else:

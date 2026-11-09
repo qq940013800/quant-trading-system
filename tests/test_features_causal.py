@@ -80,3 +80,17 @@ def test_decorator_passthrough_args(bars):
 
     ts_now = bars[30].ts_utc
     assert dummy(bars[:31], ts_now, scale=2.0) == pytest.approx(bars[30].close * 2.0)
+
+
+class TestPanelWarmupGuards:
+    @pytest.mark.parametrize("kw", [
+        {"warmup_bars": -1}, {"warmup_bars": 5.0},
+        {"warmup_bars": True}, {"warmup_bars": "10"},
+    ])
+    def test_invalid_warmup_rejected(self, bars, kw):
+        with pytest.raises(ValueError):
+            build_feature_panel(bars, {}, **kw)
+
+    def test_valid_warmup_accepted(self, bars):
+        panel = build_feature_panel(bars, {}, warmup_bars=30)
+        assert len(panel) == len(bars)
