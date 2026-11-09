@@ -7,6 +7,8 @@ import pandas as pd
 import pytest
 
 from core.debug.system_diagnoser import (
+    DiagnosisCheck,
+    DiagnosisReport,
     SystemDiagnoser,
     Severity,
 )
@@ -95,3 +97,59 @@ class TestRiskLayerCheck:
 
         stop_checks = [c for c in report.checks if c.name == "止损频率"]
         assert stop_checks[0].severity == Severity.WARNING
+
+
+def _check(**kw) -> DiagnosisCheck:
+    base = dict(layer="data", name="数据量", severity=Severity.OK,
+                message="ok", details={})
+    base.update(kw)
+    return DiagnosisCheck(**base)
+
+
+def _report(**kw) -> DiagnosisReport:
+    base = dict(timestamp="2026-01-01T00:00:00", checks=[],
+                overall_health=100.0)
+    base.update(kw)
+    return DiagnosisReport(**base)
+
+
+class TestDiagnosisCheckGuards:
+    def test_valid_check_accepted(self):
+        c = _check()
+        assert c.severity == Severity.OK
+
+    @pytest.mark.parametrize("field", ["layer", "name", "message"])
+    @pytest.mark.parametrize("bad", ["", "  ", None, 123])
+    def test_text_fields_must_be_nonempty_str(self, field, bad):
+        with pytest.raises(ValueError):
+            _check(**{field: bad})
+
+    def test_severity_must_be_enum(self):
+        with pytest.raises(ValueError):
+            _check(severity="error")
+
+    def test_details_must_be_dict(self):
+        with pytest.raises(ValueError):
+            _check(details=["a", "b"])
+
+
+class TestDiagnosisReportGuards:
+    def test_valid_report_accepted(self):
+        r = _report(checks=[_check()])
+        assert r.overall_health == 100.0
+
+    @pytest.mark.parametrize("bad", ["", "  ", None, 1])
+    def test_timestamp_must_be_nonempty_str(self, bad):
+        with pytest.raises(ValueError):
+            _report(timestamp=bad)
+
+    def test_checks_must_be_check_list(self):
+        with pytest.raises(ValueError):
+            _report(checks="not-list")
+        with pytest.raises(ValueError):
+            _report(checks=["not-check"])
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf"), -1.0, 101.0, True])
+    def test_health_must_be_in_range(self, bad):
+        with pytest.raises(ValueError):
+            _report(overall_health=bad)

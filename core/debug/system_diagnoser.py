@@ -35,6 +35,25 @@ class Severity(Enum):
     CRITICAL = "critical"        # 严重错误
 
 
+def _nonempty_str(name: str, val: object) -> str:
+    if not isinstance(val, str) or not val.strip():
+        raise ValueError(f"{name} 必须为非空字符串，收到 {val!r}")
+    return val
+
+
+def _dict(name: str, val: object) -> dict:
+    if not isinstance(val, dict):
+        raise ValueError(f"{name} 必须为 dict，收到 {type(val).__name__}")
+    return val
+
+
+def _health(name: str, val: object) -> float:
+    if isinstance(val, bool) or not isinstance(val, (int, float)) \
+            or not np.isfinite(val) or not (0.0 <= val <= 100.0):
+        raise ValueError(f"{name} 必须为 [0,100] 有限数，收到 {val!r}")
+    return float(val)
+
+
 @dataclass
 class DiagnosisCheck:
     """单个检查项。"""
@@ -44,6 +63,15 @@ class DiagnosisCheck:
     message: str
     details: dict = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        _nonempty_str("layer", self.layer)
+        _nonempty_str("name", self.name)
+        _nonempty_str("message", self.message)
+        if not isinstance(self.severity, Severity):
+            raise ValueError(
+                f"severity 必须为 Severity 枚举，收到 {self.severity!r}")
+        _dict("details", self.details)
+
 
 @dataclass
 class DiagnosisReport:
@@ -51,6 +79,13 @@ class DiagnosisReport:
     timestamp: str
     checks: list[DiagnosisCheck] = field(default_factory=list)
     overall_health: float = 100.0  # 0-100分
+
+    def __post_init__(self) -> None:
+        _nonempty_str("timestamp", self.timestamp)
+        if not isinstance(self.checks, list) \
+                or any(not isinstance(c, DiagnosisCheck) for c in self.checks):
+            raise ValueError("checks 必须为 DiagnosisCheck 列表")
+        _health("overall_health", self.overall_health)
 
     def add_check(self, check: DiagnosisCheck):
         self.checks.append(check)
