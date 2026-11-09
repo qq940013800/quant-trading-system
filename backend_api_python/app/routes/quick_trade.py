@@ -208,16 +208,16 @@ def _convert_usdt_to_base_qty(client, symbol: str, usdt_amount: float, market_ty
             logger.info(f"Converted USDT amount {usdt_amount} to base qty {base_qty:.8f} using price {current_price} for {symbol}")
             return base_qty
         else:
-            # Can't get price - this is critical for quick trade
-            # Quick trade always expects USDT input, so we must convert
+            # Can't get price - do NOT hand the USDT amount back as a base
+            # quantity: that would place an order at the wrong magnitude.
+            # Return 0 so the downstream size<=0 guard rejects the order.
             logger.error(f"CRITICAL: Could not get price for {symbol} on {type(client).__name__} to convert USDT amount {usdt_amount}")
-            logger.error(f"This will cause order to fail. Please check exchange API connectivity or symbol format.")
-            # Still return original amount as fallback, but log error
-            return usdt_amount
-            
+            logger.error(f"Returning zero base qty; order will be rejected downstream by the size guard")
+            return 0.0
+
     except Exception as e:
-        logger.warning(f"Failed to convert USDT amount to base qty: {e}, using original amount")
-        return usdt_amount
+        logger.warning(f"Failed to convert USDT amount to base qty: {e}; returning zero to reject downstream")
+        return 0.0
 
 
 def _resolve_order_notional_usdt(amount_usdt: float, leverage: int, market_type: str) -> float:
