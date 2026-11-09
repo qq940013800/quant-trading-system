@@ -69,6 +69,15 @@ class TestGuard:
         with pytest.raises(ValueError):
             _state(heat_units=bad)
 
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf"), True])
+    def test_stop_price_must_be_finite_when_set(self, bad):
+        with pytest.raises(ValueError):
+            _state(stop_price=bad)
+
+    def test_stop_price_none_when_unset(self):
+        st = _state(stop_price=None)
+        assert st.stop_price is None
+
     def test_circuit_state_enforced(self):
         with pytest.raises(ValueError):
             _state(circuit_state="xxx")

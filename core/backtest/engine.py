@@ -415,7 +415,7 @@ def _adjudicate(sig, *, equity, peak_equity, cb_state, news_window,
     }
     base_state = RiskState(
         equity=float(equity), atr0=float(sig.atr0), entry_dist=float(sig.entry_dist),
-        stop_price=float("nan"), heat_units=0, circuit_state=cb_state,
+        stop_price=None, heat_units=0, circuit_state=cb_state,
         drawdown_tier=float(drawdown_tier))
 
     # --- 拒绝判定链（顺序固定，先到先拒）---

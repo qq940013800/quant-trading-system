@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
+from typing import Optional
 
 _CIRCUIT_STATES = ("normal", "breaker", "cooldown")
 
@@ -47,7 +48,7 @@ class RiskState:
     equity: float                 # 当前账户权益（计价货币 USD）
     atr0: float                   # 入场时冻结 ATR（价格单位），持仓期不变
     entry_dist: float             # 入场到止损的冻结距离（价格单位），R 倍数分母
-    stop_price: float             # 当前止损价（只允许向盈利方向移动）
+    stop_price: Optional[float]   # 当前止损价；None=裁决前尚未设置
     heat_units: int               # 同向累计单位数（上限由 config，CLEAN 集校准）
     circuit_state: str = "normal"  # "normal" | "breaker" | "cooldown"
     drawdown_tier: float = 1.0     # 回撤档位系数（海龟分级降档：每 -10% ×0.8）
@@ -57,7 +58,8 @@ class RiskState:
         _finite("equity", self.equity)
         _finite("atr0", self.atr0)
         _positive("entry_dist", self.entry_dist)
-        _finite("stop_price", self.stop_price)
+        if self.stop_price is not None:
+            _finite("stop_price", self.stop_price)
         _nonneg_int("heat_units", self.heat_units)
         if self.circuit_state not in _CIRCUIT_STATES:
             raise ValueError({"layer": "risk.state",
