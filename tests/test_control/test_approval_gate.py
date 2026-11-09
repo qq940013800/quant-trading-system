@@ -2,7 +2,10 @@
 """tests.test_control.test_approval_gate —— 危险动作审批闸纯判定单测。"""
 from __future__ import annotations
 
+import pytest
+
 from core.control.approval_gate import (
+    ApprovalResult,
     RUNTIME_CONTROL,
     TRADING,
     WRITE_CONFIG,
@@ -104,3 +107,25 @@ def test_audit_records_inputs():
     assert res.audit["confirmed"] is False
     assert res.audit["scope_granted"] is True
     assert res.audit["is_paper"] is True
+
+
+class TestResultGuard:
+    @pytest.mark.parametrize("bad", [1, 0, "true", None, ""])
+    def test_allowed_must_be_bool(self, bad):
+        with pytest.raises(ValueError):
+            ApprovalResult(bad, "approved", {})
+
+    @pytest.mark.parametrize("bad", ["", "   ", None, 123])
+    def test_reason_code_must_be_nonempty_str(self, bad):
+        with pytest.raises(ValueError):
+            ApprovalResult(True, bad, {})
+
+    @pytest.mark.parametrize("bad", [["x"], None, "dict", 1])
+    def test_audit_must_be_dict(self, bad):
+        with pytest.raises(ValueError):
+            ApprovalResult(True, "approved", bad)
+
+    def test_valid_result_accepted(self):
+        res = ApprovalResult(True, "approved", {"risk_level": TRADING})
+        assert res.allowed is True
+        assert res.reason_code == "approved"

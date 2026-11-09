@@ -41,6 +41,18 @@ class ApprovalResult:
     reason_code: str
     audit: dict[str, Any]
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.allowed, bool):
+            raise ValueError(
+                f"approval_gate: allowed must be bool, got {self.allowed!r}")
+        if not isinstance(self.reason_code, str) or not self.reason_code.strip():
+            raise ValueError(
+                f"approval_gate: reason_code must be non-empty str, "
+                f"got {self.reason_code!r}")
+        if not isinstance(self.audit, dict):
+            raise ValueError(
+                f"approval_gate: audit must be dict, got {self.audit!r}")
+
 
 def evaluate_approval(
     *,
