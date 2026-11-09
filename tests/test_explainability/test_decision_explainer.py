@@ -132,3 +132,42 @@ class TestDecisionExplainer:
         
         assert len(trace.counterfactuals) > 0
         assert "如果" in trace.counterfactuals[0]["scenario"]
+
+
+class TestExplainerGuards:
+    @staticmethod
+    def _trace(**kw):
+        base = dict(
+            strategy_name="ml_trend", strategy_version="v1.2.0",
+            data={}, features={}, feature_contributions=[],
+            raw_signal=0.5, risk_filter_reasons=[],
+            final_decision=DecisionOutcome.GO_LONG, confidence=0.8)
+        base.update(kw)
+        return DecisionExplainer().build_trace(**base)
+
+    @pytest.mark.parametrize("kwargs", [
+        {"name": ""}, {"explanation": ""},
+        {"value": float("nan")}, {"contribution": float("inf")},
+        {"direction": "long"},
+    ])
+    def test_contribution_guards(self, kwargs):
+        base = dict(name="trend", value=0.75, contribution=0.4,
+                    direction="pushes_long", explanation="利多")
+        base.update(kwargs)
+        with pytest.raises(ValueError):
+            FeatureContribution(**base)
+
+    @pytest.mark.parametrize("kwargs", [
+        {"strategy_name": ""}, {"strategy_version": ""},
+        {"raw_signal": 1.5}, {"raw_signal": -2.0}, {"raw_signal": float("nan")},
+        {"confidence": 1.2}, {"confidence": -0.1}, {"confidence": float("inf")},
+        {"final_decision": "go_long"},
+    ])
+    def test_build_trace_guards(self, kwargs):
+        with pytest.raises(ValueError):
+            self._trace(**kwargs)
+
+    def test_valid_trace_accepted(self):
+        trace = self._trace(raw_signal=-0.3, confidence=0.5,
+                            final_decision=DecisionOutcome.NO_TRADE)
+        assert trace.confidence == 0.5

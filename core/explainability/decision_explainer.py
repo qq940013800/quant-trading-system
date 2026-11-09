@@ -13,6 +13,7 @@
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
@@ -29,6 +30,22 @@ class DecisionOutcome(Enum):
     STOP_OUT = "stop_out"
 
 
+_CONTRIB_DIRECTIONS = ("pushes_long", "pushes_short", "neutral")
+
+
+def _finite(name: str, val: float) -> float:
+    if isinstance(val, bool) or not isinstance(val, (int, float)) \
+            or not math.isfinite(val):
+        raise ValueError(f"{name} 必须为有限数值，收到 {val!r}")
+    return float(val)
+
+
+def _nonempty_str(name: str, val: str) -> str:
+    if not isinstance(val, str) or not val.strip():
+        raise ValueError(f"{name} 必须为非空字符串，收到 {val!r}")
+    return val
+
+
 @dataclass
 class FeatureContribution:
     """单个特征的贡献分解。"""
@@ -37,6 +54,15 @@ class FeatureContribution:
     contribution: float  # 对最终信号的贡献（正/负）
     direction: str       # "pushes_long" / "pushes_short" / "neutral"
     explanation: str     # 人类可读的解释
+
+    def __post_init__(self) -> None:
+        _nonempty_str("name", self.name)
+        _nonempty_str("explanation", self.explanation)
+        _finite("value", self.value)
+        _finite("contribution", self.contribution)
+        if self.direction not in _CONTRIB_DIRECTIONS:
+            raise ValueError(
+                f"direction 必须为 {_CONTRIB_DIRECTIONS}，收到 {self.direction!r}")
 
     @property
     def abs_contribution(self) -> float:
@@ -114,7 +140,19 @@ class DecisionExplainer:
                     confidence: float = 0.8) -> DecisionTrace:
         """构建完整决策链追踪。"""
         from datetime import datetime
-        
+
+        _nonempty_str("strategy_name", strategy_name)
+        _nonempty_str("strategy_version", strategy_version)
+        raw = _finite("raw_signal", raw_signal)
+        if not -1.0 <= raw <= 1.0:
+            raise ValueError(f"raw_signal 必须在 [-1,1]，收到 {raw_signal!r}")
+        conf = _finite("confidence", confidence)
+        if not 0.0 <= conf <= 1.0:
+            raise ValueError(f"confidence 必须在 [0,1]，收到 {confidence!r}")
+        if not isinstance(final_decision, DecisionOutcome):
+            raise ValueError(
+                f"final_decision 必须为 DecisionOutcome，收到 {final_decision!r}")
+
         trace = DecisionTrace(
             timestamp=datetime.now().isoformat(),
             strategy_name=strategy_name,
