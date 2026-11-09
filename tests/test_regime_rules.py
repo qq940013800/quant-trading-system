@@ -91,3 +91,42 @@ def test_rule_nan_features_fallback_uniform_with_degraded_flag(thr):
 def test_hurst_theory_constant_is_documented_random_walk_boundary():
     # 理论常量：R/S Hurst=0.5 随机游走分界（非绩效参数）
     assert MR_HURST_THRESHOLD == 0.5
+
+
+class TestRuleThresholdsGuards:
+    @staticmethod
+    def _make(**kw):
+        base = dict(adx_q_lo=15.0, adx_q_hi=35.0,
+                    atr_q_lo=1e-4, atr_q_hi=3e-4, q_lo=0.30, q_hi=0.70)
+        base.update(kw)
+        return RuleThresholds(**base)
+
+    @pytest.mark.parametrize("kwargs", [
+        {"adx_q_lo": np.nan}, {"adx_q_hi": np.inf},
+        {"atr_q_lo": True}, {"atr_q_hi": np.nan},
+        {"q_lo": np.nan},
+    ])
+    def test_non_finite_rejected(self, kwargs):
+        with pytest.raises(ValueError):
+            self._make(**kwargs)
+
+    @pytest.mark.parametrize("kwargs", [
+        {"adx_q_lo": 35.0, "adx_q_hi": 15.0},
+        {"atr_q_lo": 3e-4, "atr_q_hi": 1e-4},
+        {"adx_q_lo": 20.0, "adx_q_hi": 20.0},
+    ])
+    def test_degenerate_band_rejected(self, kwargs):
+        with pytest.raises(ValueError):
+            self._make(**kwargs)
+
+    @pytest.mark.parametrize("kwargs", [
+        {"q_lo": 0.8, "q_hi": 0.2}, {"q_lo": 0.0, "q_hi": 0.7},
+        {"q_lo": 0.3, "q_hi": 1.0}, {"q_lo": 0.5, "q_hi": 0.5},
+    ])
+    def test_quantile_levels_rejected(self, kwargs):
+        with pytest.raises(ValueError):
+            self._make(**kwargs)
+
+    def test_valid_thresholds_accepted(self):
+        t = self._make()
+        assert t.adx_q_lo == 15.0 and t.q_hi == 0.70

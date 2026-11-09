@@ -40,6 +40,26 @@ class RuleThresholds:
     q_lo: float   # 使用的分位级别（如 0.30）——审计用
     q_hi: float
 
+    def __post_init__(self) -> None:
+        finite_fields = (("adx_q_lo", self.adx_q_lo), ("adx_q_hi", self.adx_q_hi),
+                         ("atr_q_lo", self.atr_q_lo), ("atr_q_hi", self.atr_q_hi),
+                         ("q_lo", self.q_lo), ("q_hi", self.q_hi))
+        for name, v in finite_fields:
+            if isinstance(v, bool) or not isinstance(v, (int, float)) \
+                    or not np.isfinite(v):
+                raise ValueError(
+                    f"{name} 必须为有限数值，收到 {v!r}")
+        if not self.adx_q_hi > self.adx_q_lo:
+            raise ValueError(
+                f"adx_q_hi({self.adx_q_hi}) 必须大于 adx_q_lo({self.adx_q_lo})")
+        if not self.atr_q_hi > self.atr_q_lo:
+            raise ValueError(
+                f"atr_q_hi({self.atr_q_hi}) 必须大于 atr_q_lo({self.atr_q_lo})")
+        if not (0.0 < self.q_lo < self.q_hi < 1.0):
+            raise ValueError(
+                f"分位级别必须满足 0 < q_lo < q_hi < 1，"
+                f"收到 q_lo={self.q_lo!r} q_hi={self.q_hi!r}")
+
 
 def _finite(values) -> np.ndarray:
     arr = np.asarray(values, dtype=np.float64)
