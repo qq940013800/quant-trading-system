@@ -19,7 +19,7 @@ from enum import Enum
 import numpy as np
 import pandas as pd
 
-from .base import as_of, _arrays
+from .base import as_of, _arrays, _min_int
 
 
 # ------------------------------------------------------------------
@@ -95,8 +95,7 @@ def donchian_position(history: list, as_of: pd.Timestamp, window: int = 20) -> f
 
     window 不含未来 bar：取 history 末尾 window 根（全部 <= as_of）。
     """
-    if window < 2:
-        raise ValueError(f"window must be >= 2, got {window}")
+    window = _min_int("window", window, 2)
     if len(history) < window:
         return np.nan
     a = _arrays(history)
@@ -121,8 +120,7 @@ def nearest_confirmed_swing(history: list, as_of: pd.Timestamp,
     返回 {"dist_high": +float(现价-最近swing高), "dist_low": -float(现价-最近swing低)}，
     找不到（历史太短）返回 NaN。
     """
-    if k < 1:
-        raise ValueError(f"k must be >= 1, got {k}")
+    k = _min_int("k", k, 1)
     n = len(history)
     if n < 2 * k + 1:
         return {"dist_high": np.nan, "dist_low": np.nan}
@@ -163,8 +161,7 @@ def detect_swing_points(history: list, k: int = 3) -> list[SwingPoint]:
     Returns:
         SwingPoint 列表，按 index 升序
     """
-    if k < 1:
-        raise ValueError(f"k must be >= 1, got {k}")
+    k = _min_int("k", k, 1)
     n = len(history)
     if n < 2 * k + 1:
         return []

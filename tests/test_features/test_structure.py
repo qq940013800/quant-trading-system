@@ -14,6 +14,8 @@ from core.features.structure import (
     detect_choch,
     get_market_structure,
     market_structure_at,
+    donchian_position,
+    nearest_confirmed_swing,
 )
 from core.features.base import AsOfContractError, LookAheadError
 
@@ -227,3 +229,48 @@ class TestMarketStructureAsOfGuard:
         # 追加后续 bar 后，as_of 处仍只能喂到第 6 根，快照不变
         ms3 = market_structure_at(history[:6], as_of, k=1)
         assert ms3.trend == ms1.trend
+
+
+class TestStructureWindowGuards:
+    def _bars(self):
+        return make_bars(
+            highs=[100, 105, 102, 110, 107, 115, 112, 120],
+            lows=[95, 100, 98, 105, 103, 110, 108, 115],
+        )
+
+    @pytest.mark.parametrize("bad", [0, 3.5, True, np.nan, "3"])
+    def test_invalid_swing_k_rejected(self, bad):
+        with pytest.raises(ValueError):
+            detect_swing_points(self._bars(), k=bad)
+
+    @pytest.mark.parametrize("bad", [0, 3.5, True, np.nan, "3"])
+    def test_invalid_market_structure_k_rejected(self, bad):
+        with pytest.raises(ValueError):
+            get_market_structure(self._bars(), k=bad)
+
+    @pytest.mark.parametrize("bad", [1, 20.5, True, np.nan, "20"])
+    def test_invalid_donchian_window_rejected(self, bad):
+        history = _tz_bars(
+            highs=[100, 105, 102, 110, 107, 115, 112, 120],
+            lows=[95, 100, 98, 105, 103, 110, 108, 115],
+        )
+        with pytest.raises(ValueError):
+            donchian_position(history, history[-1].ts_utc, window=bad)
+
+    @pytest.mark.parametrize("bad", [0, 3.5, True, np.nan, "3"])
+    def test_invalid_nearest_swing_k_rejected(self, bad):
+        history = _tz_bars(
+            highs=[100, 105, 102, 110, 107, 115, 112, 120],
+            lows=[95, 100, 98, 105, 103, 110, 108, 115],
+        )
+        with pytest.raises(ValueError):
+            nearest_confirmed_swing(history, history[-1].ts_utc, k=bad)
+
+    def test_valid_params_accepted(self):
+        history = _tz_bars(
+            highs=[100, 105, 102, 110, 107, 115, 112, 120],
+            lows=[95, 100, 98, 105, 103, 110, 108, 115],
+        )
+        pos = donchian_position(history, history[-1].ts_utc, window=5)
+        sw = nearest_confirmed_swing(history, history[-1].ts_utc, k=1)
+        assert pos is not None and isinstance(sw, dict)
