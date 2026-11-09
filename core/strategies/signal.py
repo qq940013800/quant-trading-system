@@ -12,10 +12,24 @@
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Optional
 
 import pandas as pd
+
+
+def _nonempty_str(name: str, val: object, ctx: dict) -> None:
+    if not isinstance(val, str) or not val.strip():
+        raise ValueError({**ctx,
+                          "detail": f"{name} must be a non-empty string, got {val!r}"})
+
+
+def _finite_positive(name: str, val: object, ctx: dict) -> None:
+    if isinstance(val, bool) or not isinstance(val, (int, float)) \
+            or not math.isfinite(float(val)) or float(val) <= 0:
+        raise ValueError({**ctx,
+                          "detail": f"{name} must be a finite positive number, got {val!r}"})
 
 
 @dataclass
@@ -40,15 +54,25 @@ class StrategySignal:
             "expert": str(self.expert),
             "ts_utc": str(self.bar_ts_utc),
         }
-        if int(self.direction) not in (1, -1):
+        _nonempty_str("signal_id", self.signal_id, ctx)
+        _nonempty_str("expert", self.expert, ctx)
+        _nonempty_str("strategy_version", self.strategy_version, ctx)
+        if isinstance(self.direction, bool) or not isinstance(self.direction, int) \
+                or self.direction not in (1, -1):
             raise ValueError({**ctx,
                               "detail": f"direction must be +1/-1, got {self.direction!r}"})
-        if not float(self.atr0) > 0:
+        _finite_positive("price_ref", self.price_ref, ctx)
+        _finite_positive("atr0", self.atr0, ctx)
+        _finite_positive("entry_dist", self.entry_dist, ctx)
+        if self.meta_p is not None:
+            if isinstance(self.meta_p, bool) or not isinstance(self.meta_p, (int, float)) \
+                    or not math.isfinite(float(self.meta_p)) \
+                    or not (0 <= float(self.meta_p) <= 1):
+                raise ValueError({**ctx,
+                                  "detail": f"meta_p must be None or in [0,1], got {self.meta_p!r}"})
+        if not isinstance(self.regime_weights, dict):
             raise ValueError({**ctx,
-                              "detail": f"atr0 must be > 0, got {self.atr0!r}"})
-        if not float(self.entry_dist) > 0:
-            raise ValueError({**ctx,
-                              "detail": f"entry_dist must be > 0, got {self.entry_dist!r}"})
+                              "detail": f"regime_weights must be a dict, got {type(self.regime_weights)!r}"})
         if getattr(self.bar_ts_utc, "tzinfo", None) is None:
             raise ValueError({**ctx,
                               "detail": "bar_ts_utc must be tz-aware UTC"})

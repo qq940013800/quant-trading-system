@@ -75,3 +75,26 @@ def test_from_helper_bar_is_tz_aware():
     bar = H.make_bar(5, 1800, 1801, 1799, 1800)
     sig = _valid_signal(bar_ts_utc=bar.ts_utc)
     assert sig.bar_ts_utc == bar.ts_utc
+
+
+class TestSignalGuards:
+    @pytest.mark.parametrize("bad_kwargs", [
+        {"signal_id": ""}, {"signal_id": None},
+        {"expert": ""}, {"expert": None},
+        {"strategy_version": ""},
+        {"direction": True}, {"direction": False},
+        {"price_ref": 0.0}, {"price_ref": -1.0},
+        {"price_ref": float("nan")}, {"price_ref": float("inf")},
+        {"atr0": float("nan")}, {"atr0": float("inf")},
+        {"entry_dist": float("nan")}, {"entry_dist": float("inf")},
+        {"meta_p": 1.2}, {"meta_p": -0.1}, {"meta_p": float("nan")},
+        {"regime_weights": []},
+    ])
+    def test_invalid_fields_rejected(self, bad_kwargs):
+        with pytest.raises(ValueError):
+            _valid_signal(**bad_kwargs)
+
+    def test_meta_p_optional_and_unit_interval(self):
+        sig = _valid_signal(meta_p=0.6)
+        assert sig.meta_p == 0.6
+        assert _valid_signal(meta_p=None).meta_p is None
