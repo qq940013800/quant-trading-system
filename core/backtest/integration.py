@@ -35,6 +35,13 @@ def _nonneg_finite(name: str, val: float) -> float:
     return v
 
 
+def _positive_finite(name: str, val: float) -> float:
+    v = _finite(name, val)
+    if v <= 0:
+        raise ValueError(f"{name} 必须为 >0 有限数值，收到 {val!r}")
+    return v
+
+
 def _exposure(val: float) -> float:
     if not isinstance(val, (int, float)) or isinstance(val, bool) \
             or not np.isfinite(val) or not (0 <= val <= 1):
@@ -70,8 +77,8 @@ class BacktestStressIntegration:
     """
 
     def __init__(self, initial_equity: float = 100000.0):
-        self.initial_equity = initial_equity
-        self.tester = StressTester(initial_equity=initial_equity)
+        self.initial_equity = _positive_finite("initial_equity", initial_equity)
+        self.tester = StressTester(initial_equity=self.initial_equity)
 
     def analyze(self, backtest_metrics: dict,
                 current_exposure: float = 0.02) -> IntegratedReport:
@@ -84,6 +91,13 @@ class BacktestStressIntegration:
         Returns:
             集成报告
         """
+        if not isinstance(backtest_metrics, dict):
+            raise TypeError(
+                f"backtest_metrics 必须为 dict，收到 {type(backtest_metrics).__name__}")
+        dd = backtest_metrics.get("max_drawdown", 0.15)
+        dd = _nonneg_finite("max_drawdown", dd)
+        metrics = dict(backtest_metrics)
+        metrics["max_drawdown"] = dd
         current_exposure = _exposure(current_exposure)
         # 1. 运行所有预设压力情景
         stress_results = self.tester.run_all_presets(current_exposure)
@@ -92,13 +106,13 @@ class BacktestStressIntegration:
         worst = max(stress_results, key=lambda r: r.total_loss)
 
         # 3. 计算综合风险评分
-        risk_score = self._calc_risk_score(backtest_metrics, stress_results)
+        risk_score = self._calc_risk_score(metrics, stress_results)
 
         # 4. 判断风险等级
         risk_level = self._risk_level(risk_score)
 
         return IntegratedReport(
-            backtest_metrics=backtest_metrics,
+            backtest_metrics=metrics,
             stress_results=stress_results,
             risk_score=risk_score,
             risk_level=risk_level,

@@ -109,3 +109,22 @@ class TestIntegrationGuardGuards:
         result = self.integration.quick_analyze(
             sharpe=-0.5, max_drawdown=0.1, current_exposure=0.02)
         assert "risk_score" in result
+
+    @pytest.mark.parametrize("bad", [-100.0, 0.0, float("nan"),
+                                     float("inf"), True])
+    def test_invalid_initial_equity_rejected(self, bad):
+        with pytest.raises(ValueError):
+            BacktestStressIntegration(initial_equity=bad)
+
+    @pytest.mark.parametrize("bad", [-0.1, float("nan"), float("inf")])
+    def test_invalid_metrics_drawdown_rejected(self, bad):
+        with pytest.raises(ValueError):
+            self.integration.analyze({"max_drawdown": bad})
+
+    def test_non_dict_metrics_rejected(self):
+        with pytest.raises(TypeError):
+            self.integration.analyze([0.1])
+
+    def test_missing_drawdown_defaults(self):
+        report = self.integration.analyze({"sharpe": 1.0})
+        assert 0 <= report.risk_score <= 100
