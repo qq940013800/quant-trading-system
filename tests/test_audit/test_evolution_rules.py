@@ -2,6 +2,7 @@
 """tests.test_audit.test_evolution_rules —— 可进化规则纯函数测试。"""
 from __future__ import annotations
 
+import math
 import pytest
 
 from core.audit.evolution_rules import (
@@ -49,6 +50,27 @@ class TestReviewTriggers:
                                             equity=100000, consecutive_losses=3,
                                             thresholds=tight)
         assert len(triggers) >= 2
+
+
+class TestReviewThresholdsGuards:
+    @pytest.mark.parametrize("kw", [
+        {"single_loss_r_multiple": 0.0},
+        {"single_loss_r_multiple": 1.0},
+        {"single_loss_r_multiple": math.nan},
+        {"consecutive_losses": 0}, {"consecutive_losses": 5.0},
+        {"consecutive_losses": True},
+        {"daily_loss_pct": 0.0}, {"daily_loss_pct": -1.0},
+        {"daily_loss_pct": math.nan},
+    ])
+    def test_invalid_thresholds_rejected(self, kw):
+        with pytest.raises(ValueError):
+            ReviewThresholds(**kw)
+
+    def test_default_and_custom_valid_accepted(self):
+        assert ReviewThresholds().consecutive_losses == 5
+        tight = ReviewThresholds(single_loss_r_multiple=-2.0,
+                                consecutive_losses=3, daily_loss_pct=2.0)
+        assert tight.daily_loss_pct == 2.0
 
 
 class TestFaultClassification:

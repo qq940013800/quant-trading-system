@@ -12,10 +12,24 @@
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Any, Optional
 
 from .knowledge_normalize import normalize_text
+
+
+def _finite(name: str, val: float) -> float:
+    if not isinstance(val, (int, float)) or isinstance(val, bool) \
+            or not math.isfinite(val):
+        raise ValueError(f"{name} 必须为有限数值，收到 {val!r}")
+    return float(val)
+
+
+def _as_int(name: str, val: int) -> int:
+    if isinstance(val, bool) or not isinstance(val, int):
+        raise ValueError(f"{name} 必须为整数，收到 {val!r}")
+    return val
 
 
 # ------------------------------------------------------------------
@@ -28,6 +42,18 @@ class ReviewThresholds:
     single_loss_r_multiple: float = -3.0
     consecutive_losses: int = 5
     daily_loss_pct: float = 5.0
+
+    def __post_init__(self) -> None:
+        r = _finite("single_loss_r_multiple", self.single_loss_r_multiple)
+        if r >= 0:
+            raise ValueError(
+                f"single_loss_r_multiple 必须为负（亏损 R 阈值），收到 {r!r}")
+        n = _as_int("consecutive_losses", self.consecutive_losses)
+        if n < 1:
+            raise ValueError(f"consecutive_losses 必须 >= 1，收到 {n}")
+        pct = _finite("daily_loss_pct", self.daily_loss_pct)
+        if pct <= 0:
+            raise ValueError(f"daily_loss_pct 必须 > 0，收到 {pct!r}")
 
 
 def evaluate_review_triggers(net_pnl: float,

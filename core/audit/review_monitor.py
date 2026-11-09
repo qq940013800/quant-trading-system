@@ -17,19 +17,9 @@ from datetime import datetime, date
 from typing import Optional
 
 from .db_writer import _get_pg_conn, write_post_mortem_to_db
-from .evolution_rules import evaluate_review_triggers
+from .evolution_rules import ReviewThresholds, evaluate_review_triggers
 
 logger = logging.getLogger("core.audit.review")
-
-
-# ------------------------------------------------------------------
-# 配置阈值
-# ------------------------------------------------------------------
-class ReviewThresholds:
-    """复盘触发阈值配置。"""
-    single_loss_r_multiple: float = -3.0      # 单笔亏损超过3R触发
-    consecutive_losses: int = 5               # 连续5笔亏损触发
-    daily_loss_pct: float = 5.0               # 单日亏损超过5%触发
 
 
 # ------------------------------------------------------------------
