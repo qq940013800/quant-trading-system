@@ -167,3 +167,33 @@ class TestGateFinding:
         assert finding.score == 50.0
         assert finding.message == "这是一个警告"
         assert finding.details["key"] == "value"
+
+
+class TestMiddlewareGuards:
+    @pytest.mark.parametrize("field,bad", [
+        ("overfitting_threshold", -0.1), ("overfitting_threshold", 1.2),
+        ("overfitting_threshold", float("nan")),
+        ("drift_warn_threshold", -0.1), ("drift_warn_threshold", 1.2),
+        ("drift_warn_threshold", float("nan")),
+        ("drift_reject_threshold", -0.1), ("drift_reject_threshold", 1.2),
+        ("drift_reject_threshold", float("nan")),
+        ("stress_min_survival", -0.1), ("stress_min_survival", 1.2),
+        ("stress_min_survival", float("nan")),
+        ("max_total_exposure", -0.1), ("max_total_exposure", 1.2),
+        ("max_total_exposure", float("nan")),
+        ("max_exposure_per_cluster", -0.1),
+        ("max_exposure_per_cluster", 1.2),
+        ("max_exposure_per_cluster", float("nan")),
+    ])
+    def test_invalid_threshold_rejected(self, field, bad):
+        with pytest.raises(ValueError):
+            VerificationMiddleware(**{field: bad})
+
+    def test_valid_default_and_custom_accepted(self):
+        mw = VerificationMiddleware()
+        assert mw.max_total_exposure == pytest.approx(0.05)
+        custom = VerificationMiddleware(
+            overfitting_threshold=0.3, drift_warn_threshold=0.7,
+            drift_reject_threshold=0.4, stress_min_survival=0.5,
+            max_total_exposure=0.05, max_exposure_per_cluster=0.03)
+        assert custom.drift_reject_threshold == pytest.approx(0.4)

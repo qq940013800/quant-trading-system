@@ -19,6 +19,15 @@ from typing import Any, Optional
 import numpy as np
 import pandas as pd
 
+
+def _ratio(name: str, val: float, *, lo: float = 0.0, hi: float = 1.0) -> float:
+    if not isinstance(val, (int, float)) or isinstance(val, bool) \
+            or not np.isfinite(val):
+        raise ValueError(f"{name} 必须为有限数值，收到 {val!r}")
+    if val < lo or val > hi:
+        raise ValueError(f"{name} 必须位于 [{lo}, {hi}] 区间，收到 {val!r}")
+    return float(val)
+
 # 真实检查模块（可选导入，失败时降级到简化版）
 try:
     from core.backtest.overfitting import overfitting_diagnostic
@@ -114,12 +123,18 @@ class VerificationMiddleware:
         max_total_exposure: float = 0.05,  # 最大总敞口 5%
         max_exposure_per_cluster: float = 0.03,  # 每聚类最大敞口 3%
     ):
-        self.overfitting_threshold = overfitting_threshold
-        self.drift_warn_threshold = drift_warn_threshold
-        self.drift_reject_threshold = drift_reject_threshold
-        self.stress_min_survival = stress_min_survival
-        self.max_total_exposure = max_total_exposure
-        self.max_exposure_per_cluster = max_exposure_per_cluster
+        self.overfitting_threshold = _ratio(
+            "overfitting_threshold", overfitting_threshold)
+        self.drift_warn_threshold = _ratio(
+            "drift_warn_threshold", drift_warn_threshold)
+        self.drift_reject_threshold = _ratio(
+            "drift_reject_threshold", drift_reject_threshold)
+        self.stress_min_survival = _ratio(
+            "stress_min_survival", stress_min_survival)
+        self.max_total_exposure = _ratio(
+            "max_total_exposure", max_total_exposure)
+        self.max_exposure_per_cluster = _ratio(
+            "max_exposure_per_cluster", max_exposure_per_cluster)
 
     def gate_before_deploy(
         self,
