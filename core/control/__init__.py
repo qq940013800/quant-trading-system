@@ -16,6 +16,12 @@ from .kill_switch import (
     KillSwitchState,
 )
 from .dual_review import DualReviewResult, evaluate_dual_review
+from .rollout import (
+    RolloutDecision,
+    RolloutStage,
+    RolloutThresholds,
+    evaluate_rollout,
+)
 
 __all__ = [
     "KillSwitch",
@@ -24,4 +30,8 @@ __all__ = [
     "KillSwitchState",
     "DualReviewResult",
     "evaluate_dual_review",
+    "RolloutDecision",
+    "RolloutStage",
+    "RolloutThresholds",
+    "evaluate_rollout",
 ]
