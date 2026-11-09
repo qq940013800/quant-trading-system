@@ -9,7 +9,7 @@ from __future__ import annotations
 import _bt_helpers as H
 import pytest
 
-from core.strategies.mean_reversion import MeanReversionStrategy
+from core.strategies.mean_reversion import MeanReversionStrategy, bollinger_bands
 
 
 def _wide_bars(closes, half_range: float = 3.0):
@@ -172,3 +172,21 @@ class TestMRGuard:
     def test_max_hold_bars_rejects_non_int_or_too_small(self, bad):
         with pytest.raises(ValueError):
             MeanReversionStrategy(max_hold_bars=bad)
+
+
+class TestBollingerGuards:
+    _closes = [10, 11, 12, 13, 14, 15, 16, 17]
+
+    def test_valid_bands_accepted(self):
+        lower, mid, upper = bollinger_bands(self._closes, period=5, sigma=2.0)
+        assert lower <= mid <= upper
+
+    @pytest.mark.parametrize("bad", [1, 0, -2, 2.5, True])
+    def test_period_must_be_int_ge_2(self, bad):
+        with pytest.raises(ValueError):
+            bollinger_bands(self._closes, period=bad)
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf"), 0.0, -1.0])
+    def test_sigma_must_be_finite_positive(self, bad):
+        with pytest.raises(ValueError):
+            bollinger_bands(self._closes, sigma=bad)

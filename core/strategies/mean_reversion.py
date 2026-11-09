@@ -135,16 +135,18 @@ def wilder_rsi(closes, period: int = 14) -> float:
 def bollinger_bands(closes, period: int = 20,
                     sigma: float = 2.0) -> tuple[float, float, float]:
     """布林带 (lower, mid, upper)；σ 为总体标准差（ddof=0）。"""
-    if period < 2:
+    period = _period("period", period)
+    sigma_v = _finite("sigma", sigma)
+    if sigma_v <= 0:
         raise ValueError({"layer": "strategies.mean_reversion",
-                          "detail": f"bb period must be >= 2, got {period}"})
+                          "detail": f"sigma must be > 0, got {sigma!r}"})
     arr = np.asarray(list(closes), dtype=float)[-period:]
     if arr.size == 0:
         raise ValueError({"layer": "strategies.mean_reversion",
                           "detail": "empty closes for bollinger bands"})
     mid = float(arr.mean())
     sd = float(arr.std(ddof=0))
-    return mid - float(sigma) * sd, mid, mid + float(sigma) * sd
+    return mid - float(sigma_v) * sd, mid, mid + float(sigma_v) * sd
 
 
 class MeanReversionStrategy:
