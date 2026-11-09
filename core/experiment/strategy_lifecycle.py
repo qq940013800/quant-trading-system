@@ -18,6 +18,43 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Optional
+import math
+
+
+def _finite(name: str, val: float) -> float:
+    if not isinstance(val, (int, float)) or isinstance(val, bool) \
+            or not math.isfinite(val):
+        raise ValueError(f"{name} 必须为有限数值，收到 {val!r}")
+    return float(val)
+
+
+def _as_int(name: str, val: int) -> int:
+    if isinstance(val, bool) or not isinstance(val, int):
+        raise ValueError(f"{name} 必须为整数，收到 {val!r}")
+    return val
+
+
+def _positive_finite(name: str, val: float) -> float:
+    val = _finite(name, val)
+    if val <= 0:
+        raise ValueError(f"{name} 必须 > 0，收到 {val!r}")
+    return val
+
+
+def _nonneg_finite(name: str, val: float) -> float:
+    val = _finite(name, val)
+    if val < 0:
+        raise ValueError(f"{name} 必须 >= 0，收到 {val!r}")
+    return val
+
+
+def _ratio(name: str, val: float, *, lo: float, hi: float,
+           closed_lo: bool = True, closed_hi: bool = True) -> float:
+    val = _finite(name, val)
+    if ((closed_lo and val < lo) or (not closed_lo and val <= lo)
+            or (closed_hi and val > hi) or (not closed_hi and val >= hi)):
+        raise ValueError(f"{name} 必须位于 [{lo}, {hi}] 区间，收到 {val!r}")
+    return val
 
 
 # ------------------------------------------------------------------
@@ -157,6 +194,22 @@ class LaunchCriteria:
     max_overfitting_score: float = 0.3   # 过拟合评分上限
     min_live_days: int = 7               # 最少模拟交易日
 
+    def __post_init__(self) -> None:
+        self.min_sharpe = _positive_finite("min_sharpe", self.min_sharpe)
+        self.max_drawdown = _positive_finite("max_drawdown", self.max_drawdown)
+        self.min_trades = _as_int("min_trades", self.min_trades)
+        if self.min_trades < 1:
+            raise ValueError(f"min_trades 必须 >= 1，收到 {self.min_trades}")
+        self.ab_test_significance = _ratio(
+            "ab_test_significance", self.ab_test_significance,
+            lo=0.0, hi=1.0, closed_lo=False, closed_hi=False)
+        self.max_overfitting_score = _ratio(
+            "max_overfitting_score", self.max_overfitting_score,
+            lo=0.0, hi=1.0)
+        self.min_live_days = _as_int("min_live_days", self.min_live_days)
+        if self.min_live_days < 1:
+            raise ValueError(f"min_live_days 必须 >= 1，收到 {self.min_live_days}")
+
 
 class LaunchGate:
     """上线闸门——检查策略是否满足上线标准。
@@ -282,6 +335,19 @@ class WatchThresholds:
     min_expectancy: float = 0.0
     max_drawdown: float = 0.25
     min_trades_for_decay: int = 20      # 判定持续衰减所需最少样本
+
+    def __post_init__(self) -> None:
+        _ratio("min_fill_rate", self.min_fill_rate, lo=0.0, hi=1.0)
+        _nonneg_finite("max_slippage_bps", self.max_slippage_bps)
+        _ratio("max_capacity_util", self.max_capacity_util, lo=0.0, hi=1.0)
+        _ratio("max_peer_corr", self.max_peer_corr, lo=0.0, hi=1.0)
+        _ratio("min_sharpe_ratio", self.min_sharpe_ratio, lo=0.0, hi=1.0)
+        _ratio("min_winrate_ratio", self.min_winrate_ratio, lo=0.0, hi=1.0)
+        _finite("min_expectancy", self.min_expectancy)
+        _positive_finite("max_drawdown", self.max_drawdown)
+        n = _as_int("min_trades_for_decay", self.min_trades_for_decay)
+        if n < 1:
+            raise ValueError(f"min_trades_for_decay 必须 >= 1，收到 {n}")
 
 
 @dataclass(frozen=True)

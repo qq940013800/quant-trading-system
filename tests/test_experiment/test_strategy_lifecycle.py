@@ -2,6 +2,7 @@
 """tests.test_experiment.test_strategy_lifecycle —— 策略生命周期测试。"""
 from __future__ import annotations
 
+import math
 import pytest
 
 from core.experiment.strategy_lifecycle import (
@@ -260,3 +261,52 @@ class TestRecommendRetirement:
         rec = recommend_retirement(decay, crowd, m, WatchThresholds())
         assert rec.recommendation == "watch"
         assert "retire_prolonged_decay" not in rec.reasons
+
+
+class TestLaunchCriteriaGuards:
+    @pytest.mark.parametrize("kw", [
+        {"min_sharpe": 0.0}, {"min_sharpe": -1.0}, {"min_sharpe": math.nan},
+        {"max_drawdown": 0.0}, {"max_drawdown": -0.2},
+        {"max_drawdown": math.nan},
+        {"min_trades": 0}, {"min_trades": 5.0}, {"min_trades": True},
+        {"ab_test_significance": 0.0}, {"ab_test_significance": 1.0},
+        {"ab_test_significance": 2.0}, {"ab_test_significance": math.nan},
+        {"max_overfitting_score": 1.5}, {"max_overfitting_score": -0.1},
+        {"max_overfitting_score": math.nan},
+        {"min_live_days": 0}, {"min_live_days": 3.0}, {"min_live_days": True},
+    ])
+    def test_invalid_criteria_rejected(self, kw):
+        with pytest.raises(ValueError):
+            LaunchCriteria(**kw)
+
+    def test_valid_criteria_accepted(self):
+        c = LaunchCriteria(min_sharpe=1.2, max_drawdown=0.20, min_trades=30,
+                            ab_test_significance=0.05,
+                            max_overfitting_score=0.3, min_live_days=7)
+        assert c.min_trades == 30
+        assert c.min_live_days == 7
+
+
+class TestWatchThresholdsGuards:
+    @pytest.mark.parametrize("kw", [
+        {"min_fill_rate": 1.5}, {"min_fill_rate": -0.1},
+        {"min_fill_rate": math.nan},
+        {"max_slippage_bps": -1.0}, {"max_slippage_bps": math.nan},
+        {"max_capacity_util": 1.2}, {"max_capacity_util": math.nan},
+        {"max_peer_corr": 1.1}, {"max_peer_corr": math.nan},
+        {"min_sharpe_ratio": 1.3}, {"min_sharpe_ratio": math.nan},
+        {"min_winrate_ratio": -0.2}, {"min_winrate_ratio": math.nan},
+        {"min_expectancy": math.nan},
+        {"max_drawdown": 0.0}, {"max_drawdown": -0.1},
+        {"max_drawdown": math.nan},
+        {"min_trades_for_decay": 0}, {"min_trades_for_decay": 4.0},
+        {"min_trades_for_decay": True},
+    ])
+    def test_invalid_thresholds_rejected(self, kw):
+        with pytest.raises(ValueError):
+            WatchThresholds(**kw)
+
+    def test_valid_thresholds_accepted(self):
+        t = WatchThresholds(min_fill_rate=0.60, min_trades_for_decay=20)
+        assert t.min_fill_rate == 0.60
+        assert t.min_trades_for_decay == 20
