@@ -34,6 +34,32 @@ from .metrics import compute_metrics
 log = logging.getLogger("core.backtest")
 
 
+def _finite(name: str, val: float) -> float:
+    if isinstance(val, bool) or not isinstance(val, (int, float)) \
+            or not np.isfinite(val):
+        raise ValueError(f"{name} 必须为有限数值，收到 {val!r}")
+    return float(val)
+
+
+def _nonneg(name: str, val: float) -> float:
+    v = _finite(name, val)
+    if v < 0:
+        raise ValueError(f"{name} 必须为非负有限数值，收到 {val!r}")
+    return v
+
+
+def _dir(name: str, val: int) -> int:
+    if isinstance(val, bool) or not isinstance(val, int) or val not in (1, -1):
+        raise ValueError(f"{name} 必须为 +1 或 -1，收到 {val!r}")
+    return val
+
+
+def _pos_int(name: str, val: int) -> int:
+    if isinstance(val, bool) or not isinstance(val, int) or val < 1:
+        raise ValueError(f"{name} 必须为 ≥1 整数，收到 {val!r}")
+    return val
+
+
 class BarLike(Protocol):
     """最小 Bar 鸭子类型（与 core.data.bar.Bar schema 对齐，本包不 import 以解耦）。"""
     ts_utc: pd.Timestamp
@@ -95,7 +121,11 @@ def _trailing_candidate(peak_price: float, direction: int,
 
     多头 direction=+1：peak - offset×dist；空头 direction=-1：peak + offset×dist。
     """
-    return float(peak_price) - float(direction) * float(offset_r) * float(entry_dist)
+    p = _finite("peak_price", peak_price)
+    d = _dir("direction", direction)
+    o = _nonneg("offset_r", offset_r)
+    dist = _nonneg("entry_dist", entry_dist)
+    return p - d * o * dist
 
 
 def _breakeven_candidate(entry_price: float, direction: int,
@@ -104,11 +134,16 @@ def _breakeven_candidate(entry_price: float, direction: int,
 
     多头 direction=+1：entry + offset×dist；空头 direction=-1：entry - offset×dist。
     """
-    return float(entry_price) + float(direction) * float(offset_r) * float(entry_dist)
+    p = _finite("entry_price", entry_price)
+    d = _dir("direction", direction)
+    o = _nonneg("offset_r", offset_r)
+    dist = _nonneg("entry_dist", entry_dist)
+    return p + d * o * dist
 
 
 def _wilder_atr(history: list, n: int = 14) -> float:
     """在已收盘 history 上计算 ATR（demo 用；不读未来 bar）。"""
+    _pos_int("n", n)
     if len(history) < 2:
         return 0.0
     trs = []
@@ -129,9 +164,9 @@ class DemoBreakoutStrategy:
 
     def __init__(self, lookback: int = 20, atr_n: int = 14,
                  entry_dist_mult: float = 2.0, symbol: str = "XAUUSD"):
-        self.lookback = int(lookback)
-        self.atr_n = int(atr_n)
-        self.entry_dist_mult = float(entry_dist_mult)
+        self.lookback = _pos_int("lookback", lookback)
+        self.atr_n = _pos_int("atr_n", atr_n)
+        self.entry_dist_mult = _nonneg("entry_dist_mult", entry_dist_mult)
         self.symbol = symbol
 
     def on_bar_close(self, history: list, bar) -> Optional[_Signal]:

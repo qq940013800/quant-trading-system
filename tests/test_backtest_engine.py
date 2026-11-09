@@ -8,7 +8,8 @@ import pytest
 
 from core.backtest.costs import CostModel
 from core.backtest.engine import (DemoBreakoutStrategy, _breakeven_candidate,
-                                  _trailing_candidate, run_backtest)
+                                  _trailing_candidate, _wilder_atr,
+                                  run_backtest)
 
 
 def _flat_with_drop():
@@ -152,3 +153,37 @@ def test_breakeven_locks_after_profit_pullback():
     assert t["direction"] == +1
     assert t["exit_price"] > t["entry_price"]
     assert t["r_multiple"] > 0
+
+
+class TestEngineGuards:
+    @pytest.mark.parametrize("fn", [_trailing_candidate, _breakeven_candidate])
+    @pytest.mark.parametrize("kwargs", [
+        {"direction": 0}, {"direction": 2}, {"direction": True},
+        {"offset_r": -0.1}, {"offset_r": float("nan")},
+        {"entry_dist": -1.0}, {"entry_dist": float("inf")},
+    ])
+    def test_candidate_guards(self, fn, kwargs):
+        price_key = "peak_price" if fn is _trailing_candidate else "entry_price"
+        base = {price_key: 100.0, "direction": +1,
+                "offset_r": 1.0, "entry_dist": 2.0}
+        base.update(kwargs)
+        with pytest.raises(ValueError):
+            fn(**base)
+
+    @pytest.mark.parametrize("bad", [0, -1, 1.5, True])
+    def test_wilder_atr_n_rejected(self, bad):
+        with pytest.raises(ValueError):
+            _wilder_atr([], n=bad)
+
+    @pytest.mark.parametrize("kwargs", [
+        {"lookback": 0}, {"lookback": -1}, {"lookback": 1.5},
+        {"atr_n": 0}, {"atr_n": True},
+        {"entry_dist_mult": -0.5}, {"entry_dist_mult": float("nan")},
+    ])
+    def test_demo_strategy_constructor_rejected(self, kwargs):
+        with pytest.raises(ValueError):
+            DemoBreakoutStrategy(**kwargs)
+
+    def test_valid_constructor_accepted(self):
+        s = DemoBreakoutStrategy(lookback=15, atr_n=10, entry_dist_mult=2.5)
+        assert s.lookback == 15 and s.atr_n == 10
