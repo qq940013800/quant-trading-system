@@ -61,6 +61,15 @@ def _normalize_symbol_for_order(symbol: str, market_type: str = "swap") -> str:
         return sym
     
     common_quotes = ['USDT', 'USD', 'BTC', 'ETH', 'BUSD', 'USDC']
+    # 连字符 instId 风格 BASE-QUOTE（如 OKX ETH-USDT）→ BASE/QUOTE；
+    # base 内不再含 '-'，避免多段合约代码（ETH-USDT-SWAP）被误拆。
+    if '-' in sym:
+        for quote in common_quotes:
+            suffix = '-' + quote
+            if sym.endswith(suffix) and len(sym) > len(suffix):
+                base = sym[:-len(suffix)]
+                if base and '-' not in base:
+                    return f"{base}/{quote}"
     for quote in common_quotes:
         if sym.endswith(quote) and len(sym) > len(quote):
             base = sym[:-len(quote)]

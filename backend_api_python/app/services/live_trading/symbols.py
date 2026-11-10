@@ -28,6 +28,15 @@ def _split_base_quote(symbol: str) -> Tuple[str, str]:
     if "/" not in s:
         s_upper = s.upper()
         common_quotes = ['USDT', 'USD', 'BTC', 'ETH', 'BUSD', 'USDC', 'BNB']
+        # 连字符分隔的交易所 instId 风格 BASE-QUOTE（如 OKX ETH-USDT）。
+        # 仅当 base 内不再含 '-'，避免把 ETH-USDT-SWAP 这类多段合约代码误拆。
+        if "-" in s_upper:
+            for quote in common_quotes:
+                suffix = "-" + quote
+                if s_upper.endswith(suffix) and len(s_upper) > len(suffix):
+                    base = s_upper[:-len(suffix)]
+                    if base and "-" not in base:
+                        return base, quote
         for quote in common_quotes:
             if s_upper.endswith(quote) and len(s_upper) > len(quote):
                 base = s_upper[:-len(quote)]
