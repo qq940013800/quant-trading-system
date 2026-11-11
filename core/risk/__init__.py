@@ -18,6 +18,14 @@ from .risk_budget import (
 )
 from .return_profile import describe_returns
 from .drawdown_tier import drawdown_tier_factor
+from .protection import (
+    evaluate_chandelier,
+    evaluate_scale_out,
+    evaluate_profit_retracement,
+    ScaleOutRule,
+    ScaleOutResult,
+    ProtectionDecision,
+)
 
 __all__ = [
     "RiskState",
@@ -38,4 +46,10 @@ __all__ = [
     "correlation_regime_shift",
     "describe_returns",
     "drawdown_tier_factor",
+    "evaluate_chandelier",
+    "evaluate_scale_out",
+    "evaluate_profit_retracement",
+    "ScaleOutRule",
+    "ScaleOutResult",
+    "ProtectionDecision",
 ]

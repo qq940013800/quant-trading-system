@@ -97,6 +97,11 @@
 
 ## ✅ 已完成（最近更新，按时间倒序）
 
+### #306 持仓保护裁决纯函数底座：吊灯/分批止盈/利润回吐 ✅ 已完成
+- **完成时间**：2026-11-12
+- **内容**：`core/risk/protection.py`：在 `stops.py` 四级止损之外补齐研究层缺失的三类保护裁决纯函数——① 吊灯退出（峰值 ± 冻结 `atr0×mult`，仅当候选价优于当前止损才返回，不放宽风险；激活态由编排层判断）；② 分批止盈（规则档 `level_r/ratio`，同 bar 只推进首个未完成级别，剩余比例相乘，完成标记不重复减仓）；③ 利润回吐保护（峰值利润回撤 ≥ `retracement_pct` 且当前仍盈利、`r≥min_r` 才触发清剩余）；`ProtectionDecision` 统一审计快照（`action/source/new_stop/reduce_ratio/close/audit`）。阈值参数由调用方按分布校准传入，底座不写死经验数值；纯函数、无副作用、不持有资金、不下单。`core/risk/__init__.py` 导出新符号。单测 `tests/test_risk/test_protection.py` 32 例；`tests/test_risk` 279 passed，risk+audit 447 passed 无回归。
+- **剩余风险/未验证**：① 裁决层尚未与后端 `risk_engine` / `strategy_v2/protection` / `native_protection` 三套服务层口径接线；② 原生保护单与内部跟踪状态统一对账、加仓后峰值重定基准仍待后续切片；③ 阈值数值未做分布校准（保持占位默认，入 `configs/` 需人审）；④ 未触 configs/registry/mt5/风控阈值常量/密钥/实盘资金路径。
+
 ### #301/#302 多 Agent 职责与编排规范（草案）✅ 已完成
 - **完成时间**：2026-11-11
 - **内容**：`docs/design/design-multi-agent-orchestration.md`：定义 ORCH 项目负责人 / RES 策略研究 / ENG 代码实现 / RISK 仓位资金管理四角色的职责边界、输入产出契约、交接物、协作流程（L1→L2→L3 因果顺序）与门禁放行条件；角色→现有 `core/`、`backend_api_python/`、`frontend-pro` 模块映射对齐蓝图 G1–G13 与 TODO 缺口；红线停止条件对齐 `AGENTS.md`。明确口径：Agent 为会话内职责切面，非常驻后台自治交易员，会话结束即终止；不承诺盈利，须过蓝图 §7 上线门禁方可按影子→小资金→全量灰度；LLM 不进下单路径。本轮为纯设计文档，未改生产代码与配置，无单测适用。
