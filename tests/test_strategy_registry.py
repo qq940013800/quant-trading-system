@@ -22,6 +22,7 @@ from core.registry.strategy_router import (
     SUPPORTED_REGIMES,
     STOP_TYPES,
     build_demo_router,
+    route_selected,
 )
 
 
@@ -128,6 +129,57 @@ def test_mean_reversion_ref_resolves_to_real_class(router):
     assert "bollinger_period" not in params
     assert params["bb_period"] == 20
     assert params["rsi_period"] == 14
+
+
+# ------------------------------------------------------------------
+# Matcher top-N 子集路由（P1-5）
+# ------------------------------------------------------------------
+def test_subset_route_normalizes_only_selected(router):
+    """入选子集内归一化，子集外策略不出现；权重和为 1。"""
+    w = router.route_subset(["demo_mean_reversion", "demo_breakout"], "range")
+    assert set(w) == {"demo_mean_reversion", "demo_breakout"}
+    assert "ml_trend_meta" not in w
+    assert math.isclose(sum(w.values()), 1.0, rel_tol=1e-9, abs_tol=1e-9)
+    assert w["demo_mean_reversion"] > w["demo_breakout"]
+
+
+def test_subset_excludes_unselected(router):
+    w = router.route_subset(["ml_trend_meta"], "volatile")
+    assert set(w) == {"ml_trend_meta"}
+    assert w["ml_trend_meta"] == pytest.approx(1.0)
+
+
+def test_subset_unknown_name_fail_closed(router):
+    """入选名不在路由白名单即 fail-closed，不静默忽略。"""
+    with pytest.raises(ValueError, match="白名单"):
+        router.route_subset(["demo_mean_reversion", "ghost"], "range")
+
+
+def test_subset_unknown_regime_raises(router):
+    with pytest.raises(ValueError, match="未知 regime"):
+        router.route_subset(["demo_mean_reversion"], "bull_market")
+
+
+def test_subset_all_zero_raises():
+    r = StrategyWeightRouter()
+    r.register(StrategyDescriptor(
+        name="zero_w", version="v0",
+        regime_profile={"trend": 0.0, "range": 0.0, "volatile": 0.0, "quiet": 0.0},
+    ))
+    with pytest.raises(ValueError, match="基础权重均为 0"):
+        r.route_subset(["zero_w"], "trend")
+
+
+def test_subset_dedup_and_convenience_wrapper(router):
+    """重复入选名去重保序；route_selected 便捷函数与 route_subset 等价。"""
+    direct = router.route_subset(
+        ["demo_mean_reversion", "demo_mean_reversion", "demo_breakout"], "range"
+    )
+    wrapped = route_selected(
+        router, ["demo_mean_reversion", "demo_breakout"], "range"
+    )
+    assert direct == wrapped
+    assert list(direct).count("demo_mean_reversion") == 1
 
 
 def test_unregister_removes_strategy():

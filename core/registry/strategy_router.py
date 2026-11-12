@@ -158,6 +158,57 @@ class StrategyWeightRouter:
         """返回所有 regime 的路由表（用于审计/文档）。"""
         return {r: self.route(r) for r in SUPPORTED_REGIMES}
 
+    def route_subset(self, selected_names: Iterable[str], regime: str) -> dict[str, float]:
+        """只对 Matcher 选出的 top-N 策略子集做归一化路由。
+
+        与 :meth:`route` 的区别：``route`` 对全部白名单策略按 regime 归一化；
+        本方法先按入选名单（Matcher 排名 top-N）过滤，只在子集内归一化，
+        子集外策略权重归零（不出现）。两层按策略名对齐。
+
+        守卫：
+        - regime 必须在 SUPPORTED_REGIMES 内
+        - 入选名必须在路由白名单内（策略池不同步即 fail-closed，不静默忽略）
+        - 子集在该 regime 下基础权重全 0 时抛错，绝不静默返回全 0
+        """
+        if regime not in SUPPORTED_REGIMES:
+            raise ValueError(
+                f"未知 regime '{regime}'；支持: {SUPPORTED_REGIMES}"
+            )
+        if not isinstance(selected_names, Iterable) or isinstance(
+            selected_names, (str, bytes)
+        ):
+            raise ValueError("selected_names 必须为策略名可迭代序列")
+        # 去重保序，剔除 None/空白
+        ordered: list[str] = []
+        for n in selected_names:
+            if n is None:
+                continue
+            name = str(n).strip()
+            if name and name not in ordered:
+                ordered.append(name)
+        unknown = [n for n in ordered if n not in self._descriptors]
+        if unknown:
+            raise ValueError(f"入选策略不在路由白名单: {unknown}")
+        raw: dict[str, float] = {}
+        for n in ordered:
+            w = self._descriptors[n].base_weight(regime)
+            if w > 0:
+                raw[n] = w
+        total = sum(raw.values())
+        if total <= 0:
+            raise ValueError(
+                f"入选子集在 regime='{regime}' 下基础权重均为 0；"
+                f"请检查策略画像或入选名单"
+            )
+        return {n: w / total for n, w in raw.items()}
+
+
+def route_selected(router: StrategyWeightRouter,
+                   selected_names: Iterable[str],
+                   regime: str) -> dict[str, float]:
+    """便捷函数：对 Matcher top-N 子集做归一化路由（见 :meth:`StrategyWeightRouter.route_subset`）。"""
+    return router.route_subset(selected_names, regime)
+
 
 # ------------------------------------------------------------------
 # 内置演示策略注册（3 个）
@@ -168,8 +219,8 @@ def build_demo_router() -> StrategyWeightRouter:
     3 个策略来源（诚实标注）：
     1. demo_breakout —— 真实实现：core/backtest/engine.py::DemoBreakoutStrategy
     2. ml_trend_meta —— 真实实现：core/models/ml_trend_strategy.py::MLTrendStrategy
-    3. demo_mean_reversion —— 仅在 gatekeeper 模拟数据中引用（type=mean_reversion），
-       尚未有完整策略类；此处按其 regime 画像登记为路由占位，**不代表已可交易**。
+    3. demo_mean_reversion —— 真实实现：core/strategies/mean_reversion.py::MeanReversionStrategy，
+       尚未接入后端匹配/部署硬切换链；版本号 v0.1.0，参数阈值待 CLEAN 分布校准。
     """
     router = StrategyWeightRouter()
 
@@ -261,4 +312,5 @@ __all__ = [
     "StrategyDescriptor",
     "StrategyWeightRouter",
     "build_demo_router",
+    "route_selected",
 ]

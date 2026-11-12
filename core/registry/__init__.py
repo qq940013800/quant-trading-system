@@ -10,6 +10,7 @@ from .strategy_router import (
     StrategyDescriptor,
     StrategyWeightRouter,
     build_demo_router,
+    route_selected,
     SUPPORTED_REGIMES,
     STOP_TYPES,
 )
@@ -27,6 +28,7 @@ __all__ = [
     "StrategyDescriptor",
     "StrategyWeightRouter",
     "build_demo_router",
+    "route_selected",
     "SUPPORTED_REGIMES",
     "STOP_TYPES",
     "ModelRegistry",

@@ -98,6 +98,11 @@
 
 ## ✅ 已完成（最近更新，按时间倒序）
 
+### #309 Matcher×WeightRouter 子集路由集成纯函数与单测 ✅ 已完成
+- **完成时间**：2026-11-12
+- **内容**：`core/registry/strategy_router.py` 新增 `StrategyWeightRouter.route_subset(selected_names, regime)` 与便捷函数 `route_selected`——对 Matcher 选出的 top-N 策略子集在白名单内按 regime_profile 归一化，子集外策略归零（不出现）；守卫：regime 合法、入选名必须在白名单（策略池不同步 fail-closed，不静默忽略）、子集在该 regime 权重全 0 抛错不静默全 0、名单去重保序。`registry/__init__` 导出 `route_selected`。单测 6 例（子集归一化/排除未入选/未知名 fail-closed/未知 regime/全 0 抛错/去重与便捷函数等价）。`test_strategy_registry` 28 passed；strategies+registry 213 passed 无回归。
+- **剩余风险/未验证**：① Matcher `MarketRegime` 枚举（trending/ranging）与 Router `SUPPORTED_REGIMES`（trend/range/volatile/quiet）口径未对齐，端到端 select→subset 串联留后续切片；② Profile↔Descriptor 同名策略池同步机制未建；③ 权重数值仍为定性默认，未做 CLEAN 分布校准（P1-4）；④ 未触 configs/registry.yaml/mt5/密钥/实盘资金路径。
+
 ### #308 回填 OKX/均值回归过期口径并挂接路由占位 ✅ 已完成
 - **完成时间**：2026-11-12
 - **内容**：修正 TODO 事实源分裂——顶部 P0/T5/P0-2/P1-3 仍为 10-31 旧快照，已按 #199/#202/#295/#297/#298/#299/#300 提交回填：现货 demo 链路闭环（凭证/余额/行情/现货往返冒烟/持仓口径/数量换算/symbol 归一化/只读重试分流），剩余阻塞如实标注（永续 acctLv=1 fail-closed、V2 合约 manifest、fills 账本归集、容器镜像未含新改动、总权益字段缺失）。代码侧：`core/registry/strategy_router.py` 的 `demo_mean_reversion` 占位条目 `implementation_ref` 从「(未实现)」改为 `core.strategies.mean_reversion:MeanReversionStrategy`，params 键对齐构造器（去死键 `bollinger_period`），description 去掉占位表述；未改 regime 权重画像、未晋升版本号。单测补 1 例（ref 可 import 解析到真实类、无死键）；`test_strategy_registry` 22 passed，strategies+registry 213 passed 无回归。
@@ -298,7 +303,7 @@
 | P1-2 | **五层市场识别接入真实 K 线**：L1-L5 规则版完成但喂的是演示数据 | 🔄 进行中（后台子任务接 OKX kline → 特征化 → 喂 regime.py；容器内 OKX 连通已确认） | 先接 BTCUSD M15 一个品种跑通，再扩展 |
 | P1-3 | **均值回归策略类**：原路由表 `implementation_ref=(未实现)`、代码库无对应类 | ✅ 已落地并挂接（`core/strategies/mean_reversion.py`：RSI(14 Wilder)+布林(20,2σ)+非强趋势门控+Wilder ATR+因果窗口守卫；单测 `tests/test_strategies/test_mean_reversion.py`，#260；`strategy_router.py` 占位条目 ref 已指向真实类、params 键对齐构造器） | 策略类未接入后端匹配/部署硬切换链；参数阈值待 CLEAN 分布校准；版本号仍 v0.1.0，生命周期晋升由 StrategyRegistry 状态机另轮评估 |
 | P1-4 | **路由权重表分布校准**：当前 4×3 权重表是定性配置，未经 CLEAN 分布驱动 | ❌ 未开始 | 跑 `python scripts/calibrate_regime.py --mode distribution`，用输出分位替换 `strategy_router.py` 里硬编码权重；改前 ADR 留档 |
-| P1-5 | **StrategyMatcher × StrategyWeightRouter 集成**：两层目前独立（一个打分排序、一个出资金权重） | ❌ 未开始 | 让 Matcher 输出 top-N 排名 → WeightRouter 对 top-N 输出归一化权重；其他策略权重归零 |
+| P1-5 | **StrategyMatcher × StrategyWeightRouter 集成**：两层目前独立（一个打分排序、一个出资金权重） | 🔄 部分落地（#309：Router 侧 `route_subset`/`route_selected` 已落地——Matcher top-N 名单子集内归一化、子集外归零、未知策略名 fail-closed；单测 6 例） | 剩余：Matcher `MarketRegime` 枚举（trending/ranging）与 Router `SUPPORTED_REGIMES`（trend/range/volatile/quiet）口径对齐；同名 Profile↔Descriptor 池同步；端到端 select→subset 路由串联另轮评估 |
 | P1-6 | **前端 axios 响应拦截器容错**：502 时把 nginx HTML 原文塞给用户（P1-1 bug） | ❌ 未开始 | 拦截器里判断 `Content-Type`，非 JSON 时统一提示"服务暂时不可用 (HTTP 5xx)"，不暴露 HTML |
 | P1-7 | **登录错误 state 在路由切换后未清空**（P2-1 bug）：跳注册页被守卫弹回，旧 502 错误还挂着 | ❌ 未开始 | 登录页 `onMounted` 或 `watch(route.query.redirect)` 时清空 `errorMessage` + 表单字段 |
 | P1-8 | **`quantdinger-scheduler-worker` / `trading-worker` 容器 unhealthy**：基础设施告警 | ❌ 未开始 | `docker logs quantdinger-scheduler-worker --tail 50` 看根因；不影响前端联调，但要排 |
