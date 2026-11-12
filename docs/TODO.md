@@ -98,6 +98,11 @@
 
 ## ✅ 已完成（最近更新，按时间倒序）
 
+### #310 四套保护层口径对照清单（只读）✅ 对照完成，接线待门
+- **完成时间**：2026-11-12
+- **内容**：只读勘察 core `risk/protection`、后端 `risk_engine`、`strategy_v2/protection`、`live_trading/native_protection` 四套保护层，产出 `docs/design/protection-layers-reconciliation.md`。结论：core↔risk_engine 在吊灯/分批/回吐/止损单调上已对齐；登记 5 个分裂/缺口——S1 分批单 bar 一档 vs 后端多档、S2 risk_engine 阈值硬编码默认值（2R/3R、3ATR、30%、1R 激活，未走分布校准）、S3 百分比↔ATR/R 基准分裂、S4 保本缓冲口径待核、S5 core 底座后端运行时未激活（#209）。待决策门 D1-D5 单列，ORCH 不擅改阈值/configs/接线。
+- **剩余风险/未验证**：后端容器是否含当前 core 底座未验证；实盘/经纪商原生单语义未验证；V2 与 core `stops` 保本/时间止损逐行一致性未核对；本轮未改后端、未动阈值常量、未触红线。
+
 ### #309 Matcher×WeightRouter 子集路由集成纯函数与单测 ✅ 已完成
 - **完成时间**：2026-11-12
 - **内容**：`core/registry/strategy_router.py` 新增 `StrategyWeightRouter.route_subset(selected_names, regime)` 与便捷函数 `route_selected`——对 Matcher 选出的 top-N 策略子集在白名单内按 regime_profile 归一化，子集外策略归零（不出现）；守卫：regime 合法、入选名必须在白名单（策略池不同步 fail-closed，不静默忽略）、子集在该 regime 权重全 0 抛错不静默全 0、名单去重保序。`registry/__init__` 导出 `route_selected`。单测 6 例（子集归一化/排除未入选/未知名 fail-closed/未知 regime/全 0 抛错/去重与便捷函数等价）。`test_strategy_registry` 28 passed；strategies+registry 213 passed 无回归。
@@ -308,6 +313,7 @@
 | P1-7 | **登录错误 state 在路由切换后未清空**（P2-1 bug）：跳注册页被守卫弹回，旧 502 错误还挂着 | ❌ 未开始 | 登录页 `onMounted` 或 `watch(route.query.redirect)` 时清空 `errorMessage` + 表单字段 |
 | P1-8 | **`quantdinger-scheduler-worker` / `trading-worker` 容器 unhealthy**：基础设施告警 | ❌ 未开始 | `docker logs quantdinger-scheduler-worker --tail 50` 看根因；不影响前端联调，但要排 |
 | P1-9 | **连续 regime 线性插值**：当前用离散 trend/range/volatile/quiet 4 类，未接 regime.py 的连续 `w_trend/w_mr/w_range` | ❌ 未开始 | 在 `StrategyWeightRouter.route()` 加可选连续模式，用连续权重做线性插值；保留离散模式做回退 |
+| P1-10 | **后端三套保护层与 core 底座口径对齐**：risk_engine（ATR/R）、strategy_v2（百分比）、native_protection（原生单）并行，基准/阈值/分批语义存在分裂 | 🔄 只读对照完成（#310，清单见 `docs/design/protection-layers-reconciliation.md`） | 待决策门 D1-D5：后端硬编码阈值改分布校准+config 注入（红线）、百分比↔ATR/R 基准统一 ADR、分批单 bar 语义统一、core 进容器取舍、接线 core `decide_protection` 底座 |
 
 ### P2（优化项 / 可延后）
 
