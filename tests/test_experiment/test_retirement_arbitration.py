@@ -13,6 +13,7 @@ from core.experiment.retirement_arbitration import (
     DECISION_KEEP,
     DECISION_WATCH,
     DECISION_RETIRE,
+    RetirementArbitration,
     arbitrate_retirement,
 )
 
@@ -152,4 +153,25 @@ class TestSnapshotToArbitrationChain:
             lifecycle_reasons=["decay_sharpe_down"],
         )
         assert rec.decision == DECISION_RETIRE
+
+
+class TestPackageExport:
+    """包级导出闭环：core.experiment 顶层可引用新接缝公共 API。"""
+
+    def test_package_exposes_arbitration_symbols(self):
+        import core.experiment as pkg
+
+        assert pkg.arbitrate_retirement is arbitrate_retirement
+        assert pkg.RetirementArbitration is RetirementArbitration
+        assert pkg.DECISION_KEEP == DECISION_KEEP
+        assert pkg.DECISION_WATCH == DECISION_WATCH
+        assert pkg.DECISION_RETIRE == DECISION_RETIRE
+        assert pkg.RETIRE_LOW_HEALTH == RETIRE_LOW_HEALTH
+        assert pkg.WATCH_LOW_HEALTH == WATCH_LOW_HEALTH
+
+    def test_all_exports_resolve(self):
+        import core.experiment as pkg
+
+        for name in pkg.__all__:
+            assert hasattr(pkg, name), name
 
