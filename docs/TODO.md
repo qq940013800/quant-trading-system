@@ -98,6 +98,11 @@
 
 ## ✅ 已完成（最近更新，按时间倒序）
 
+### #312 快照健康分合成纯函数桥接与单测 ✅ 已完成
+- **完成时间**：2026-11-12
+- **内容**：`core/audit/evolution_rules.py` 新增 `health_score_from_snapshot(snapshot)`：鸭子类型取 `win_rate`(0-1 转百分比)/`profit_factor`/`avg_r_multiple`，复用既有 `score_health` 口径，输出 `score/100` ∈ [0,1] 归一化健康分，供 `retire_if_health_below` 调用。鸭子类型取属性避免 audit→registry 循环耦合；守卫 win_rate∈[0,1]、PF 非负、三项有限。硬门禁否决（DSR>0/PBO/交易数下限）不在连续评分内，另走 lifecycle `recommend_retirement`；不读 DB、不反推阈值。`core/audit/__init__.py` 导出。单测 5 例（高/低/归一化区间/胜率百分比换算/守卫×6 参数化）。audit+registry+strategies 430 passed 无回归。
+- **剩余风险/未验证**：① 评分档位阈值（55/50/45 胜率、1.5/1.3/1.1 PF、1.5/1.0/0.5 R）为既有占位默认，未做 CLEAN 分布校准；② 健康分与 lifecycle 退役建议的联合裁决尚未在编排层串联；③ 未触 configs/registry.yaml/mt5/风控阈值常量/密钥/实盘资金路径。
+
 ### #311 注册表健康度退役裁决纯方法与单测 ✅ 已完成
 - **完成时间**：2026-11-12
 - **内容**：`core/registry/strategy_registry.py` 新增 `StrategyRegistry.retire_if_health_below(strategy_id, version, *, health_score, threshold, reason="")`：健康分 `< threshold` 且状态可退役时走状态机迁移到 RETIRED，写 `retirement_log` 审计快照（id/version/from→to/score/threshold/reason/时间戳）。守卫：score/threshold 有限且 ∈[0,1]、策略已注册、仅 BACKTEST/PAPER/PAUSED/LIVE 可退役、RETIRED 终态不重复记日志。健康分由上游 RES/门禁底座按分布与蓝图准则传入，注册表不自行从绩效快照合成，避免绩效网格搜索入注册层；通知/回调由编排层读日志触发，本方法不下单不写库。单测 7 例（触发退役/达标不退役/未注册 fail-closed/DRAFT 不可退役/终态不重复记日志/区间有限性守卫×6 参数化）。`test_registry` 185 passed；strategies+registry 252 passed 无回归。
@@ -309,7 +314,7 @@
 
 | # | 事项 | 真实状态 | 下一步动作 |
 |---|------|----------|-----------|
-| P1-1 | **策略生命周期后端自动退役逻辑**：前端三级健康度面板已做，后端触发阈值自动停策略+通知+记录原因未实现 | 🔄 部分落地（#311：core `StrategyRegistry.retire_if_health_below` 退役裁决纯方法已落地——健康分低于阈值走状态机退役并写 `retirement_log` 审计快照；阈值/健康分入参不写死；守卫有限性区间、策略存在、可退役状态、终态不重复记日志；单测 7 例） | 剩余：健康分由上游 RES/门禁底座按 CLEAN 分布与蓝图准则合成（注册表不自行算分）；后端通知/回调由编排层读 `retirement_log` 触发；阈值入 `configs/` 需人审 |
+| P1-1 | **策略生命周期后端自动退役逻辑**：前端三级健康度面板已做，后端触发阈值自动停策略+通知+记录原因未实现 | 🔄 部分落地（#311：core `StrategyRegistry.retire_if_health_below` 退役裁决纯方法；#312：`health_score_from_snapshot` 快照→[0,1] 健康分桥接，复用 `score_health` 口径，鸭子类型解耦 audit↔registry） | 剩余：硬门禁否决（DSR>0/PBO/交易数下限）另走 lifecycle `recommend_retirement`；后端通知/回调由编排层读 `retirement_log` 触发；评分阈值未做 CLEAN 分布校准，入 `configs/` 需人审 |
 | P1-2 | **五层市场识别接入真实 K 线**：L1-L5 规则版完成但喂的是演示数据 | 🔄 进行中（后台子任务接 OKX kline → 特征化 → 喂 regime.py；容器内 OKX 连通已确认） | 先接 BTCUSD M15 一个品种跑通，再扩展 |
 | P1-3 | **均值回归策略类**：原路由表 `implementation_ref=(未实现)`、代码库无对应类 | ✅ 已落地并挂接（`core/strategies/mean_reversion.py`：RSI(14 Wilder)+布林(20,2σ)+非强趋势门控+Wilder ATR+因果窗口守卫；单测 `tests/test_strategies/test_mean_reversion.py`，#260；`strategy_router.py` 占位条目 ref 已指向真实类、params 键对齐构造器） | 策略类未接入后端匹配/部署硬切换链；参数阈值待 CLEAN 分布校准；版本号仍 v0.1.0，生命周期晋升由 StrategyRegistry 状态机另轮评估 |
 | P1-4 | **路由权重表分布校准**：当前 4×3 权重表是定性配置，未经 CLEAN 分布驱动 | ❌ 未开始 | 跑 `python scripts/calibrate_regime.py --mode distribution`，用输出分位替换 `strategy_router.py` 里硬编码权重；改前 ADR 留档 |

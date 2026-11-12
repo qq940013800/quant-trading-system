@@ -34,6 +34,7 @@ from .evolution_rules import (
     classify_health,
     detect_health_warnings,
     evaluate_review_triggers,
+    health_score_from_snapshot,
     score_health,
 )
 from .data_manifest import DatasetManifest, ManifestError, build_manifest
@@ -76,6 +77,7 @@ __all__ = [
     "classify_health",
     "detect_health_warnings",
     "evaluate_review_triggers",
+    "health_score_from_snapshot",
     "score_health",
     "DatasetManifest",
     "ManifestError",

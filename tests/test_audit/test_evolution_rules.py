@@ -11,6 +11,7 @@ from core.audit.evolution_rules import (
     classify_health,
     detect_health_warnings,
     evaluate_review_triggers,
+    health_score_from_snapshot,
     score_health,
 )
 
@@ -125,3 +126,36 @@ class TestHealthRules:
     ])
     def test_classify_boundaries(self, score, expected):
         assert classify_health(score) == expected
+
+
+class TestHealthScoreFromSnapshot:
+    def _snap(self, wr=0.5, pf=1.2, avg_r=0.8):
+        from types import SimpleNamespace
+        return SimpleNamespace(win_rate=wr, profit_factor=pf, avg_r_multiple=avg_r)
+
+    def test_high_metrics_score_high(self):
+        score = health_score_from_snapshot(self._snap(0.58, 1.6, 1.6))
+        assert score >= 0.8
+
+    def test_low_metrics_score_low(self):
+        score = health_score_from_snapshot(self._snap(0.30, 0.8, 0.2))
+        assert score < 0.6
+
+    def test_score_normalized_to_unit(self):
+        score = health_score_from_snapshot(self._snap(1.0, 9.9, 9.9))
+        assert score == 1.0
+        low = health_score_from_snapshot(self._snap(0.0, 0.0, 0.0))
+        assert 0.0 <= low <= 1.0
+
+    def test_win_rate_converted_to_percent(self):
+        # 0.55 胜率 = 55%，落在 50-55 档（+20），不越到 55+ 档（+30）
+        score = health_score_from_snapshot(self._snap(0.55, 1.2, 0.8))
+        assert 0.0 <= score <= 1.0
+
+    @pytest.mark.parametrize("wr,pf,ar", [
+        (1.2, 1.0, 0.5), (-0.1, 1.0, 0.5), (math.nan, 1.0, 0.5),
+        (0.5, -0.2, 0.5), (0.5, math.nan, 0.5), (0.5, 1.0, math.nan),
+    ])
+    def test_invalid_inputs_rejected(self, wr, pf, ar):
+        with pytest.raises(ValueError):
+            health_score_from_snapshot(self._snap(wr, pf, ar))

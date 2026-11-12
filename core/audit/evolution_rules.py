@@ -195,3 +195,34 @@ def classify_health(score: int) -> str:
     if score >= 60:
         return "yellow"
     return "red"
+
+
+def health_score_from_snapshot(snapshot: Any) -> float:
+    """从绩效快照合成 [0,1] 归一化健康分（复用 :func:`score_health` 口径）。
+
+    鸭子类型取属性，不硬依赖注册表类型，避免 audit→registry 循环耦合。
+    快照 ``win_rate`` 口径 ∈ [0,1]，转成百分比喂给既有评分；
+    ``profit_factor`` / ``avg_r_multiple`` 直传。返回 ``score_health/100``，∈ [0,1]，
+    供 ``StrategyRegistry.retire_if_health_below`` 调用。
+
+    硬门禁否决（DSR>0、PBO、交易数下限）不在本连续评分内，另走 lifecycle
+    ``recommend_retirement``；本函数不反推新阈值、不读 DB、不做参数寻优。
+    """
+    win_rate = getattr(snapshot, "win_rate", None)
+    pf = getattr(snapshot, "profit_factor", None)
+    avg_r = getattr(snapshot, "avg_r_multiple", None)
+
+    wr = _finite("win_rate", win_rate)
+    if not (0.0 <= wr <= 1.0):
+        raise ValueError(f"win_rate 必须在 [0,1] 内，收到 {wr!r}")
+    pf_v = _finite("profit_factor", pf)
+    if pf_v < 0:
+        raise ValueError(f"profit_factor 必须非负，收到 {pf_v!r}")
+    ar = _finite("avg_r_multiple", avg_r)
+
+    metrics = {
+        "win_rate_pct": wr * 100.0,
+        "profit_factor": pf_v,
+        "avg_r": ar,
+    }
+    return score_health(metrics) / 100.0
