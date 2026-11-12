@@ -50,8 +50,19 @@
 - V2 protection 全链路价格百分比；core 与 risk_engine 用 ATR/R。两套基准并行，未建映射。
 - 待决策：统一到哪套基准、跨基准换算（需 ATR/入场价）如何审计；需 RES 出 ADR。
 
-### S4 保本缓冲口径待核
-- risk_engine 保本价 = 入场价 × (1 ± `breakeven_buffer`)，缓冲为价格百分比；core 保本口径在 `core/risk/stops.py`，本轮未逐行比对，留待下一切片核对。
+### S4 保本 / 时间止损口径分裂（core ↔ risk_engine ↔ V2，已逐行核对 core 与 V2）
+
+**保本**：
+- core `stops.update_breakeven_stop`：当前 R ≥ `breakeven_r`（默认 1.0R）才激活，保本价 = `entry + direction × breakeven_offset_r × entry_dist`（默认 +0.1R 偏移，R/ATR 距离口径）。
+- risk_engine：保本价 = 入场价 ×(1 ± `breakeven_buffer`)，缓冲为价格百分比；激活阈值 0.5R。
+- **分裂**：① 激活 R 阈值不同（core 1.0R vs risk_engine 0.5R）；② 保本偏移基准不同（core `offset_r × entry_dist` 的 R 距离 vs risk_engine 价格百分比 buffer）。
+- V2 `ProtectionSpec` **无保本字段/逻辑**，属能力缺口，不是口径分歧。
+
+**时间止损**：
+- core `check_time_stop`：`bars_held ≥ max_holding_bars`（K 线根数）**且** `max_favorable_r < breakeven_r`，bar 计数 + 未达保本 R 双门控。
+- V2 `_time_limit_reached`：墙钟秒数 `(ts - opened_at).total_seconds() ≥ time_limit_seconds`，纯时间到即平，无 R 条件、无 bar 计数。
+- **分裂**：基准不同（bar 数 vs 秒）；门控不同（core 叠加未达保本 R 条件，V2 纯时间门控）。
+- risk_engine 时间止损本轮未逐行核，仍列未验证。
 
 ### S5 core 底座在后端运行时未激活（#209 架构阻塞）
 - 后端容器运行时不 import `core`；`gate_shadow.py` 纯函数 shadow 适配器已建，尚未在 worker 进程接线。
@@ -71,4 +82,4 @@
 
 - 后端容器常驻进程/镜像是否含当前 core 底座改动：**未验证**（S5）。
 - 实盘/经纪商差异、原生保护单在各所的挂单语义：**未验证**。
-- V2 protection 与 core `stops` 的保本/时间止损口径逐行一致性：**未核对**（S4）。
+- risk_engine 时间止损逐行口径：**未核对**；core ↔ V2 保本/时间止损口径已逐行核对（见 S4）。

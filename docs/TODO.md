@@ -98,6 +98,10 @@
 
 ## ✅ 已完成（最近更新，按时间倒序）
 
+### #313 S4 保本/时间止损口径逐行核对回填 ✅ 已完成
+- **完成时间**：2026-11-12
+- **内容**：只读逐行核对 `core/risk/stops.py` 与后端 V2 `strategy_v2/protection.py`。保本：core 1.0R 激活 + `offset_r×entry_dist` 偏移；risk_engine 0.5R 激活 + 价格百分比 buffer；V2 无保本能力（缺口非分歧）。时间止损：core `bars_held≥max_holding_bars 且 max_favorable_r<breakeven_r` 双门控；V2 纯墙钟秒数到即平。分裂点回填 `protection-layers-reconciliation.md` S4；risk_engine 时间止损仍未逐行核，列未验证。未改后端、未动阈值常量。
+
 ### #312 快照健康分合成纯函数桥接与单测 ✅ 已完成
 - **完成时间**：2026-11-12
 - **内容**：`core/audit/evolution_rules.py` 新增 `health_score_from_snapshot(snapshot)`：鸭子类型取 `win_rate`(0-1 转百分比)/`profit_factor`/`avg_r_multiple`，复用既有 `score_health` 口径，输出 `score/100` ∈ [0,1] 归一化健康分，供 `retire_if_health_below` 调用。鸭子类型取属性避免 audit→registry 循环耦合；守卫 win_rate∈[0,1]、PF 非负、三项有限。硬门禁否决（DSR>0/PBO/交易数下限）不在连续评分内，另走 lifecycle `recommend_retirement`；不读 DB、不反推阈值。`core/audit/__init__.py` 导出。单测 5 例（高/低/归一化区间/胜率百分比换算/守卫×6 参数化）。audit+registry+strategies 430 passed 无回归。
@@ -323,7 +327,7 @@
 | P1-7 | **登录错误 state 在路由切换后未清空**（P2-1 bug）：跳注册页被守卫弹回，旧 502 错误还挂着 | ❌ 未开始 | 登录页 `onMounted` 或 `watch(route.query.redirect)` 时清空 `errorMessage` + 表单字段 |
 | P1-8 | **`quantdinger-scheduler-worker` / `trading-worker` 容器 unhealthy**：基础设施告警 | ❌ 未开始 | `docker logs quantdinger-scheduler-worker --tail 50` 看根因；不影响前端联调，但要排 |
 | P1-9 | **连续 regime 线性插值**：当前用离散 trend/range/volatile/quiet 4 类，未接 regime.py 的连续 `w_trend/w_mr/w_range` | ❌ 未开始 | 在 `StrategyWeightRouter.route()` 加可选连续模式，用连续权重做线性插值；保留离散模式做回退 |
-| P1-10 | **后端三套保护层与 core 底座口径对齐**：risk_engine（ATR/R）、strategy_v2（百分比）、native_protection（原生单）并行，基准/阈值/分批语义存在分裂 | 🔄 只读对照完成（#310，清单见 `docs/design/protection-layers-reconciliation.md`） | 待决策门 D1-D5：后端硬编码阈值改分布校准+config 注入（红线）、百分比↔ATR/R 基准统一 ADR、分批单 bar 语义统一、core 进容器取舍、接线 core `decide_protection` 底座 |
+| P1-10 | **后端三套保护层与 core 底座口径对齐**：risk_engine（ATR/R）、strategy_v2（百分比）、native_protection（原生单）并行，基准/阈值/分批语义存在分裂 | 🔄 只读对照完成（#310 清单 + #313 S4 保本/时间止损逐行核对，见 `docs/design/protection-layers-reconciliation.md`） | 待决策门 D1-D5：后端硬编码阈值改分布校准+config 注入（红线）、百分比↔ATR/R 基准统一 ADR、分批单 bar 语义统一、core 进容器取舍、接线 core `decide_protection` 底座 |
 
 ### P2（优化项 / 可延后）
 
