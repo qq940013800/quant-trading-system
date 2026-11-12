@@ -113,6 +113,23 @@ def test_ml_strategy_params_use_quantile_thresholds(router):
     assert not unknown, f"ml_trend_meta params 含未声明字段: {sorted(unknown)}"
 
 
+def test_mean_reversion_ref_resolves_to_real_class(router):
+    """demo_mean_reversion 的 implementation_ref 必须解析到已落地策略类，
+    不得残留「未实现」占位；params 键对齐构造器，无 bollinger_period 死键。"""
+    import importlib
+    desc = router.get("demo_mean_reversion")
+    assert desc is not None
+    assert "未实现" not in desc.implementation_ref
+    module_name, cls_name = desc.implementation_ref.split(":")
+    mod = importlib.import_module(module_name)
+    cls = getattr(mod, cls_name)
+    assert cls.__name__ == "MeanReversionStrategy"
+    params = desc.params
+    assert "bollinger_period" not in params
+    assert params["bb_period"] == 20
+    assert params["rsi_period"] == 14
+
+
 def test_unregister_removes_strategy():
     r = StrategyWeightRouter()
     d = StrategyDescriptor(

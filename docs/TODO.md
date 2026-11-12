@@ -26,24 +26,25 @@
 
 ## 🔴 P0 优先级（阻塞实盘，必须最先完成）
 
-### 1. OKX实盘对接全链路 🔄 进行中
-- **已完成**：
-  - ✅ 前端API账户设置弹窗（Key/Secret/Passphrase）
-  - ✅ 后端OKX客户端模块（okx_client.py）
-  - ✅ 连接测试API → 成功，账户余额$98,340.28
-  - ✅ 实时价格API（ticker）→ BTC $80,229 正常
-  - ✅ 历史K线API（kline）→ 框架已搭好
-  - ✅ 下单API（place-order）→ 框架已搭好（已优化错误码）
-  - ✅ 持仓查询API（positions）→ 框架已搭好
-  - ✅ 前端fetchRealKline函数 → 代码已写
-- **未完成**：
-  - ⏳ 下单失败排查（"All operations failed"，需查tdMode参数）
-  - ⏳ 前端真实K线接入图表（代码写了，容器恢复后部署测试）
-  - ⏳ 前端持仓面板真实数据展示（API通了，认证问题没显示）
-  - ✅ 认证token问题（2026-10-31 落定：dev-token 假登录 → 真实自动登录，401 循环登出消除；E009）
-  - ✅ 本地网络访问OKX API连接被拒绝（2026-10-31 已解除，E007）
-- **验收标准**：能真实下单、真实平仓、真实查持仓、真实查余额、真实K线渲染
-- **安全约束**：先用最小手数测试，确认没问题再加大
+### 1. OKX 对接全链路（demo 当实盘推进）🔄 部分闭环
+> **2026-11-12 复核**：本条原为 10-31 旧快照，已按 #199/#202/#295/#297/#298/#299/#300 提交回填；现货链路已闭环，剩余阻塞见下。凭证为 demo（env=demo，id=2，OKX-DEMO），非 live。
+
+- **已闭环（现货 / demo）**：
+  - ✅ 前端 API 账户设置弹窗（Key/Secret/Passphrase）；凭证列表收口到 `GET /credentials/list` 真实回填（#199/#295 相关）
+  - ✅ 后端 OKX 客户端；连接测试 / 余额 / 实时 ticker 通（历史快照余额 $98,340.28，2026-10-31）
+  - ✅ 现货真实成交：recent_trades 返回 4 笔真实 OKX BTC 现货成交并上屏（#199）；demo 现货小额往返冒烟闭环、连字符 symbol 归一化（#298/#299/#300）
+  - ✅ 持仓口径对齐凭证库主链，排除余额现金误列（#295）；quick-trade 行情缺失时数量换算返回 0 走下游拒单，避免 USDT 金额误当 base 数量（#297）
+  - ✅ 只读 GET 有限退避 / POST 下单撤单不重试 / 错误码分流（#202/#203）
+  - ✅ 认证 token：dev-token 假登录 → 真实自动登录，401 循环登出消除（E009）；本地网络访问 OKX 被拒已解除（E007）
+- **剩余阻塞 / 未验证**：
+  - ⏳ **永续（swap）开仓**：demo 简单账户 `acctLv=1`，`account_configuration.py:137` fail-closed 抛 `OKX_SWAP_ACCOUNT_MODE_REQUIRED`；现货可成交。解阻塞需在 demo 切保证金账户模式，或策略只跑现货——账户模式决策待拍板
+  - ⏳ **V2 合约层**：历史版本脚本 manifest 仍是 sp500 池，候选按 manifest 解析；3 条 crypto 快照要真实成交需重编译脚本版本（合约层改动，停止条件待确认）
+  - ⏳ **fills→`qd_strategy_trades` 账本归集 + 周期对账**：触实盘账本路径，待拍板（#155/#108）
+  - ⏳ **容器镜像**：常驻后端进程/镜像未含 #295/#297/#299/#300 改动；HTTP 网关带登录态端到端下单未在容器复验
+  - ⏳ **总权益字段**：`/account/positions` 后端未返回 `total_equity/equity`，前端总权益仍演示值（#64/#97）
+  - ⏳ 历史 K 线接入图表：框架已搭，容器恢复后需部署复测
+- **验收标准**：能真实下单、真实平仓、真实查持仓、真实查余额、真实 K 线渲染
+- **安全约束**：先用最小手数测试，确认没问题再加大；不承诺盈利，须过蓝图 §7 门禁方可影子→小资金→全量灰度
 
 ### 2. 策略生命周期自动退役逻辑 ⏳ 待做
 - **现状**：前端三级健康度面板已做，后端自动退役逻辑未实现
@@ -96,6 +97,11 @@
 ---
 
 ## ✅ 已完成（最近更新，按时间倒序）
+
+### #308 回填 OKX/均值回归过期口径并挂接路由占位 ✅ 已完成
+- **完成时间**：2026-11-12
+- **内容**：修正 TODO 事实源分裂——顶部 P0/T5/P0-2/P1-3 仍为 10-31 旧快照，已按 #199/#202/#295/#297/#298/#299/#300 提交回填：现货 demo 链路闭环（凭证/余额/行情/现货往返冒烟/持仓口径/数量换算/symbol 归一化/只读重试分流），剩余阻塞如实标注（永续 acctLv=1 fail-closed、V2 合约 manifest、fills 账本归集、容器镜像未含新改动、总权益字段缺失）。代码侧：`core/registry/strategy_router.py` 的 `demo_mean_reversion` 占位条目 `implementation_ref` 从「(未实现)」改为 `core.strategies.mean_reversion:MeanReversionStrategy`，params 键对齐构造器（去死键 `bollinger_period`），description 去掉占位表述；未改 regime 权重画像、未晋升版本号。单测补 1 例（ref 可 import 解析到真实类、无死键）；`test_strategy_registry` 22 passed，strategies+registry 213 passed 无回归。
+- **剩余风险/未验证**：① 均值回归策略类尚未接入后端匹配/部署硬切换链（后端 0 命中 core 注册中心，M6）；② 策略参数（RSI 30/70、2σ、2 ATR 门控等）为构造器默认值，未经 CLEAN 分布校准；③ 版本号仍 v0.1.0，生命周期晋升由 StrategyRegistry 状态机另轮评估；④ 永续/账本/容器镜像/总权益字段阻塞项未在本轮解除；未触 configs/registry.yaml/mt5/密钥/实盘资金路径。
 
 ### #307 统一保护裁决编排入口 decide_protection ✅ 已完成
 - **完成时间**：2026-11-12
@@ -223,7 +229,7 @@
 | T2 | API认证token问题 | ⏳ 待修复 | 开发环境下API返回401，需要跳过认证 |
 | T3 | 飞书云文档/Wiki同步 | ⏳ 待做 | 文档只在本地和Gitee |
 | T4 | 数据库真实K线数据导入 | ⏳ 待做 | PostgreSQL还没导入历史数据 |
-| T5 | 下单失败原因排查 | ⏳ 待做 | "All operations failed"，需查OKX现货参数 |
+| T5 | 现货下单链路 | ✅ 现货闭环 / ⏳ 永续阻塞 | 现货 demo 小额往返冒烟闭环（#298/#300）；永续开仓被 demo 简单账户 `acctLv=1` fail-closed 拦截（`OKX_SWAP_ACCOUNT_MODE_REQUIRED`），需账户模式决策 |
 | T6 | core 纯函数有限性守卫旁路 | ⏳ 待接线 | 已加固风控/仓位/路由/撮合/组合/止损/选择器/策略/模型/成本/执行引擎活路径（#185–#197）：NaN/inf/负/0 在边界显式失败。未加固旁路：lifecycle `WatchThresholds`/`LaunchCriteria` 与 metrics 容错、verification_middleware 阈值、drift_monitor、stress_test、容错归一 pretrade_gate——适配器未接线（#154/#155），非法值当前 fail-closed 或仅影响建议、不放大敞口；待适配器接线时在适配器/冻结配置层补 finite/区间校验 |
 
 ---
@@ -278,7 +284,7 @@
 | # | 事项 | 真实状态 | 下一步动作 |
 |---|------|----------|-----------|
 | P0-1 | **nginx upstream 502 修复**：前端容器 nginx 配 `backend:5000`，但 docker 网络里后端 DNS 别名只有 `quantdinger-backend`，导致 `/api/*` 全 502，登录/核心引擎/K线全部不可用 | ✅ 已完成（2026-10-31 复测：nginx `set $backend_upstream http://quantdinger-backend:5000`，`:5000` 与 `:8888` 健康检查均 200） | 已修复；每次前端容器重启后需重跑 `sed` 改 upstream + `nginx -s reload`（官方镜像会回滚配置） |
-| P0-2 | **OKX 下单失败排查**：`"All operations failed"`，疑似 tdMode / 现货参数 / clientOrderId 问题 | 🔄 进行中（网络阻塞已解除：容器内直连 OKX `{"code":"0"}`；剩参数/业务根因，后台子任务排查中） | 用最小手数（10 USDT）在 DEMO 账户复现，打 OKX 官方错误码文档对照；先 `POST /api/okx/account/balance` 确认账户模式（cash / single/margin） |
+| P0-2 | **OKX 下单链路**：原 `"All operations failed"` / tdMode / 现货参数问题 | ✅ 现货闭环（#295/#297/#298/#299/#300：持仓口径、数量换算、现货往返冒烟、symbol 归一化）；⏳ 永续阻塞于 demo `acctLv=1` 简单账户模式 | 现货维持最小手数复测；永续需先在 demo 切保证金账户模式或策略只跑现货（账户模式决策待拍板）；容器镜像尚未含本轮改动，端到端下单待容器复验 |
 | P0-3 | **API 认证 token 401**：开发环境下 `/api/dashboard/summary` 等已鉴权接口返回 401，导致前端持仓面板即使 API 通了也没数据 | ✅ 已完成（登录 `POST /api/auth/login` → `data.token`，Bearer 访问 dashboard/summary 200） | 已修复；官方镜像不支持 `SKIP_AUTH` 环境变量，鉴权必须走登录拿 token |
 | P0-4 | **前端容器实环境验证 P2 六卡片 + 真实 K 线接入**：本地源码已改（p2-panel-completion），但通过 `:8888` 代理请求 6 个 P1/P2 端点在本机全部 5s 超时 | 🔄 进行中（P0-1 已修复 + 网络已恢复，后台子任务容器验证中） | 重启前端容器 `docker restart quantdinger-frontend`，强刷浏览器，逐卡片看状态灯是否点亮（健康服务 / 拥挤度 / 可观测性 / CI-CD） |
 | P0-5 | **本地直连 OKX API 被墙**：curl 退出码 7，`www.okx.com` 连不通，"联通"结论假阳性 | ✅ 已解除（2026-10-31：宿主机直连 200；容器内经 Docker NAT 亦通 `{"code":"0"}`；代理 127.0.0.1:7890 仍可兜底，wss CONNECT 200） | 直连与代理双通道均已验证；"OKX 链路已通"结论成立 |
@@ -290,7 +296,7 @@
 |---|------|----------|-----------|
 | P1-1 | **策略生命周期后端自动退役逻辑**：前端三级健康度面板已做，后端触发阈值自动停策略+通知+记录原因未实现 | 🔄 进行中（后台子任务在 `core/registry/strategy_registry.py` 实现 `retire_if_health_below(threshold)`） | 阈值由 CLEAN 分布校准，禁止按 PnL 网格搜索；含审计日志与因果守卫（AGENTS.md 不变量） |
 | P1-2 | **五层市场识别接入真实 K 线**：L1-L5 规则版完成但喂的是演示数据 | 🔄 进行中（后台子任务接 OKX kline → 特征化 → 喂 regime.py；容器内 OKX 连通已确认） | 先接 BTCUSD M15 一个品种跑通，再扩展 |
-| P1-3 | **`demo_mean_reversion` 策略类补实现**：路由表已登记（`implementation_ref=(未实现)`），但代码库无对应策略类 | 🔄 进行中（后台子任务在 `core/strategies/` 实现 `mean_reversion.py`） | 按 RSI(14) + 布林带(20,2σ) 反向开仓；写单测覆盖 |
+| P1-3 | **均值回归策略类**：原路由表 `implementation_ref=(未实现)`、代码库无对应类 | ✅ 已落地并挂接（`core/strategies/mean_reversion.py`：RSI(14 Wilder)+布林(20,2σ)+非强趋势门控+Wilder ATR+因果窗口守卫；单测 `tests/test_strategies/test_mean_reversion.py`，#260；`strategy_router.py` 占位条目 ref 已指向真实类、params 键对齐构造器） | 策略类未接入后端匹配/部署硬切换链；参数阈值待 CLEAN 分布校准；版本号仍 v0.1.0，生命周期晋升由 StrategyRegistry 状态机另轮评估 |
 | P1-4 | **路由权重表分布校准**：当前 4×3 权重表是定性配置，未经 CLEAN 分布驱动 | ❌ 未开始 | 跑 `python scripts/calibrate_regime.py --mode distribution`，用输出分位替换 `strategy_router.py` 里硬编码权重；改前 ADR 留档 |
 | P1-5 | **StrategyMatcher × StrategyWeightRouter 集成**：两层目前独立（一个打分排序、一个出资金权重） | ❌ 未开始 | 让 Matcher 输出 top-N 排名 → WeightRouter 对 top-N 输出归一化权重；其他策略权重归零 |
 | P1-6 | **前端 axios 响应拦截器容错**：502 时把 nginx HTML 原文塞给用户（P1-1 bug） | ❌ 未开始 | 拦截器里判断 `Content-Type`，非 JSON 时统一提示"服务暂时不可用 (HTTP 5xx)"，不暴露 HTML |

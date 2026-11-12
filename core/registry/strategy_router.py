@@ -225,8 +225,8 @@ def build_demo_router() -> StrategyWeightRouter:
         description="海龟突破初级信号 + 逻辑回归 meta-label 过滤（López de Prado 架构）",
     ))
 
-    # 3) 均值回归策略（路由占位：尚无完整策略类实现）
-    #    震荡市/低波市权重高，趋势市低
+    # 3) 均值回归策略（RSI/布林带极值 + 非强趋势门控）
+    #    震荡市/低波市权重高，趋势市低；实现见 core.strategies.mean_reversion
     router.register(StrategyDescriptor(
         name="demo_mean_reversion",
         version="v0.1.0",
@@ -239,11 +239,17 @@ def build_demo_router() -> StrategyWeightRouter:
         symbols=("EURUSD",),
         params={
             "rsi_period": 14,
-            "bollinger_period": 20,
+            "bb_period": 20,
+            "bb_sigma": 2.0,
+            "sma_period": 50,
+            "atr_period": 14,
+            "entry_dist_mult": 2.0,
+            "trend_dist_max": 2.0,
+            "max_hold_bars": 24,
         },
         stop_loss_type="bollinger_band",
-        implementation_ref="(未实现；gatekeeper 模拟数据 type=mean_reversion)",
-        description="均值回归（RSI/布林带反向）—— 路由占位，尚未有可交易实现",
+        implementation_ref="core.strategies.mean_reversion:MeanReversionStrategy",
+        description="均值回归（RSI(14 Wilder)+布林(20,2σ) 极值；价格离慢均线 <2 ATR 才逆势）",
     ))
 
     return router
