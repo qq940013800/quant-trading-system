@@ -97,6 +97,11 @@
 
 ## ✅ 已完成（最近更新，按时间倒序）
 
+### #307 统一保护裁决编排入口 decide_protection ✅ 已完成
+- **完成时间**：2026-11-12
+- **内容**：`core/risk/protection.py` 新增 `decide_protection` 编排入口，把 `stops` 四级止损与吊灯/分批/回吐三类裁决组合为单一裁决，统一输出 `ProtectionDecision` 快照。优先级：信号/时间止损平仓 > 利润回吐清剩余 > 分批止盈减仓 > 吊灯/跟踪/保本收紧止损 > 持有；止损判定与三类裁决全部复用既有纯函数，单调不变量走 `update_stop`；审计快照携带入场冻结值、当前 R、峰值、剩余比例等可回放上下文。`core/risk/__init__.py` 导出 `decide_protection`。单测补 10 例（信号/时间/回吐/分批/吊灯/跟踪/持有/回吐优先于分批/吊灯未激活回落/审计字段）；`tests/test_risk` 289 passed，risk+audit 457 passed 无回归。
+- **剩余风险/未验证**：① 编排入口尚未被后端服务层调用，三套后端口径（risk_engine 冻结 ATR/R、strategy_v2 百分比、native_protection 原生单）的适配映射留待后续切片；② 加仓后峰值重定基准、分批与吊灯并存时的状态合并仍未实现；③ 阈值数值未做分布校准（占位默认，入 `configs/` 需人审）；④ 未触 configs/registry/mt5/风控阈值常量/密钥/实盘资金路径。
+
 ### #306 持仓保护裁决纯函数底座：吊灯/分批止盈/利润回吐 ✅ 已完成
 - **完成时间**：2026-11-12
 - **内容**：`core/risk/protection.py`：在 `stops.py` 四级止损之外补齐研究层缺失的三类保护裁决纯函数——① 吊灯退出（峰值 ± 冻结 `atr0×mult`，仅当候选价优于当前止损才返回，不放宽风险；激活态由编排层判断）；② 分批止盈（规则档 `level_r/ratio`，同 bar 只推进首个未完成级别，剩余比例相乘，完成标记不重复减仓）；③ 利润回吐保护（峰值利润回撤 ≥ `retracement_pct` 且当前仍盈利、`r≥min_r` 才触发清剩余）；`ProtectionDecision` 统一审计快照（`action/source/new_stop/reduce_ratio/close/audit`）。阈值参数由调用方按分布校准传入，底座不写死经验数值；纯函数、无副作用、不持有资金、不下单。`core/risk/__init__.py` 导出新符号。单测 `tests/test_risk/test_protection.py` 32 例；`tests/test_risk` 279 passed，risk+audit 447 passed 无回归。

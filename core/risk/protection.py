@@ -16,6 +16,14 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
+from .stops import (
+    StopState,
+    StopConfig,
+    evaluate_stops,
+    compute_current_r,
+    update_stop,
+)
+
 
 def _finite(name: str, val: float) -> float:
     v = float(val)
@@ -188,3 +196,138 @@ class ProtectionDecision:
         if not isinstance(self.close, bool):
             raise ValueError({"layer": "risk.protection", "detail":
                               f"close must be bool, got {self.close!r}"})
+
+
+# ------------------------------------------------------------------
+# 统一保护裁决编排入口
+# ------------------------------------------------------------------
+def decide_protection(
+    state: StopState,
+    config: StopConfig,
+    current_price: float,
+    signal_reversed: bool = False,
+    *,
+    peak_price: float | None = None,
+    peak_profit: float | None = None,
+    current_profit: float | None = None,
+    chandelier_atr_mult: float | None = None,
+    trailing_activated: bool = False,
+    scale_rules: list[ScaleOutRule] | None = None,
+    scale_done: list[bool] | None = None,
+    remaining_ratio: float = 1.0,
+    retracement_pct: float | None = None,
+    retracement_min_r: float = 1.0,
+    symbol: str = "",
+    ts_utc: str = "",
+) -> ProtectionDecision:
+    """统一保护裁决编排：组合四级止损与吊灯/分批/回吐保护，输出审计快照。
+
+    优先级（从高到低）：信号/时间止损平仓 > 利润回吐清剩余 > 分批止盈减仓
+    > 吊灯/跟踪/保本收紧止损 > 持有。
+
+    纯函数编排：止损判定与三类保护裁决全部复用既有纯函数；本函数不持有资金、
+    不下单、不写库。跟踪/吊灯是否启用由编排层经 ``trailing_activated`` 与可选
+    参数传入；阈值参数由调用方按分布校准，底座不写死经验数值。
+
+    Args:
+        state: 止损状态（``evaluate_stops`` 就地刷新 max_favorable_r/current_stop）。
+        config: 止损配置（分布校准产物）。
+        current_price: 当前已收盘 bar 价格。
+        signal_reversed: 入场信号是否反转。
+        peak_price: 持仓峰值价（吊灯用）；None 则不评估吊灯。
+        peak_profit/current_profit: 峰值/当前浮动盈亏（回吐保护用）。
+        chandelier_atr_mult: 吊灯 ATR 倍数；None 则不评估吊灯。
+        trailing_activated: 跟踪止损是否已激活（吊灯启用前提）。
+        scale_rules/scale_done/remaining_ratio: 分批规则、完成标记、剩余比例。
+        retracement_pct: 回吐容忍比例；None 则不评估回吐保护。
+        retracement_min_r: 回吐保护启用的最低 R。
+    """
+    should_exit, new_stop, stop_type = evaluate_stops(
+        state, config, current_price, signal_reversed, symbol, ts_utc,
+    )
+    r_current = compute_current_r(
+        state.entry_price, state.direction, current_price, state.entry_dist,
+    )
+    audit: dict = {
+        "symbol": symbol,
+        "ts_utc": str(ts_utc),
+        "entry_price": state.entry_price,
+        "direction": state.direction,
+        "entry_atr": state.entry_atr,
+        "entry_dist": state.entry_dist,
+        "current_price": current_price,
+        "r_current": r_current,
+        "max_favorable_r": state.max_favorable_r,
+        "bars_held": state.bars_held,
+        "remaining_ratio": remaining_ratio,
+    }
+    stop_source = stop_type.value if stop_type is not None else "stop"
+
+    # 1. 信号 / 时间止损：平仓（最高优先级）
+    if should_exit:
+        audit["stop_type"] = stop_source
+        return ProtectionDecision(
+            action="close", source=stop_source, new_stop=None,
+            reduce_ratio=0.0, close=True, audit=audit,
+        )
+
+    # 2. 利润回吐保护：清剩余
+    if retracement_pct is not None and peak_profit is not None \
+            and current_profit is not None:
+        if evaluate_profit_retracement(
+            current_profit, peak_profit, r_current,
+            retracement_min_r, retracement_pct,
+        ):
+            audit["peak_profit"] = peak_profit
+            audit["current_profit"] = current_profit
+            return ProtectionDecision(
+                action="close", source="profit_retracement",
+                new_stop=None, reduce_ratio=0.0, close=True, audit=audit,
+            )
+
+    # 3. 分批止盈：减仓（可与止损收紧并存，action 取 reduce）
+    if scale_rules:
+        done = list(scale_done) if scale_done else [False] * len(scale_rules)
+        scale_result = evaluate_scale_out(
+            r_current, scale_rules, done, remaining_ratio,
+        )
+        if scale_result.triggered:
+            audit["new_remaining_ratio"] = scale_result.remaining_ratio
+            audit["scale_out_done"] = scale_result.done
+            return ProtectionDecision(
+                action="reduce", source="scale_out",
+                new_stop=new_stop,
+                reduce_ratio=scale_result.reduce_ratio,
+                close=False, audit=audit,
+            )
+
+    # 4. 吊灯退出（跟踪激活后；候选须优于既有止损才覆盖）
+    existing_stop = new_stop if new_stop is not None else state.current_stop
+    if trailing_activated and chandelier_atr_mult is not None \
+            and peak_price is not None:
+        cand = evaluate_chandelier(
+            peak_price, state.direction, state.entry_atr,
+            chandelier_atr_mult, existing_stop,
+        )
+        if cand is not None:
+            cand = update_stop(existing_stop, cand, state.direction, symbol, ts_utc)
+            state.current_stop = cand
+            audit["peak_price"] = peak_price
+            return ProtectionDecision(
+                action="move_stop", source="chandelier",
+                new_stop=cand, reduce_ratio=0.0, close=False, audit=audit,
+            )
+
+    # 5. 既有跟踪 / 保本止损收紧
+    if new_stop is not None:
+        audit["stop_type"] = stop_source
+        return ProtectionDecision(
+            action="move_stop", source=stop_source, new_stop=new_stop,
+            reduce_ratio=0.0, close=False, audit=audit,
+        )
+
+    # 6. 持有
+    return ProtectionDecision(
+        action="hold", source=None, new_stop=None,
+        reduce_ratio=0.0, close=False, audit=audit,
+    )
