@@ -98,6 +98,11 @@
 
 ## ✅ 已完成（最近更新，按时间倒序）
 
+### #314 退役联合裁决纯编排接缝与单测 ✅ 已完成
+- **完成时间**：2026-11-12
+- **内容**：`core/experiment/retirement_arbitration.py` 新增 `arbitrate_retirement(*, health_score, health_threshold, lifecycle_recommendation=None, lifecycle_reasons=None, health_warn_line=None)`：合并健康分阈值线与 lifecycle `recommend_retirement` 建议，输出 `RetirementArbitration`（decision=retire/watch/keep、合并原因码、健康分/阈值/观察带、lifecycle 建议、审计 flags）。判定：retire=健康分低于硬阈值或 lifecycle retire；watch=健康分落在观察带 `[threshold, warn_line)` 或 lifecycle watch；其余 keep；retire 优先于 watch；原因码去重保序。纯函数无 IO/不读 DB/不下单；阈值全部入参，模块不写业务默认；鸭子类型解耦（只接收建议串与原因码序列，不 import `RetirementRecommendation`）；模块不反向依赖 registry，无循环耦合。退役状态机迁移仍由编排层调 `retire_if_health_below` 落地。单测 20 例（keep/双 retire 路径/观察带 watch/lifecycle watch/优先级/原因码去重/to_dict/守卫参数化）。experiment+registry+audit 501 passed 无回归。
+- **剩余风险/未验证**：① 联合裁决尚未在编排进程/后端接线（纯接缝已就位）；② 硬门禁否决（DSR>0/PBO/交易数下限）未并入本裁决，另走上线门禁；③ 观察带/硬阈值未做 CLEAN 分布校准，入 `configs/` 需人审；④ 未触 configs/registry.yaml/mt5/风控阈值常量/密钥/实盘资金路径。
+
 ### #313 S4 保本/时间止损口径逐行核对回填 ✅ 已完成
 - **完成时间**：2026-11-12
 - **内容**：只读逐行核对 `core/risk/stops.py` 与后端 V2 `strategy_v2/protection.py`。保本：core 1.0R 激活 + `offset_r×entry_dist` 偏移；risk_engine 0.5R 激活 + 价格百分比 buffer；V2 无保本能力（缺口非分歧）。时间止损：core `bars_held≥max_holding_bars 且 max_favorable_r<breakeven_r` 双门控；V2 纯墙钟秒数到即平。分裂点回填 `protection-layers-reconciliation.md` S4；risk_engine 时间止损仍未逐行核，列未验证。未改后端、未动阈值常量。
@@ -318,7 +323,7 @@
 
 | # | 事项 | 真实状态 | 下一步动作 |
 |---|------|----------|-----------|
-| P1-1 | **策略生命周期后端自动退役逻辑**：前端三级健康度面板已做，后端触发阈值自动停策略+通知+记录原因未实现 | 🔄 部分落地（#311：core `StrategyRegistry.retire_if_health_below` 退役裁决纯方法；#312：`health_score_from_snapshot` 快照→[0,1] 健康分桥接，复用 `score_health` 口径，鸭子类型解耦 audit↔registry） | 剩余：硬门禁否决（DSR>0/PBO/交易数下限）另走 lifecycle `recommend_retirement`；后端通知/回调由编排层读 `retirement_log` 触发；评分阈值未做 CLEAN 分布校准，入 `configs/` 需人审 |
+| P1-1 | **策略生命周期后端自动退役逻辑**：前端三级健康度面板已做，后端触发阈值自动停策略+通知+记录原因未实现 | 🔄 部分落地（#311：core `StrategyRegistry.retire_if_health_below` 退役裁决纯方法；#312：`health_score_from_snapshot` 快照→[0,1] 健康分桥接；#314：`retirement_arbitration.arbitrate_retirement` 健康分×生命周期建议联合裁决纯编排接缝） | 剩余：硬门禁否决（DSR>0/PBO/交易数下限）另走 lifecycle/上线门禁；后端通知/回调由编排层读 `retirement_log` 触发；联合裁决尚未在编排进程接线；评分/观察带阈值未做 CLEAN 分布校准，入 `configs/` 需人审 |
 | P1-2 | **五层市场识别接入真实 K 线**：L1-L5 规则版完成但喂的是演示数据 | 🔄 进行中（后台子任务接 OKX kline → 特征化 → 喂 regime.py；容器内 OKX 连通已确认） | 先接 BTCUSD M15 一个品种跑通，再扩展 |
 | P1-3 | **均值回归策略类**：原路由表 `implementation_ref=(未实现)`、代码库无对应类 | ✅ 已落地并挂接（`core/strategies/mean_reversion.py`：RSI(14 Wilder)+布林(20,2σ)+非强趋势门控+Wilder ATR+因果窗口守卫；单测 `tests/test_strategies/test_mean_reversion.py`，#260；`strategy_router.py` 占位条目 ref 已指向真实类、params 键对齐构造器） | 策略类未接入后端匹配/部署硬切换链；参数阈值待 CLEAN 分布校准；版本号仍 v0.1.0，生命周期晋升由 StrategyRegistry 状态机另轮评估 |
 | P1-4 | **路由权重表分布校准**：当前 4×3 权重表是定性配置，未经 CLEAN 分布驱动 | ❌ 未开始 | 跑 `python scripts/calibrate_regime.py --mode distribution`，用输出分位替换 `strategy_router.py` 里硬编码权重；改前 ADR 留档 |

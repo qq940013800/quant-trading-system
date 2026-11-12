@@ -1,0 +1,123 @@
+# -*- coding: utf-8 -*-
+"""tests.test_experiment.test_retirement_arbitration —— 退役联合裁决接缝测试。"""
+from __future__ import annotations
+
+import pytest
+
+from core.experiment.retirement_arbitration import (
+    RETIRE_LOW_HEALTH,
+    WATCH_LOW_HEALTH,
+    DECISION_KEEP,
+    DECISION_WATCH,
+    DECISION_RETIRE,
+    arbitrate_retirement,
+)
+
+
+class TestArbitrateRetirement:
+    def test_keep_when_healthy_and_lifecycle_keep(self):
+        rec = arbitrate_retirement(
+            health_score=0.85, health_threshold=0.5,
+            lifecycle_recommendation=DECISION_KEEP,
+        )
+        assert rec.decision == DECISION_KEEP
+        assert rec.reasons == []
+        assert rec.flags["below_threshold"] == 0.0
+        assert rec.flags["in_warn_band"] == 0.0
+
+    def test_keep_when_no_lifecycle_line(self):
+        rec = arbitrate_retirement(health_score=0.7, health_threshold=0.5)
+        assert rec.decision == DECISION_KEEP
+        assert rec.lifecycle_recommendation is None
+
+    def test_retire_on_low_health(self):
+        rec = arbitrate_retirement(
+            health_score=0.30, health_threshold=0.5,
+            lifecycle_recommendation=DECISION_KEEP,
+        )
+        assert rec.decision == DECISION_RETIRE
+        assert RETIRE_LOW_HEALTH in rec.reasons
+        assert rec.flags["below_threshold"] == 1.0
+
+    def test_retire_on_lifecycle_recommend_even_if_healthy(self):
+        rec = arbitrate_retirement(
+            health_score=0.90, health_threshold=0.5,
+            lifecycle_recommendation=DECISION_RETIRE,
+            lifecycle_reasons=["retire_prolonged_decay"],
+        )
+        assert rec.decision == DECISION_RETIRE
+        assert "retire_prolonged_decay" in rec.reasons
+        # 健康分达标，不应附加低健康原因码
+        assert RETIRE_LOW_HEALTH not in rec.reasons
+
+    def test_watch_on_health_warn_band(self):
+        rec = arbitrate_retirement(
+            health_score=0.55, health_threshold=0.5,
+            health_warn_line=0.7,
+            lifecycle_recommendation=DECISION_KEEP,
+        )
+        assert rec.decision == DECISION_WATCH
+        assert WATCH_LOW_HEALTH in rec.reasons
+        assert rec.flags["in_warn_band"] == 1.0
+
+    def test_watch_on_lifecycle_watch_even_if_healthy(self):
+        rec = arbitrate_retirement(
+            health_score=0.88, health_threshold=0.5,
+            lifecycle_recommendation=DECISION_WATCH,
+            lifecycle_reasons=["decay_sharpe_down"],
+        )
+        assert rec.decision == DECISION_WATCH
+        assert "decay_sharpe_down" in rec.reasons
+
+    def test_retire_outranks_watch(self):
+        # 生命周期 retire 时，即使健康分处于观察带也判 retire
+        rec = arbitrate_retirement(
+            health_score=0.55, health_threshold=0.5,
+            health_warn_line=0.7,
+            lifecycle_recommendation=DECISION_RETIRE,
+            lifecycle_reasons=["retire_structural_break"],
+        )
+        assert rec.decision == DECISION_RETIRE
+
+    def test_reasons_dedup_preserve_order(self):
+        rec = arbitrate_retirement(
+            health_score=0.20, health_threshold=0.5,
+            lifecycle_reasons=["decay_sharpe_down", "decay_sharpe_down",
+                                "decay_drawdown_excess"],
+        )
+        assert rec.reasons == [
+            RETIRE_LOW_HEALTH, "decay_sharpe_down", "decay_drawdown_excess",
+        ]
+
+    def test_to_dict_shape(self):
+        rec = arbitrate_retirement(health_score=0.4, health_threshold=0.5)
+        d = rec.to_dict()
+        assert d["decision"] == DECISION_RETIRE
+        assert d["health_score"] == 0.4
+        assert d["health_threshold"] == 0.5
+        assert "flags" in d and "reasons" in d
+
+
+class TestArbitrationGuards:
+    @pytest.mark.parametrize("score", [-0.1, 1.2, float("nan"), float("inf"), "x"])
+    def test_invalid_health_score_raises(self, score):
+        with pytest.raises(ValueError):
+            arbitrate_retirement(health_score=score, health_threshold=0.5)
+
+    @pytest.mark.parametrize("cutoff", [-0.2, 1.5, None, True])
+    def test_invalid_threshold_raises(self, cutoff):
+        with pytest.raises(ValueError):
+            arbitrate_retirement(health_score=0.6, health_threshold=cutoff)
+
+    def test_warn_line_below_threshold_raises(self):
+        with pytest.raises(ValueError):
+            arbitrate_retirement(
+                health_score=0.6, health_threshold=0.5, health_warn_line=0.4,
+            )
+
+    def test_unknown_lifecycle_recommendation_raises(self):
+        with pytest.raises(ValueError):
+            arbitrate_retirement(
+                health_score=0.7, health_threshold=0.5,
+                lifecycle_recommendation="liquidate",
+            )
