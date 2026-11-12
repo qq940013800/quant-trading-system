@@ -383,3 +383,71 @@ class TestStrategyVersionGuards:
         sv = _sv(parent_version="v0.9.0", performance=PerformanceSnapshot())
         assert sv.strategy_id == "trend_breakout"
         assert sv.performance is not None
+
+
+class TestRetirement:
+    def _paper(self) -> tuple[StrategyRegistry, StrategyVersion]:
+        registry = StrategyRegistry()
+        sv = _sv()
+        sv.update_status(StrategyStatus.BACKTEST)
+        sv.update_status(StrategyStatus.PAPER)
+        registry.register(sv)
+        return registry, sv
+
+    def test_retire_when_score_below_threshold(self):
+        registry, sv = self._paper()
+        retired = registry.retire_if_health_below(
+            "trend_breakout", "v1.0.0",
+            health_score=0.3, threshold=0.5, reason="红灯持续两期",
+        )
+        assert retired is True
+        assert sv.status == StrategyStatus.RETIRED
+        assert len(registry.retirement_log) == 1
+        entry = registry.retirement_log[0]
+        assert entry["from_status"] == "paper"
+        assert entry["to_status"] == "retired"
+        assert entry["health_score"] == 0.3
+        assert entry["threshold"] == 0.5
+        assert entry["reason"] == "红灯持续两期"
+
+    def test_no_retire_when_score_above_threshold(self):
+        registry, sv = self._paper()
+        retired = registry.retire_if_health_below(
+            "trend_breakout", "v1.0.0", health_score=0.8, threshold=0.5)
+        assert retired is False
+        assert sv.status == StrategyStatus.PAPER
+        assert registry.retirement_log == []
+
+    def test_unknown_strategy_fails(self):
+        registry, _ = self._paper()
+        with pytest.raises(ValueError, match="未注册"):
+            registry.retire_if_health_below(
+                "ghost", "v9.9.9", health_score=0.1, threshold=0.5)
+
+    def test_draft_not_retirable(self):
+        registry = StrategyRegistry()
+        sv = _sv()
+        registry.register(sv)
+        with pytest.raises(ValueError, match="不可退役"):
+            registry.retire_if_health_below(
+                "trend_breakout", "v1.0.0", health_score=0.1, threshold=0.5)
+
+    def test_retired_is_terminal_no_double_log(self):
+        registry, sv = self._paper()
+        assert registry.retire_if_health_below(
+            "trend_breakout", "v1.0.0", health_score=0.2, threshold=0.5) is True
+        # 终态再调用不重复写日志
+        assert registry.retire_if_health_below(
+            "trend_breakout", "v1.0.0", health_score=0.1, threshold=0.5) is False
+        assert len(registry.retirement_log) == 1
+
+    @pytest.mark.parametrize("bad_score,bad_threshold", [
+        (1.5, 0.5), (-0.2, 0.5), (0.5, 1.2), (float("nan"), 0.5),
+        (True, 0.5), (0.5, False),
+    ])
+    def test_score_threshold_unit_guard(self, bad_score, bad_threshold):
+        registry, _ = self._paper()
+        with pytest.raises(ValueError):
+            registry.retire_if_health_below(
+                "trend_breakout", "v1.0.0",
+                health_score=bad_score, threshold=bad_threshold)

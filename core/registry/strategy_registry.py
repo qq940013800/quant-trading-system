@@ -292,6 +292,76 @@ class StrategyRegistry:
         """按状态筛选策略。"""
         return [s for s in self._strategies.values() if s.status == status]
 
+    def retire_if_health_below(
+        self,
+        strategy_id: str,
+        version: str,
+        *,
+        health_score: float,
+        threshold: float,
+        reason: str = "",
+    ) -> bool:
+        """健康分低于阈值则自动退役（状态机迁移 + 审计日志）。
+
+        健康分由上游（RES / 门禁底座）按 CLEAN 分布与蓝图准则计算后传入；
+        注册表不自行从绩效快照合成健康分，避免把绩效网格搜索塞进注册层。
+        通知/回调由编排层读取 ``retirement_log`` 触发；本方法不持有资金、不下单。
+
+        Args:
+            strategy_id: 策略 ID。
+            version: 版本号。
+            health_score: 外部计算的健康分，∈ [0,1]，越高越健康。
+            threshold: 退役阈值，∈ [0,1]；``health_score < threshold`` 触发退役。
+            reason: 退役原因（审计留痕）。
+
+        Returns:
+            是否触发了退役。
+        """
+        sid = _nonempty_str("strategy_id", strategy_id)
+        ver = _nonempty_str("version", version)
+
+        def _unit(name: str, val: object) -> float:
+            if isinstance(val, bool) or not isinstance(val, (int, float)) \
+                    or not math.isfinite(val):
+                raise ValueError(f"{name} 必须为有限数值，收到 {val!r}")
+            v = float(val)
+            if not (0.0 <= v <= 1.0):
+                raise ValueError(f"{name} 必须在 [0,1] 内，收到 {v!r}")
+            return v
+
+        score = _unit("health_score", health_score)
+        cutoff = _unit("threshold", threshold)
+
+        sv = self.get(sid, ver)
+        if sv is None:
+            raise ValueError(f"策略版本未注册: {sid}:{ver}")
+
+        if sv.status == StrategyStatus.RETIRED:
+            return False
+
+        if sv.status not in self.RETIRABLE_FROM:
+            raise ValueError(
+                f"状态 {sv.status.value} 不可退役；"
+                f"可退役状态: {[s.value for s in self.RETIRABLE_FROM]}"
+            )
+
+        if score >= cutoff:
+            return False
+
+        from_status = sv.status
+        sv.update_status(StrategyStatus.RETIRED)
+        self.retirement_log.append({
+            "strategy_id": sid,
+            "version": ver,
+            "from_status": from_status.value,
+            "to_status": StrategyStatus.RETIRED.value,
+            "health_score": score,
+            "threshold": cutoff,
+            "reason": str(reason),
+            "evaluated_at": datetime.now().isoformat(),
+        })
+        return True
+
     def compare_versions(self, id1: str, v1: str, id2: str, v2: str) -> dict:
         """对比两个策略版本。
 
