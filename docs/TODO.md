@@ -98,6 +98,11 @@
 
 ## ✅ 已完成（最近更新，按时间倒序）
 
+### #320 pretrade_gate 入参有限性兜底守卫补强 ✅ 已完成
+- **完成时间**：2026-11-13
+- **内容**：`core/execution/pretrade_gate.py` `_nonneg/_positive` 原仅做非负归一，inf 会被保留，限额全 0（禁用）时 inf 名义敞口可被 fail-open 放行；改为非有限值（NaN/inf）一律归一为 0，非法类型/字符串/None 兜底口径不变。补 3 例边界单测：inf 数量归 0 不产生 inf 敞口、NaN 价格判缺失留痕、inf 杠杆回落默认 1.0。execution 136 passed、risk+integration 293 passed 无回归。
+- **剩余风险/未验证**：未改限额阈值、violation 码与决策语义；适配器侧取数/冻结注入口径另轮核对；未触 configs/registry.yaml/mt5/实盘路径。
+
 ### #319 三重验证落地口径复核回填 ✅ 已完成
 - **完成时间**：2026-11-13
 - **内容**：复核 `core/backtest/overfitting.py` 与 `tests/test_backtest/test_overfitting.py`，确认 PBO/CSCV、CPCV、Deflated Sharpe、诊断评分卡纯函数底座已落地（31 方法/52 用例全绿）；回填 TODO P1-8、P2-4 过期"未开始"口径，区分算法底座已落地与门禁接线/档位校准待门。未改代码行为、未触阈值与 REJECT 语义。
@@ -279,7 +284,7 @@
 | T3 | 飞书云文档/Wiki同步 | ⏳ 待做 | 文档只在本地和Gitee |
 | T4 | 数据库真实K线数据导入 | ⏳ 待做 | PostgreSQL还没导入历史数据 |
 | T5 | 现货下单链路 | ✅ 现货闭环 / ⏳ 永续阻塞 | 现货 demo 小额往返冒烟闭环（#298/#300）；永续开仓被 demo 简单账户 `acctLv=1` fail-closed 拦截（`OKX_SWAP_ACCOUNT_MODE_REQUIRED`），需账户模式决策 |
-| T6 | core 纯函数有限性守卫旁路 | ⏳ 待接线 | 已加固风控/仓位/路由/撮合/组合/止损/选择器/策略/模型/成本/执行引擎活路径（#185–#197）：NaN/inf/负/0 在边界显式失败。未加固旁路：lifecycle `WatchThresholds`/`LaunchCriteria` 与 metrics 容错、verification_middleware 阈值、drift_monitor、stress_test、容错归一 pretrade_gate——适配器未接线（#154/#155），非法值当前 fail-closed 或仅影响建议、不放大敞口；待适配器接线时在适配器/冻结配置层补 finite/区间校验 |
+| T6 | core 纯函数有限性守卫旁路 | ⏳ 待接线 | 已加固风控/仓位/路由/撮合/组合/止损/选择器/策略/模型/成本/执行引擎活路径（#185–#197）：NaN/inf/负/0 在边界显式失败。未加固旁路：lifecycle `WatchThresholds`/`LaunchCriteria` 与 metrics 容错、drift_monitor 容错归一——适配器未接线（#154/#155），非法值当前 fail-closed 或仅影响建议、不放大敞口；待适配器接线时在适配器/冻结配置层补 finite/区间校验。pretrade_gate 入参有限性兜底已于 #320 加固（NaN/inf 归一为 0）。 |
 
 ---
 

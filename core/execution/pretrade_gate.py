@@ -11,6 +11,7 @@ violation 码前缀保持 ``accountRisk.``。限额为 0 表示该约束不启�
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Optional
 
@@ -23,7 +24,9 @@ def _nonneg(value: Any) -> float:
         v = float(value or 0.0)
     except (TypeError, ValueError):
         return 0.0
-    return v if v > 0 else 0.0
+    if not math.isfinite(v) or v <= 0:
+        return 0.0
+    return v
 
 
 def _positive(value: Any, default: float = 0.0) -> float:
@@ -31,7 +34,9 @@ def _positive(value: Any, default: float = 0.0) -> float:
         v = float(value or 0.0)
     except (TypeError, ValueError):
         return _nonneg(default)
-    return v if v > 0 else _nonneg(default)
+    if not math.isfinite(v) or v <= 0:
+        return _nonneg(default)
+    return v
 
 
 @dataclass(frozen=True)

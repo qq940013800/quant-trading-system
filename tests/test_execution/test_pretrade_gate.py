@@ -2,6 +2,8 @@
 """tests.test_execution.test_pretrade_gate —— 统一 pre-trade 风控闸单测。"""
 from __future__ import annotations
 
+import math
+
 import pytest
 
 from core.execution.pretrade_gate import (
@@ -157,6 +159,41 @@ def test_invalid_inputs_tolerated():
     )
     assert risk.gross_notional == 0.0
     assert risk.allowed is True
+
+
+def test_infinite_quantity_normalized_to_zero():
+    # inf 数量不得产生 inf 名义敞口；限额禁用时也不得 fail-open 放行 inf 仓位
+    risk = evaluate_risk_limits(
+        _projection(),
+        _proposed(quantity=float("inf"), price=100.0),
+        RiskLimits(),
+    )
+    assert risk.gross_notional == 0.0
+    assert not math.isinf(risk.gross_notional)
+    assert risk.proposed_price_missing is False
+
+
+def test_nan_price_treated_as_missing():
+    # NaN 价格归一为 0；有数量无有效价格须判价格缺失并留痕
+    risk = evaluate_risk_limits(
+        _projection(),
+        _proposed(quantity=10.0, price=float("nan")),
+        RiskLimits(),
+    )
+    assert risk.gross_notional == 0.0
+    assert risk.proposed_price_missing is True
+    assert P + "proposedPriceMissing" in risk.violations
+
+
+def test_infinite_leverage_falls_back_to_default():
+    risk = evaluate_risk_limits(
+        _projection(),
+        _proposed(quantity=10.0, price=100.0, leverage=float("inf")),
+        RiskLimits(),
+    )
+    # leverage 归默认 1.0 → margin = notional = 1000，不产生 inf margin
+    assert risk.margin_estimate == pytest.approx(1000.0)
+    assert not math.isinf(risk.margin_estimate)
 
 
 # ------------------------------------------------- 全量投影直接判定（shadow 对照）
