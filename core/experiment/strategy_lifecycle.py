@@ -404,7 +404,13 @@ class RetirementRecommendation:
 
 def _metric(metrics: dict, key: str) -> Optional[float]:
     value = metrics.get(key)
-    return None if value is None else float(value)
+    if value is None:
+        return None
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return None
+    return v if math.isfinite(v) else None
 
 
 def assess_crowding(metrics: dict,

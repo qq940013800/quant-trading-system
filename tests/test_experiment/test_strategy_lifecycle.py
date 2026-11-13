@@ -174,6 +174,14 @@ class TestAssessCrowding:
         loose = WatchThresholds(min_fill_rate=0.60)
         assert not assess_crowding(m, loose).crowded
 
+    def test_nonfinite_metric_skipped(self):
+        # NaN/inf 指标不进入判定与 flags，等价缺键跳过
+        m = dict(HEALTHY_CROWD, fill_rate=math.nan, slippage_bps=float("inf"))
+        report = assess_crowding(m, WatchThresholds())
+        assert not report.crowded
+        assert "fill_rate" not in report.flags
+        assert "slippage_bps" not in report.flags
+
 
 class TestAssessDecay:
     def test_healthy_not_decayed(self):
@@ -197,6 +205,14 @@ class TestAssessDecay:
     def test_missing_dimensions_are_skipped(self):
         report = assess_decay({"n_trades": 5}, WatchThresholds())
         assert not report.decayed
+
+    def test_nonfinite_metric_skipped(self):
+        m = dict(HEALTHY_DECAY, current_sharpe=math.nan,
+                 current_expectancy=float("inf"))
+        report = assess_decay(m, WatchThresholds())
+        assert not report.decayed
+        assert "sharpe_ratio" not in report.flags
+        assert "current_expectancy" not in report.flags
 
 
 class TestRecommendRetirement:

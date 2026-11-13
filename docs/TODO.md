@@ -98,6 +98,11 @@
 
 ## ✅ 已完成（最近更新，按时间倒序）
 
+### #322 lifecycle metrics 指标有限性容错归一 ✅ 已完成
+- **完成时间**：2026-11-13
+- **内容**：`core/experiment/strategy_lifecycle.py` `_metric` 原 `float(value)` 不校验有限性，metrics 字典里的 NaN/inf 会进入比率与审计 flags；改为不可解析/非有限值返回 None，等价缺键跳过该维度判定。补 2 例单测：拥挤与衰减两侧非有限指标均不进 flags、不误触发原因码。experiment 173 passed、audit+experiment 351 passed 无回归。
+- **剩余风险/未验证**：未改阈值、拥挤/衰减/退役判定语义；n_trades 计数解析仍按调用方传入合法整数契约；未触 configs/registry.yaml/mt5/实盘路径。
+
 ### #321 drift_monitor 收益序列有限性容错归一 ✅ 已完成
 - **完成时间**：2026-11-13
 - **内容**：`core/monitoring/drift_monitor.py` `update()` 原直接 extend 收益序列，NaN/inf/非法值会污染 mean/std/cumsum 与健康分；新增 `_clean_returns` 逐项转浮点并剔除非有限/不可解析项。补 2 例单测：混合非有限/非法项清洗后仅留有限值且统计全有限、全非法留空缓冲不崩。monitoring 41 passed、audit+monitoring 219 passed 无回归。
@@ -289,7 +294,7 @@
 | T3 | 飞书云文档/Wiki同步 | ⏳ 待做 | 文档只在本地和Gitee |
 | T4 | 数据库真实K线数据导入 | ⏳ 待做 | PostgreSQL还没导入历史数据 |
 | T5 | 现货下单链路 | ✅ 现货闭环 / ⏳ 永续阻塞 | 现货 demo 小额往返冒烟闭环（#298/#300）；永续开仓被 demo 简单账户 `acctLv=1` fail-closed 拦截（`OKX_SWAP_ACCOUNT_MODE_REQUIRED`），需账户模式决策 |
-| T6 | core 纯函数有限性守卫旁路 | ⏳ 待接线 | 已加固风控/仓位/路由/撮合/组合/止损/选择器/策略/模型/成本/执行引擎活路径（#185–#197）：NaN/inf/负/0 在边界显式失败。未加固旁路：lifecycle `WatchThresholds`/`LaunchCriteria` 与 metrics 容错——适配器未接线（#154/#155），非法值当前 fail-closed 或仅影响建议、不放大敞口；待适配器接线时在适配器/冻结配置层补 finite/区间校验。pretrade_gate 入参有限性兜底已于 #320 加固（NaN/inf 归一为 0）；drift_monitor 收益序列非有限/非法项已于 #321 剔除归一。 |
+| T6 | core 纯函数有限性守卫旁路 | ⏳ 待接线 | 已加固风控/仓位/路由/撮合/组合/止损/选择器/策略/模型/成本/执行引擎活路径（#185–#197）：NaN/inf/负/0 在边界显式失败。剩余未加固旁路：lifecycle 适配器接线层（#154/#155）——core 侧 WatchThresholds/LaunchCriteria 构造器阈值既往已守卫，metrics 入参非有限/非法项已于 #322 剔除归一；待适配器接线时在适配器/冻结配置层补区间校验。pretrade_gate 入参有限性兜底已于 #320 加固（NaN/inf 归一为 0）；drift_monitor 收益序列非有限/非法项已于 #321 剔除归一。 |
 
 ---
 
