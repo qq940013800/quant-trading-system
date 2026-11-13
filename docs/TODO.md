@@ -77,9 +77,9 @@
 - **现状**：当前只有10个基础因子
 - **需要**：更多弱信号因子（文艺复兴模式：海量弱信号叠加）
 
-### 8. 过拟合防御三重验证算法实现 ⏳ 待做
-- **现状**：框架已建
-- **需要**：PBO/CPCV/Deflated Sharpe具体算法实现
+### 8. 过拟合防御三重验证算法实现 🔄 算法底座已落地，门禁接入待门
+- **现状**：`core/backtest/overfitting.py` 纯函数底座已落地：`compute_sharpe`、`deflated_sharpe_ratio`（DSR 概率 ∈[0,1]，样本<30 返回 0.5）、`probability_of_backtest_overfitting`（CSCV 确定性枚举 PBO）、`combinatorial_purged_cv`、`overfitting_diagnostic` 评分卡；`tests/test_backtest/test_overfitting.py` 31 个测试方法（参数化共 52 用例，含边界/非法入参/确定性无全局 RNG 副作用）。
+- **剩余待门**：诊断评分卡档位阈值（sr>2、dsr 0.5/0.95、ratio 0.5/0.8、score 3/1/-1）为占位默认，未做 CLEAN 分布校准；DSR>0 / 样本外交易数下限接入上线门禁属 REJECT 语义，待人工确认；当前门禁中间件 `_check_overfitting` 判定仅用 PBO，未接 DSR 与交易数下限。
 
 ---
 
@@ -97,6 +97,11 @@
 ---
 
 ## ✅ 已完成（最近更新，按时间倒序）
+
+### #319 三重验证落地口径复核回填 ✅ 已完成
+- **完成时间**：2026-11-13
+- **内容**：复核 `core/backtest/overfitting.py` 与 `tests/test_backtest/test_overfitting.py`，确认 PBO/CSCV、CPCV、Deflated Sharpe、诊断评分卡纯函数底座已落地（31 方法/52 用例全绿）；回填 TODO P1-8、P2-4 过期"未开始"口径，区分算法底座已落地与门禁接线/档位校准待门。未改代码行为、未触阈值与 REJECT 语义。
+- **剩余风险/未验证**：诊断档位阈值为占位默认，未做 CLEAN 分布校准；DSR>0/样本外交易数下限接入上线门禁属待门 REJECT 语义。
 
 ### #318 gatekeeper 桥接降级异常上下文记录合规修复 ✅ 已完成
 - **完成时间**：2026-11-13
@@ -356,7 +361,7 @@
 | P2-1 | **P2 六卡片真实数据在容器内复测**：本轮本地改完未在容器环境验证 | 🔄 进行中（P0-1 已修复 + 网络已恢复，与 P0-4 同由后台子任务验证） | P0-4 验证通过后逐卡片人工核对：高可用 / 交易归因 / 安全合规 / 拥挤度 / 可观测性 / CI-CD |
 | P2-2 | **因子库从 10 扩展到 20+**（文艺复兴式海量弱信号叠加） | ❌ 未开始 | 每加一个因子必须配套：单测 + 前视守卫测试 + 在 CLEAN 集上做 IC 衰减检验 |
 | P2-3 | **五层市场识别 ML 增强版**（提高 L1-L5 识别准确率） | ❌ 未开始 | 先用规则版攒够标注数据，再训练；禁止拿测试集做特征选择 |
-| P2-4 | **PBO / CPCV / Deflated Sharpe 三重验证算法落地**（框架已建） | ❌ 未开始 | 按 López de Prado 教材实现；每个策略上线前必须三指标全过 |
+| P2-4 | **PBO / CPCV / Deflated Sharpe 三重验证算法落地** | 🔄 算法底座已落地（`core/backtest/overfitting.py`：DSR/PBO-CSCV/CPCV/诊断评分卡，31 方法/52 用例；见 P1-8） | 剩余：诊断档位阈值做 CLEAN 分布校准；DSR>0/交易数下限接入上线门禁属 REJECT 语义待门；上线前三指标全过的门禁接线另轮评估 |
 | P2-5 | **PostgreSQL 历史 K 线数据导入**（当前库里没历史数据） | ❌ 未开始 | 写 `scripts/import_kline.py`，按 symbol/timeframe 批量灌；灌完跑 `core/gap_normalizer.py` 清洗缺口 |
 | P2-6 | **飞书云文档 / Notion / Gitee 多端知识库同步**（当前只在本地 + Gitee） | ❌ 未开始 | 先打通 Gitee → Notion 单向 webhook；本地 RULES.md / TODO.md 为主源 |
 | P2-7 | **密码输入框加 `autocomplete="current-password"`**（antd 控制台警告） | ✅ 已落地（#316：`#login-password` 加 `autocomplete="current-password"`，配套 `#login-username` 加 `autocomplete="username"`） | 浏览器凭据填充行为未实机复验 |
