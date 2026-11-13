@@ -98,6 +98,11 @@
 
 ## ✅ 已完成（最近更新，按时间倒序）
 
+### #317 门禁降级路径异常上下文记录合规修复 ✅ 已完成
+- **完成时间**：2026-11-13
+- **内容**：`core/integration/verification_middleware.py` 5 处 `except Exception as e: pass` 静默吞异常（违反硬规则 9）改为把异常类型+消息记入降级 finding 的 `details["degrade_error"]`；保留"真实检查失败→简化版降级"行为与全部判定阈值/决策语义不变。补 1 例 monkeypatch 确定性触发异常的单测，断言降级 finding `real_check=False` 且 `degrade_error` 含异常类型名与消息。门禁测试 31 passed；integration+experiment+registry+audit 510 passed 无回归。
+- **剩余风险/未验证**：未改门禁 REJECT/WARN 判定口径；DSR>0、样本外交易数下限接入门禁仍属待门（见 P1 过拟合门禁缺口）；未触 configs/registry.yaml/mt5/阈值常量。
+
 ### #316 前端登录态清空 / 5xx 容错 / 密码框 autocomplete ✅ 代码落地（浏览器复验未完成）
 - **完成时间**：2026-11-13
 - **内容**：① P1-7 `Auth.showLogin()` 切显示时清空 `#login-error` 文案与显示、`#login-status`、`#login-password`；② P1-6 `ApiService.request` 在 `response.json()` 前判 `Content-Type`，非 JSON 或 HTTP≥500 统一返回 `{code:0, msg:"服务暂时不可用 (HTTP nnn)", data:null, _error:true}`，不解析/不暴露 nginx HTML 原文；③ P2-7 `#login-password` 加 `autocomplete="current-password"`，配套 `#login-username` 加 `autocomplete="username"`。`node --check app.js` 语法通过（exit 0）。

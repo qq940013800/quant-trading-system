@@ -137,6 +137,25 @@ class TestVerificationMiddleware:
         # 应该返回警告而不是崩溃
         assert report.overall_decision in [GateDecision.PASS, GateDecision.WARN]
 
+    def test_degrade_error_recorded(self, monkeypatch):
+        """真实检查抛异常降级时，异常类型与消息须记入审计 details，不静默吞掉。"""
+        import core.integration.verification_middleware as vm
+
+        def _boom(*args, **kwargs):
+            raise RuntimeError("boom-lookahead")
+
+        monkeypatch.setattr(vm, "quick_lookahead_check", _boom)
+        report = self.mw.gate_before_deploy(
+            strategy_id="s010",
+            strategy_name="降级异常记录",
+            price_data=[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0],
+        )
+        finding = next(f for f in report.findings if f.check_name == "前视偏差扫描")
+        assert finding.details["real_check"] is False
+        assert finding.details["degrade_error"] is not None
+        assert "RuntimeError" in finding.details["degrade_error"]
+        assert "boom-lookahead" in finding.details["degrade_error"]
+
 
 class TestGateDecision:
     """GateDecision枚举测试。"""

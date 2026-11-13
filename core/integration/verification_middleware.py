@@ -209,6 +209,7 @@ class VerificationMiddleware:
 
     def _check_overfitting(self, backtest_results: dict[str, Any]) -> GateFinding:
         """检查过拟合风险。"""
+        degrade_error: Optional[str] = None
         pbo = backtest_results.get("pbo", 0.5)  # 默认中等风险
         deflated_sharpe = backtest_results.get("deflated_sharpe", 0.0)
         returns = backtest_results.get("returns", None)
@@ -251,8 +252,8 @@ class VerificationMiddleware:
                     },
                 )
             except Exception as e:
-                # 真实检查失败，降级到简化版
-                pass
+                # 真实检查失败，降级到简化版；异常上下文记入审计 details，不静默吞掉
+                degrade_error = f"{type(e).__name__}: {e}"
 
         # 简化版（降级模式）
         score = pbo * 100  # 0-100
@@ -272,11 +273,13 @@ class VerificationMiddleware:
             decision=decision,
             score=score,
             message=message,
-            details={"pbo": pbo, "deflated_sharpe": deflated_sharpe, "real_check": False},
+            details={"pbo": pbo, "deflated_sharpe": deflated_sharpe,
+                     "real_check": False, "degrade_error": degrade_error},
         )
 
     def _check_lookahead(self, price_data: Any) -> GateFinding:
         """检查前视偏差。"""
+        degrade_error: Optional[str] = None
         # 如果有真实价格数据，调用真实的前视偏差检测器
         if _HAS_LOOKAHEAD and price_data is not None:
             try:
@@ -313,8 +316,8 @@ class VerificationMiddleware:
                         },
                     )
             except Exception as e:
-                # 真实检查失败，降级到简化版
-                pass
+                # 真实检查失败，降级到简化版；异常上下文记入审计 details
+                degrade_error = f"{type(e).__name__}: {e}"
 
         # 简化版（降级模式）
         return GateFinding(
@@ -322,11 +325,13 @@ class VerificationMiddleware:
             decision=GateDecision.PASS,
             score=10.0,
             message="前视偏差检查通过（降级模式，待接入真实检测器）",
-            details={"note": "降级模式，真实检查模块未就绪或调用失败", "real_check": False},
+            details={"note": "降级模式，真实检查模块未就绪或调用失败",
+                     "real_check": False, "degrade_error": degrade_error},
         )
 
     def _check_drift(self, recent_returns: list[float], benchmark_returns: list[float]) -> GateFinding:
         """检查策略漂移健康度。"""
+        degrade_error: Optional[str] = None
         # 如果有真实漂移监控模块，调用真实检查
         if _HAS_DRIFT and len(recent_returns) >= 10:
             try:
@@ -386,8 +391,8 @@ class VerificationMiddleware:
                     },
                 )
             except Exception as e:
-                # 真实检查失败，降级到简化版
-                pass
+                # 真实检查失败，降级到简化版；异常上下文记入审计 details
+                degrade_error = f"{type(e).__name__}: {e}"
 
         # 简化版（降级模式）
         win_rate = sum(1 for r in recent_returns if r > 0) / len(recent_returns) if recent_returns else 0.5
@@ -412,11 +417,14 @@ class VerificationMiddleware:
             decision=decision,
             score=100 - health_score,  # 分数越高越危险
             message=message,
-            details={"health_score": health_score, "win_rate": win_rate, "excess_return": excess_return, "real_check": False},
+            details={"health_score": health_score, "win_rate": win_rate,
+                     "excess_return": excess_return, "real_check": False,
+                     "degrade_error": degrade_error},
         )
 
     def _check_stress(self, price_data: Any) -> GateFinding:
         """检查压力测试。"""
+        degrade_error: Optional[str] = None
         # 如果有真实价格数据，调用真实的压力测试器
         if _HAS_STRESS and price_data is not None:
             try:
@@ -483,8 +491,8 @@ class VerificationMiddleware:
                     },
                 )
             except Exception as e:
-                # 真实检查失败，降级到简化版
-                pass
+                # 真实检查失败，降级到简化版；异常上下文记入审计 details
+                degrade_error = f"{type(e).__name__}: {e}"
 
         # 简化版（降级模式）
         return GateFinding(
@@ -492,11 +500,13 @@ class VerificationMiddleware:
             decision=GateDecision.PASS,
             score=20.0,
             message="压力测试通过（降级模式，待接入真实压力测试）",
-            details={"note": "降级模式，真实压力测试模块未就绪或调用失败", "real_check": False},
+            details={"note": "降级模式，真实压力测试模块未就绪或调用失败",
+                     "real_check": False, "degrade_error": degrade_error},
         )
 
     def _check_portfolio_risk(self, current_exposure: float, new_position_size: float, cluster_exposure: float) -> GateFinding:
         """检查组合层面风险。"""
+        degrade_error: Optional[str] = None
         # 如果有真实组合风控模块，调用真实检查
         if _HAS_PORTFOLIO_RISK:
             try:
@@ -548,8 +558,8 @@ class VerificationMiddleware:
                     },
                 )
             except Exception as e:
-                # 真实检查失败，降级到简化版
-                pass
+                # 真实检查失败，降级到简化版；异常上下文记入审计 details
+                degrade_error = f"{type(e).__name__}: {e}"
 
         # 简化版（降级模式）
         total_exposure = current_exposure + new_position_size
@@ -576,6 +586,7 @@ class VerificationMiddleware:
                 "total_exposure": total_exposure,
                 "cluster_exposure": cluster_exposure,
                 "real_check": False,
+                "degrade_error": degrade_error,
             },
         )
 
