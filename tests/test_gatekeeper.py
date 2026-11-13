@@ -75,6 +75,19 @@ class TestGatekeeper:
             assert "id" in s
             assert "name" in s
 
+    def test_fetch_strategies_records_error(self, monkeypatch):
+        """桥接 list_strategies 抛异常降级时，异常类型与消息须记入 last_bridge_error。"""
+        def _boom(*args, **kwargs):
+            raise RuntimeError("boom-bridge")
+
+        monkeypatch.setattr(self.gate.bridge, "list_strategies", _boom)
+        strategies = self.gate._fetch_strategies()
+
+        assert len(strategies) > 0
+        assert self.gate.last_bridge_error is not None
+        assert "RuntimeError" in self.gate.last_bridge_error
+        assert "boom-bridge" in self.gate.last_bridge_error
+
 
 class TestStrategyGateResult:
     """单个策略结果测试。"""

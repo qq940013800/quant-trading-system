@@ -68,6 +68,7 @@ class Gatekeeper:
     ):
         self.bridge = bridge or QuantDingerBridge()
         self.middleware = middleware or VerificationMiddleware()
+        self.last_bridge_error: Optional[str] = None
 
     def run_full_gate(self) -> GatekeeperSummary:
         """运行完整的守门员流程。
@@ -109,6 +110,7 @@ class Gatekeeper:
     def _fetch_strategies(self) -> list[dict[str, Any]]:
         """从桥接模块拉取策略列表。如果桥接不可用，返回模拟数据。"""
         try:
+            self.last_bridge_error = None
             strategies = self.bridge.list_strategies(limit=20)
             if strategies:
                 return [
@@ -120,8 +122,9 @@ class Gatekeeper:
                     }
                     for s in strategies
                 ]
-        except Exception:
-            pass
+        except Exception as e:
+            # 桥接不可用时降级到模拟演示数据；异常上下文记入实例属性，不静默吞掉
+            self.last_bridge_error = f"{type(e).__name__}: {e}"
 
         # 桥接不可用时，返回模拟数据用于演示
         return [

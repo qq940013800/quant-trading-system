@@ -98,6 +98,11 @@
 
 ## ✅ 已完成（最近更新，按时间倒序）
 
+### #318 gatekeeper 桥接降级异常上下文记录合规修复 ✅ 已完成
+- **完成时间**：2026-11-13
+- **内容**：`core/integration/gatekeeper.py` `_fetch_strategies` 的 `except Exception: pass` 静默吞异常（违反硬规则 9）改为实例属性 `last_bridge_error` 记录异常类型+消息；成功路径重置该属性；保留"桥接不可用→模拟演示数据"降级行为与统计/决策契约不变。补 1 例 monkeypatch 抛异常的降级单测，断言降级列表非空且 `last_bridge_error` 含异常类型名与消息。gatekeeper+integration 13 passed 无回归。
+- **剩余风险/未验证**：未改桥接健康判定与上线决策口径；未触 configs/registry.yaml/mt5/阈值常量。
+
 ### #317 门禁降级路径异常上下文记录合规修复 ✅ 已完成
 - **完成时间**：2026-11-13
 - **内容**：`core/integration/verification_middleware.py` 5 处 `except Exception as e: pass` 静默吞异常（违反硬规则 9）改为把异常类型+消息记入降级 finding 的 `details["degrade_error"]`；保留"真实检查失败→简化版降级"行为与全部判定阈值/决策语义不变。补 1 例 monkeypatch 确定性触发异常的单测，断言降级 finding `real_check=False` 且 `degrade_error` 含异常类型名与消息。门禁测试 31 passed；integration+experiment+registry+audit 510 passed 无回归。
