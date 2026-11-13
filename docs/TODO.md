@@ -98,6 +98,11 @@
 
 ## ✅ 已完成（最近更新，按时间倒序）
 
+### #316 前端登录态清空 / 5xx 容错 / 密码框 autocomplete ✅ 代码落地（浏览器复验未完成）
+- **完成时间**：2026-11-13
+- **内容**：① P1-7 `Auth.showLogin()` 切显示时清空 `#login-error` 文案与显示、`#login-status`、`#login-password`；② P1-6 `ApiService.request` 在 `response.json()` 前判 `Content-Type`，非 JSON 或 HTTP≥500 统一返回 `{code:0, msg:"服务暂时不可用 (HTTP nnn)", data:null, _error:true}`，不解析/不暴露 nginx HTML 原文；③ P2-7 `#login-password` 加 `autocomplete="current-password"`，配套 `#login-username` 加 `autocomplete="username"`。`node --check app.js` 语法通过（exit 0）。
+- **剩余风险/未验证**：前端无 JS 测试运行器，未补 pytest 式单测；5xx HTML 场景、登录错误态清空、凭据填充行为均未在浏览器/容器实机复验；未改后端、未触 configs/registry.yaml/mt5/阈值常量/密钥/实盘资金路径。
+
 ### #314 退役联合裁决纯编排接缝与单测 ✅ 已完成
 - **完成时间**：2026-11-12
 - **内容**：`core/experiment/retirement_arbitration.py` 新增 `arbitrate_retirement(*, health_score, health_threshold, lifecycle_recommendation=None, lifecycle_reasons=None, health_warn_line=None)`：合并健康分阈值线与 lifecycle `recommend_retirement` 建议，输出 `RetirementArbitration`（decision=retire/watch/keep、合并原因码、健康分/阈值/观察带、lifecycle 建议、审计 flags）。判定：retire=健康分低于硬阈值或 lifecycle retire；watch=健康分落在观察带 `[threshold, warn_line)` 或 lifecycle watch；其余 keep；retire 优先于 watch；原因码去重保序。纯函数无 IO/不读 DB/不下单；阈值全部入参，模块不写业务默认；鸭子类型解耦（只接收建议串与原因码序列，不 import `RetirementRecommendation`）；模块不反向依赖 registry，无循环耦合。退役状态机迁移仍由编排层调 `retire_if_health_below` 落地。单测 20 例（keep/双 retire 路径/观察带 watch/lifecycle watch/优先级/原因码去重/to_dict/守卫参数化）+ 3 例快照→健康分→裁决链路串联；#315 补 `core/experiment/__init__.py` 包级导出与 2 例导入闭环测试。experiment+registry+audit 506 passed 无回归。
@@ -328,8 +333,8 @@
 | P1-3 | **均值回归策略类**：原路由表 `implementation_ref=(未实现)`、代码库无对应类 | ✅ 已落地并挂接（`core/strategies/mean_reversion.py`：RSI(14 Wilder)+布林(20,2σ)+非强趋势门控+Wilder ATR+因果窗口守卫；单测 `tests/test_strategies/test_mean_reversion.py`，#260；`strategy_router.py` 占位条目 ref 已指向真实类、params 键对齐构造器） | 策略类未接入后端匹配/部署硬切换链；参数阈值待 CLEAN 分布校准；版本号仍 v0.1.0，生命周期晋升由 StrategyRegistry 状态机另轮评估 |
 | P1-4 | **路由权重表分布校准**：当前 4×3 权重表是定性配置，未经 CLEAN 分布驱动 | ❌ 未开始 | 跑 `python scripts/calibrate_regime.py --mode distribution`，用输出分位替换 `strategy_router.py` 里硬编码权重；改前 ADR 留档 |
 | P1-5 | **StrategyMatcher × StrategyWeightRouter 集成**：两层目前独立（一个打分排序、一个出资金权重） | 🔄 部分落地（#309：Router 侧 `route_subset`/`route_selected` 已落地——Matcher top-N 名单子集内归一化、子集外归零、未知策略名 fail-closed；单测 6 例） | 剩余：Matcher `MarketRegime` 枚举（trending/ranging）与 Router `SUPPORTED_REGIMES`（trend/range/volatile/quiet）口径对齐；同名 Profile↔Descriptor 池同步；端到端 select→subset 路由串联另轮评估 |
-| P1-6 | **前端 axios 响应拦截器容错**：502 时把 nginx HTML 原文塞给用户（P1-1 bug） | ❌ 未开始 | 拦截器里判断 `Content-Type`，非 JSON 时统一提示"服务暂时不可用 (HTTP 5xx)"，不暴露 HTML |
-| P1-7 | **登录错误 state 在路由切换后未清空**（P2-1 bug）：跳注册页被守卫弹回，旧 502 错误还挂着 | ❌ 未开始 | 登录页 `onMounted` 或 `watch(route.query.redirect)` 时清空 `errorMessage` + 表单字段 |
+| P1-6 | **前端 axios 响应拦截器容错**：502 时把 nginx HTML 原文塞给用户（P1-1 bug） | 🔄 代码落地（#316：`ApiService.request` 解析前判 `Content-Type`，非 JSON 或 HTTP≥500 统一返回"服务暂时不可用 (HTTP nnn)"，不解析/不暴露 HTML 原文；`node --check` 语法通过） | 浏览器实机 5xx 场景未复验（本地难稳定触发 nginx HTML 502）；登录接口走独立 `Auth.login`，错误文案已有兜底，未纳入本次判定 |
+| P1-7 | **登录错误 state 在路由切换后未清空**（P2-1 bug）：跳注册页被守卫弹回，旧 502 错误还挂着 | 🔄 代码落地（#316：`Auth.showLogin()` 切显示时清空 `#login-error` 文案与显示、`#login-status` 状态提示、`#login-password` 密码框；用户名保留便于再次登录） | 浏览器实机复验：401/登出回登录页后旧错误态已清除，未在容器环境跑 |
 | P1-8 | **`quantdinger-scheduler-worker` / `trading-worker` 容器 unhealthy**：基础设施告警 | ❌ 未开始 | `docker logs quantdinger-scheduler-worker --tail 50` 看根因；不影响前端联调，但要排 |
 | P1-9 | **连续 regime 线性插值**：当前用离散 trend/range/volatile/quiet 4 类，未接 regime.py 的连续 `w_trend/w_mr/w_range` | ❌ 未开始 | 在 `StrategyWeightRouter.route()` 加可选连续模式，用连续权重做线性插值；保留离散模式做回退 |
 | P1-10 | **后端三套保护层与 core 底座口径对齐**：risk_engine（ATR/R）、strategy_v2（百分比）、native_protection（原生单）并行，基准/阈值/分批语义存在分裂 | 🔄 只读对照完成（#310 清单 + #313 S4 保本/时间止损逐行核对，见 `docs/design/protection-layers-reconciliation.md`） | 待决策门 D1-D5：后端硬编码阈值改分布校准+config 注入（红线）、百分比↔ATR/R 基准统一 ADR、分批单 bar 语义统一、core 进容器取舍、接线 core `decide_protection` 底座 |
@@ -344,7 +349,7 @@
 | P2-4 | **PBO / CPCV / Deflated Sharpe 三重验证算法落地**（框架已建） | ❌ 未开始 | 按 López de Prado 教材实现；每个策略上线前必须三指标全过 |
 | P2-5 | **PostgreSQL 历史 K 线数据导入**（当前库里没历史数据） | ❌ 未开始 | 写 `scripts/import_kline.py`，按 symbol/timeframe 批量灌；灌完跑 `core/gap_normalizer.py` 清洗缺口 |
 | P2-6 | **飞书云文档 / Notion / Gitee 多端知识库同步**（当前只在本地 + Gitee） | ❌ 未开始 | 先打通 Gitee → Notion 单向 webhook；本地 RULES.md / TODO.md 为主源 |
-| P2-7 | **密码输入框加 `autocomplete="current-password"`**（antd 控制台警告） | ❌ 未开始 | 一行属性修复，下次顺手改 |
+| P2-7 | **密码输入框加 `autocomplete="current-password"`**（antd 控制台警告） | ✅ 已落地（#316：`#login-password` 加 `autocomplete="current-password"`，配套 `#login-username` 加 `autocomplete="username"`） | 浏览器凭据填充行为未实机复验 |
 | P2-8 | **P2 卡片"更新时间"改用服务端时间戳**（当前用浏览器本地时间） | ❌ 未开始 | 后端 summary 接口统一加 `server_ts` 字段；前端渲染该字段 |
 | P2-9 | **开发模式自动登录（T1）清理**：代码已写，浏览器缓存没生效 | ⚠️ 临时方案 | P0-3 修完后此条一并关闭，不要长期保留自动登录后门 |
 

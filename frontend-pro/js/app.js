@@ -97,7 +97,20 @@
                         debugLog('未登录或Token过期', 'warn');
                         return { code: 401, msg: '未登录', data: null, _unauthorized: true };
                     }
-                    
+
+                    const contentType = (response.headers.get('content-type') || '').toLowerCase();
+                    const isJson = contentType.includes('application/json');
+                    if (!isJson || response.status >= 500) {
+                        debugLog(`API 非 JSON/5xx 响应: ${path} -> HTTP ${response.status}`, 'error');
+                        return {
+                            code: 0,
+                            msg: `服务暂时不可用 (HTTP ${response.status})`,
+                            data: null,
+                            _error: true,
+                            _http_status: response.status,
+                        };
+                    }
+
                     const data = await response.json();
                     const latency = Date.now() - startTime;
                     const latencyEl = document.getElementById('latency');
@@ -2327,6 +2340,12 @@
             showLogin() {
                 document.getElementById('login-page').style.display = 'flex';
                 document.getElementById('main-app').style.display = 'none';
+                const errorEl = document.getElementById('login-error');
+                if (errorEl) { errorEl.textContent = ''; errorEl.style.display = 'none'; }
+                const statusEl = document.getElementById('login-status');
+                if (statusEl) { statusEl.textContent = ''; }
+                const pwdEl = document.getElementById('login-password');
+                if (pwdEl) { pwdEl.value = ''; }
             },
             
             showMain() {
