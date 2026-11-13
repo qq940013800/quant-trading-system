@@ -42,6 +42,17 @@ def _finite_unit(name: str, val: Any) -> float:
     return float(val)
 
 
+def _coerce_nonneg(name: str, val: Any) -> float:
+    """容错转非负有限数值；非法/非有限/负值抛 ValueError。"""
+    try:
+        v = float(val)
+    except (TypeError, ValueError):
+        raise ValueError(f"{name} 必须为非负有限数值，收到 {val!r}")
+    if not math.isfinite(v) or v < 0:
+        raise ValueError(f"{name} 必须为非负有限数值，收到 {val!r}")
+    return v
+
+
 @dataclass(frozen=True)
 class Tolerance:
     """数量比较容忍度：绝对 + 相对，取较大者。"""
@@ -183,8 +194,8 @@ def as_order_view(obj: Any) -> OrderView:
         order_id=str(oid),
         symbol=str(_get(obj, "symbol", "")),
         side=normalize_side(_get(obj, "side")),
-        quantity=float(_get(obj, "quantity", 0.0)),
-        filled_quantity=float(_get(obj, "filled_quantity", 0.0)),
+        quantity=_coerce_nonneg("quantity", _get(obj, "quantity", 0.0)),
+        filled_quantity=_coerce_nonneg("filled_quantity", _get(obj, "filled_quantity", 0.0)),
         status=str(_get(obj, "status", "") or ""),
     )
 
@@ -203,8 +214,8 @@ def as_position_view(obj: Any) -> PositionView:
     return PositionView(
         symbol=str(symbol),
         side=normalize_side(side_raw),
-        quantity=abs(float(qty_raw)),
-        entry_price=float(_get(obj, "entry_price", 0.0) or 0.0),
+        quantity=_coerce_nonneg("quantity", qty_raw),
+        entry_price=_coerce_nonneg("entry_price", _get(obj, "entry_price", 0.0) or 0.0),
     )
 
 
@@ -374,6 +385,9 @@ def aggregate_fills_to_positions(
         try:
             qty = abs(float(qty_raw))
         except (TypeError, ValueError):
+            dropped.append({"index": index, "reason": "invalid_quantity", "symbol": symbol, "raw": raw})
+            continue
+        if not math.isfinite(qty):
             dropped.append({"index": index, "reason": "invalid_quantity", "symbol": symbol, "raw": raw})
             continue
         if qty <= 0.0:

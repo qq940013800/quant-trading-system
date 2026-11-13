@@ -2,6 +2,7 @@
 """tests.test_execution.test_reconcile —— 订单/持仓对账单测。"""
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 import pytest
@@ -152,6 +153,34 @@ def test_position_view_missing_symbol_raises():
     for bad in ({}, {"side": "buy"}):
         with pytest.raises(ValueError):
             as_position_view(bad)
+
+
+@pytest.mark.parametrize("bad", [math.nan, math.inf, -math.inf, -1.0])
+def test_order_view_nonfinite_quantity_raises(bad):
+    with pytest.raises(ValueError):
+        as_order_view({"id": "o1", "quantity": bad})
+
+
+@pytest.mark.parametrize("bad", [math.nan, math.inf, -math.inf, -1.0])
+def test_position_view_nonfinite_quantity_raises(bad):
+    with pytest.raises(ValueError):
+        as_position_view({"symbol": "x", "side": "buy", "quantity": bad})
+
+
+@pytest.mark.parametrize("bad", [math.nan, math.inf, -math.inf, -1.0])
+def test_position_view_nonfinite_entry_price_raises(bad):
+    with pytest.raises(ValueError):
+        as_position_view({"symbol": "x", "side": "buy",
+                           "quantity": 1.0, "entry_price": bad})
+
+
+@pytest.mark.parametrize("bad", [math.nan, math.inf, -math.inf])
+def test_nonfinite_fill_quantity_dropped(bad):
+    agg = aggregate_fills_to_positions(
+        [{"symbol": "x", "side": "buy", "quantity": bad}])
+    reasons = [d["reason"] for d in agg.dropped]
+    assert "invalid_quantity" in reasons
+    assert agg.positions == []
 
 
 def test_normalize_side_none_and_unknown():

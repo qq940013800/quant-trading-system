@@ -98,6 +98,12 @@
 
 ## ✅ 已完成（最近更新，按时间倒序）
 
+### #325 reconcile 对账视图与净聚合数量有限性守卫 ✅ 已完成
+- **完成时间**：2026-11-14
+- **内容**：`core/execution/reconcile.py` 工厂 `as_order_view`/`as_position_view` 的 quantity/filled_quantity/entry_price 与净聚合 `aggregate_fills_to_positions` 的数量原仅 `float()` 转换，NaN/±inf 漏网。新增 `_coerce_nonneg`：工厂侧非法/非有限/负值抛 ValueError；净聚合侧非有限归入 dropped `invalid_quantity` 留痕不静默跳过。补 15 例边界单测（NaN/±inf/负数量与价格工厂拒单、非有限成交腿 dropped）。execution 目录 174 passed 无回归。
+- **口径收紧**：持仓数量负值不再 `abs()` 取正，改为拒绝；方向由 side 表达。未改容忍度阈值与对账匹配判定口径。
+- **剩余风险/未验证**：视图字段由适配器注入，适配器侧冻结区间校验待接线；对账闭环未接实盘经纪商回报复验。
+
 ### #324 spot_ownership 持仓快照数值有限性兜底 ✅ 已完成
 - **完成时间**：2026-11-14
 - **内容**：`core/execution/spot_ownership.py` `_nonneg` 原仅按 `v>0` 归一，inf 被保留；`_valid_ratio` 的 NaN 两个区间比较均为 False 而漏网。两处补 `math.isfinite` 兜底：非有限持仓量归一 0.0，非有限安全比率回落默认 1.0；inf 请求平仓量随之被 `rejected_nonpositive` 拒单。补 7 例边界单测（NaN/±inf 快照归零、NaN/±inf 比率回落默认、inf 请求拒单）。未改阈值与两层封顶判定语义。execution 目录 159 passed 无回归。
