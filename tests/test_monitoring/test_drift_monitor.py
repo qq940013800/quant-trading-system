@@ -230,6 +230,25 @@ class TestDriftBoundary:
         monitor.update([0.01] * 15)
         assert len(monitor.recent_returns) == 10
 
+    def test_nonfinite_and_invalid_returns_filtered(self):
+        monitor = DriftMonitor()
+        monitor.update([0.01, np.nan, np.inf, -np.inf, "bad", 0.02, None])
+        # 仅保留两个有限收益项
+        assert monitor.recent_returns == pytest.approx([0.01, 0.02])
+        status = monitor.status()
+        assert all(np.isfinite(v) for v in (
+            status["current_sharpe"], status["current_win_rate"],
+            status["current_max_dd"], status["health_score"]))
+
+    def test_all_invalid_returns_leaves_empty_buffer(self):
+        monitor = DriftMonitor()
+        monitor.update([np.nan, np.inf, "bad", None])
+        assert monitor.recent_returns == []
+        # 样本不足分支，不产生 NaN 健康分
+        status = monitor.status()
+        assert status["n_alerts"] == 0
+        assert np.isfinite(status["health_score"])
+
     def test_zero_variance_significance_guard(self):
         """零方差序列：显著性检验走异常分支，不除零崩溃。"""
         monitor = DriftMonitor()

@@ -30,6 +30,19 @@ def _finite(name: str, val: float) -> float:
     return v
 
 
+def _clean_returns(values) -> list[float]:
+    """剔除 NaN/inf 与不可转浮点的收益项，避免污染均值/方差/回撤。"""
+    out: list[float] = []
+    for r in values:
+        try:
+            v = float(r)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(v):
+            out.append(v)
+    return out
+
+
 @dataclass
 class DriftAlert:
     """漂移告警记录。"""
@@ -93,13 +106,13 @@ class DriftMonitor:
         self.alerts: list[DriftAlert] = []
 
     def update(self, returns: pd.Series | list[float]) -> None:
-        """更新最新收益数据。"""
+        """更新最新收益数据（非有限/非法项剔除，不进入统计）。"""
         if isinstance(returns, pd.Series):
             new_returns = returns.tolist()
         else:
             new_returns = list(returns)
 
-        self.recent_returns.extend(new_returns)
+        self.recent_returns.extend(_clean_returns(new_returns))
 
         # 只保留最近 window_size 个
         if len(self.recent_returns) > self.window_size:
