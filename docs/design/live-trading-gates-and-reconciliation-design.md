@@ -64,10 +64,10 @@
 
 #### 1.4.1 纯函数落点（已固化，#166；适配器接线未做）
 
-- 模块：`core/execution/spot_ownership.py`；单测 `tests/test_execution/test_spot_ownership.py`（13 用例，定向通过；全量 838 passed 纳入基线）。
+- 模块：`core/execution/spot_ownership.py`；单测 `tests/test_execution/test_spot_ownership.py`（20 用例，定向通过；#324 补 NaN/±inf 有限性兜底后纳入基线）。
 - `resolve_spot_ownership(tracked_net, wallet_total, wallet_free, safety_ratio=1.0) -> SpotOwnershipSnapshot`：tracked/total 容错转非负；`wallet_free=None` → `free_known=False`、`physical_cap=None`、`unmanaged/shortfall=0`（未知不推断）；free 已知时 `unmanaged=max(0, free−tracked)`、`shortfall=max(0, tracked−free)`、`physical=free×ratio`；ratio 越界（≤0 或 >1.0）回退默认 1.0。
 - `resolve_spot_close(snapshot, requested, intent="tracked", lot_step=None) -> SpotCloseDecision`：intent 归一 `full`/`tracked`；req≤0 → `rejected_nonpositive`；free 未知 → `rejected_free_unknown`（fail-closed，不回退按请求量放行）；tracked 意图 cap=`min(ownership_cap, physical_cap)`，capped_by=ownership/physical；full 意图 cap=physical_cap，audit 标 `includes_unmanaged_stock=True`；cap 为 None/≤0 → `rejected_no_cap`；lot_step 注入时向下 floor 到步长，缺省不归一化。
-- 边界：纯函数不触网、不读库；L1 净额聚合 SQL、钱包快照拉取、意图透传与错误码映射留后端适配器（第二步）。安全比率默认 `1.0` 为占位值，非 CLEAN 校准产物（见 §1.6）。
+- 边界：纯函数不触网、不读库；L1 净额聚合 SQL、钱包快照拉取、意图透传与错误码映射留后端适配器（第二步）。安全比率默认 `1.0` 为占位值，非 CLEAN 校准产物（见 §1.6）。#324 起 `_nonneg` 对 NaN/±inf 归一 0.0、`_valid_ratio` 对非有限比率回落默认 1.0；inf 请求平仓量随之拒为 `rejected_nonpositive`。
 
 ### 1.5 失败降级与可审计点
 
@@ -253,10 +253,10 @@ GateResult (frozen)
 
 #### 3.3.1 纯函数落点（已固化，#169；适配器接线未做）
 
-- 模块：`core/execution/reconcile.py` 新增 `aggregate_fills_to_positions(fills, *, flat_net=1e-12) -> FillAggregation`；单测 `tests/test_execution/test_reconcile.py`（聚合 6 用例，定向 28 passed）。
+- 模块：`core/execution/reconcile.py` 新增 `aggregate_fills_to_positions(fills, *, flat_net=1e-12) -> FillAggregation`；单测 `tests/test_execution/test_reconcile.py`（59 用例，定向通过；#325 补视图/净聚合数量有限性守卫后纳入基线）。
 - 净额 `net = Σbuy qty − Σsell qty`；`net > flat_net` → buy，`net < -flat_net` → sell `|net|`；净额在 `[-flat_net, flat_net]` 内视为已平仓，不产出持仓。
 - 缺 `symbol` / 侧别无法归一 / 数量非正 / 数量非法的行进 `dropped`（带索引与原因码 `missing_symbol / missing_side / nonpositive_quantity / invalid_quantity`），不静默跳过；缺失行由适配器归入对账 mismatch/unknown。
-- 边界：列名别名映射（lots/direction 等）、成交腿 → 订单视图、两侧快照拉取、周期任务调度与告警出口留后端适配器（第二步，对应 §3.3 接线顺序 ②③④）；`entry_price` 不在聚合层推断（无 VWAP 口径），加权成本由需要的适配器自行计算。`flat_net=1e-12` 为占位阈值，正式容忍度走 §3.6 分布校准。
+- 边界：列名别名映射（lots/direction 等）、成交腿 → 订单视图、两侧快照拉取、周期任务调度与告警出口留后端适配器（第二步，对应 §3.3 接线顺序 ②③④）；`entry_price` 不在聚合层推断（无 VWAP 口径），加权成本由需要的适配器自行计算。`flat_net=1e-12` 为占位阈值，正式容忍度走 §3.6 分布校准。#325 起视图工厂 `quantity/filled_quantity/entry_price` 非有限或负值抛 ValueError，净聚合非有限数量归入 dropped `invalid_quantity`；持仓负数量不再 `abs()` 取正，方向由 side 表达。
 
 ### 3.4 告警出口设计
 
@@ -402,7 +402,7 @@ GateResult (frozen)
 | U5 | 后端既有对账/同步链路内部比对规则 | 未验证（仅核对存在性与调用点） |
 | U6 | 手动/快捷入口之外是否存在其他下单路由 | unknown（未穷尽全仓路由检索） |
 | U7 | 注册中心持久化与多进程一致性、后端 manifest 版本字段 | unknown |
-| U8 | 全量 `pytest -q` 本轮未执行；未运行任何实盘 I/O | 未执行 |
+| U8 | 研究层全量 `pytest -q` 基线 2297 passed（#325 后，exit 0）；后端全量存在隔离性失败（测试顺序/共享状态污染，失败文件单跑通过）；未运行任何实盘 I/O | 研究层已验证 / 后端隔离失败 / 实盘未验证 |
 
 ### 5.3 路径/行号勘误记录
 
