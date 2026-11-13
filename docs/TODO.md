@@ -102,6 +102,7 @@
 - **完成时间**：2026-11-14
 - **内容**：覆盖复核发现 #208 记载的 `tests/test_economics_gate.py` 未进入 git 历史、磁盘已丢失（TODO 口径失实）。按 `core/execution/economics_gate.py` 现有守卫与判定行为重建单测 `tests/test_execution/test_economics_gate.py`：达标放行/未达拒绝/边界等值放行/零成本正边际放行且 ratio=None/零成本非正拒绝，参数化覆盖 NaN/±inf 边际收益、负/非有限成本、倍数 <1 或非有限共 16 例。未改实现、未触阈值。执行层目录 152 passed 无回归。
 - **剩余风险/未验证**：纯函数底座仍未接入 pre-trade 组合闸；成本口径待适配器侧冻结注入；未接实盘取数。
+- **覆盖复核附注（只读）**：比对 98 个 core 非 init 模块与 tests 引用，初筛 6 个未被测试文本直接 import；除 economics_gate 已由本轮补回外，其余 5 个（`audit/experiment_logger`、`audit/fault_catcher`、`audit/knowledge_retriever`、`audit/review_monitor`、`audit/strategy_health_monitor`）均为 DB/IO 适配器：纯判定口径分别委托 `evolution_rules` 纯函数（`evaluate_review_triggers`/`classify_fault`/`score_health`/`classify_health`/`detect_health_warnings`，已由 `tests/test_audit/test_evolution_rules.py` 覆盖）；适配器在无 PG 连接时安全降级为 None/False/{}/[]，不抛错。结论：无裸奔纯函数；适配器层 DB mock 单测按既往定位暂不要求。
 
 ### #322 lifecycle metrics 指标有限性容错归一 ✅ 已完成
 - **完成时间**：2026-11-13
