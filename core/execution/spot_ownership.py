@@ -23,10 +23,12 @@ DEFAULT_CLOSE_SAFETY_RATIO = 1.0
 
 
 def _nonneg(value: Any) -> float:
-    """容错转非负浮点；非法/缺失按 0.0 处理。"""
+    """容错转非负浮点；非法/缺失/非有限按 0.0 处理。"""
     try:
         v = float(value or 0.0)
     except (TypeError, ValueError):
+        return 0.0
+    if not math.isfinite(v):
         return 0.0
     return v if v > 0 else 0.0
 
@@ -38,7 +40,7 @@ def _valid_ratio(ratio: Optional[float]) -> float:
         v = float(ratio)
     except (TypeError, ValueError):
         return DEFAULT_CLOSE_SAFETY_RATIO
-    if v <= 0 or v > 1.0:
+    if not math.isfinite(v) or v <= 0 or v > 1.0:
         return DEFAULT_CLOSE_SAFETY_RATIO
     return v
 

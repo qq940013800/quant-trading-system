@@ -98,6 +98,11 @@
 
 ## ✅ 已完成（最近更新，按时间倒序）
 
+### #324 spot_ownership 持仓快照数值有限性兜底 ✅ 已完成
+- **完成时间**：2026-11-14
+- **内容**：`core/execution/spot_ownership.py` `_nonneg` 原仅按 `v>0` 归一，inf 被保留；`_valid_ratio` 的 NaN 两个区间比较均为 False 而漏网。两处补 `math.isfinite` 兜底：非有限持仓量归一 0.0，非有限安全比率回落默认 1.0；inf 请求平仓量随之被 `rejected_nonpositive` 拒单。补 7 例边界单测（NaN/±inf 快照归零、NaN/±inf 比率回落默认、inf 请求拒单）。未改阈值与两层封顶判定语义。execution 目录 159 passed 无回归。
+- **剩余风险/未验证**：`safety_ratio` 默认 1.0 仍为占位经验值，未做 CLEAN 分布校准；快照数值由适配器注入，适配器侧冻结区间校验待接线；未接实盘取数。
+
 ### #323 economics_gate 丢失单测补回与口径核对 ✅ 已完成
 - **完成时间**：2026-11-14
 - **内容**：覆盖复核发现 #208 记载的 `tests/test_economics_gate.py` 未进入 git 历史、磁盘已丢失（TODO 口径失实）。按 `core/execution/economics_gate.py` 现有守卫与判定行为重建单测 `tests/test_execution/test_economics_gate.py`：达标放行/未达拒绝/边界等值放行/零成本正边际放行且 ratio=None/零成本非正拒绝，参数化覆盖 NaN/±inf 边际收益、负/非有限成本、倍数 <1 或非有限共 16 例。未改实现、未触阈值。执行层目录 152 passed 无回归。

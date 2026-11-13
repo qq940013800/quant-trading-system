@@ -2,6 +2,8 @@
 """tests.test_execution.test_spot_ownership —— 现货两层口径与平仓封顶单测。"""
 from __future__ import annotations
 
+import math
+
 import pytest
 
 from core.execution.spot_ownership import (
@@ -105,3 +107,26 @@ def test_invalid_inputs_clamp_to_zero():
     assert snap.tracked_net == 0.0
     assert snap.wallet_total == 0.0
     assert snap.wallet_free == 0.0
+
+
+@pytest.mark.parametrize("bad", [math.nan, math.inf, -math.inf])
+def test_nonfinite_snapshot_clamp_to_zero(bad):
+    snap = resolve_spot_ownership(bad, bad, bad)
+    assert snap.tracked_net == 0.0
+    assert snap.wallet_total == 0.0
+    assert snap.wallet_free == 0.0
+    assert snap.physical_cap == 0.0
+
+
+@pytest.mark.parametrize("bad", [math.nan, math.inf, -math.inf])
+def test_nonfinite_safety_ratio_falls_back_default(bad):
+    snap = resolve_spot_ownership(1.0, 1.0, 1.0, safety_ratio=bad)
+    assert snap.physical_cap == pytest.approx(1.0)
+
+
+def test_infinite_request_is_rejected_nonpositive():
+    snap = resolve_spot_ownership(1.0, 1.0, 1.0)
+    dec = resolve_spot_close(snap, math.inf, intent="tracked")
+    assert dec.allowed is False
+    assert dec.reason_code == "rejected_nonpositive"
+    assert dec.final_qty == 0.0
