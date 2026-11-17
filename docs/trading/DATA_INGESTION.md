@@ -63,7 +63,7 @@ spread_points     # 无数据为 None，回测成本模型退化为"平静档默
 | 重复时间戳 | 去重保留首条并记录 |
 | spread 负值/缺失 | 缺失置 None；负值隔离为 `negative_spread` |
 
-所有隔离只标记不删除；被隔离的 bar 不进入 clean 序列（`ValidationReport.isolated` 与总数差额即可用 bar 数）。
+所有隔离只标记不删除；被隔离的 bar 不进入 clean 序列（`ValidationReport.isolated` 与总数差额即可用 bar 数）。缺口在 clean 序列的时间网格上检测，因此**被隔离的 bar 会表现为缺口**（既有行为，隔离与缺口语义分开记账：前者在 `isolated`，后者在 `gaps`）。
 
 校验报告 `ValidationReport`：总 bar 数 / 隔离数 / 缺口清单 / DST 切换日清单 / 异常值清单。任何"自动修数据"行为都必须是因果的（只用已收盘历史），且全程留痕。
 
