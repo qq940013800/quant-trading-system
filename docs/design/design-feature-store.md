@@ -21,7 +21,7 @@
 | 项 | 证据文件 | 事实 |
 |---|---|---|
 | 因果装饰器 | `core/features/base.py` | `@as_of` 拒绝 naive 时间戳；`history` 中任一 `bar.ts_utc > as_of` 抛 `LookAheadError`；history 必须严格单调；特征函数只在放行后的 history 切片上计算。 |
-| 可重算面板 | `core/features/base.py` | `build_feature_panel(history, features, warmup_bars)` 逐根已收盘 bar 计算，附 `available_at` 列；warmup 期保留 NaN，不猜未来；同一 `(history, as_of)` 调用结果一致。 |
+| 可重算面板 | `core/features/base.py` | `build_feature_panel(history, features, warmup_bars)` 逐根已收盘 bar 计算，附 `available_at` 列；warmup 期保留 NaN，不猜未来；同一 `(history, as_of)` 调用结果一致。特征返回 ±inf 时归一为 NaN 并记告警（与「历史不足」同一不可用表示），NaN 原样保留；`expanding_percentile_rank` 剔除窗口内 ±inf/NaN，当前值非有限返回 NaN。 |
 | 既有特征模块 | `core/features/` | `atr.py`、`regime.py`、`structure.py`、`patterns.py`、`volatility.py`。 |
 | 集合分离 | `core/data/splits.py` | `split_dataset` 输出 `CLEAN / KNOWN / HELD_OUT=[]`；静默窗口 bar 直接丢弃；配置中指向静默数据文件的键（`held_out_data_path` 等）被拒绝并抛 `SilentSetAccessError`。 |
 | 数据层 | `core/data/` | `bar.py`（Bar 协议与异常）、`loader.py`、`validator.py`、`timezone.py`、`synthetic.py`。 |

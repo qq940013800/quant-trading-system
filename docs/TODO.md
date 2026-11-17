@@ -99,6 +99,12 @@
 
 ## ✅ 已完成（最近更新，按时间倒序）
 
+### #330 特征层非有限数值容错（分位秩窗口 / 面板溢出）✅ 已完成
+- **完成时间**：2026-11-17
+- **内容**：`core/features/base.py` 两处。①`expanding_percentile_rank` 原只剔除 NaN：窗口内 ±inf 会参与比较（`-inf` 恒 ≤ 当前值、抬高排名），当前值非有限时返回伪 1.0/0.0；改为窗口按 `np.isfinite` 过滤，当前值非有限返回 NaN。②`build_feature_panel` 原对特征返回值直接 `float()` 落列，±inf 会以伪造极值流入 z-score / 分位阈值；改为 ±inf 归一为 NaN 并记 warning（NaN 语义不变，仍表示「历史不足/不可用」）。未改 `@as_of` 因果守卫、warmup 语义与特征公式。
+- **验证**：`tests/test_features_causal.py` 补 10 例（±inf 窗口剔除、非有限当前值 NaN、过滤后空窗 NaN、合法输入分位不变、面板 ±inf→NaN、NaN 保留、有限值不受影响）；特征相关 `-k "feature or regime or atr or volatility or structure or percentile"` 341 passed；全量 **2319 passed**（154s，exit 0）。
+- **剩余风险/未验证**：上游若不做 `validate_bars` 直接喂脏 bar，特征层只是把结果降级为 NaN，不报错也不阻断；`ml_trend_strategy.py` 在线路径内联特征未走本函数（见 `design-feature-store.md` inferred 分叉点），该路径未受本次保护。
+
 ### #329 台账 P0 口径回填（退役逻辑 / GitHub 推送）✅ 已完成
 - **完成时间**：2026-11-17
 - **内容**：纯 docs。P0 #2「策略生命周期自动退役逻辑」由「后端未实现」改为事实口径：`retire_if_health_below`(#311) + `arbitrate_retirement`(#314) + `strategy_lifecycle` 已提供裁决纯函数与接缝，剩余为通知/减仓执行侧接线与阈值校准。P0 #4「GitHub 推送修复」由「进行中/连接重置」改为已完成，记录代理根因与三方核对方式。未改行为、阈值、配置。

@@ -136,12 +136,15 @@ def expanding_percentile_rank(past_values: np.ndarray, current: float) -> float:
     """当前值在过去分布中的分位（0~1）：过去 <= current 的比例。
 
     阈值来自分布的基础构件——只用 `past_values`（全部 <= as_of），禁止全样本。
+    非有限值（NaN / ±inf）不可比较：窗口内非有限项剔除，当前值非有限返回 NaN，
+    避免 ±inf 把分位伪造成 1.0 或 0.0。
     """
     arr = np.asarray(past_values, dtype=np.float64)
-    arr = arr[~np.isnan(arr)]
-    if arr.size == 0:
+    arr = arr[np.isfinite(arr)]
+    cur = float(current)
+    if arr.size == 0 or not np.isfinite(cur):
         return np.nan
-    return float((arr <= current).mean())
+    return float((arr <= cur).mean())
 
 
 # ---------------------------------------------------------------------------
@@ -180,11 +183,19 @@ def build_feature_panel(
             hist_slice = history[: i + 1]  # 只含 <= as_of 的 bar（装饰器双保险）
             for name, func in features.items():
                 try:
-                    row[name] = float(func(hist_slice, as_of))
+                    value = float(func(hist_slice, as_of))
                 except (ValueError, ArithmeticError) as exc:
                     # 统计量不足等数值失败：记 NaN 并带上下文，禁止静默吞错
                     logger.warning("feature %s failed at %s: %s", name, as_of, exc)
                     row[name] = np.nan
+                    continue
+                if np.isinf(value):
+                    # 溢出成 ±inf 的特征不可用：归一为 NaN（与“历史不足”同一表示），
+                    # 否则会以伪造的极值流入 z-score / 分位阈值。
+                    logger.warning("feature %s overflowed to %r at %s; recorded NaN",
+                                   name, value, as_of)
+                    value = np.nan
+                row[name] = value
         rows.append(row)
     df = pd.DataFrame(rows)
     df.index = pd.DatetimeIndex([b.ts_utc for b in history], name="ts_utc")

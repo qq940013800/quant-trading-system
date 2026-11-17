@@ -20,6 +20,7 @@ from core.features.base import (
     LookAheadError,
     as_of,
     build_feature_panel,
+    expanding_percentile_rank,
 )
 from core.features.atr import wilder_atr
 from core.features.structure import donchian_position
@@ -105,3 +106,42 @@ class TestAtrPeriodGuards:
     def test_valid_period_accepted(self, bars):
         val = wilder_atr(bars[:51], bars[50].ts_utc, period=14)
         assert val is not None
+
+
+class TestNonFiniteFeatureHandling:
+    """±inf 不得伪造分位或作为特征值流入下游。"""
+
+    def test_percentile_rank_drops_infinite_window_values(self):
+        past = np.array([1.0, 2.0, float("inf"), 3.0, float("-inf")])
+        rank = expanding_percentile_rank(past, 2.5)
+        # 有限窗口 [1,2,3] 中 <= 2.5 的有 2 个；±inf 被剔除而非参与比较
+        assert rank == pytest.approx(2.0 / 3.0)
+
+    @pytest.mark.parametrize("current", [float("inf"), float("-inf"), float("nan")])
+    def test_percentile_rank_non_finite_current_returns_nan(self, current):
+        assert np.isnan(expanding_percentile_rank(np.array([1.0, 2.0]), current))
+
+    def test_percentile_rank_empty_after_filter_returns_nan(self):
+        assert np.isnan(expanding_percentile_rank(
+            np.array([float("inf"), float("nan")]), 1.0))
+
+    def test_percentile_rank_valid_input_unchanged(self):
+        assert expanding_percentile_rank(np.array([1.0, 2.0, 3.0]), 2.0) \
+            == pytest.approx(2.0 / 3.0)
+
+    @pytest.mark.parametrize("value", [float("inf"), float("-inf")])
+    def test_panel_coerces_infinite_feature_to_nan(self, bars, value):
+        panel = build_feature_panel(
+            bars, {"boom": lambda h, a: value}, warmup_bars=0)
+        assert np.isnan(panel["boom"]).all()
+
+    def test_panel_keeps_nan_feature_as_nan(self, bars):
+        panel = build_feature_panel(
+            bars, {"na": lambda h, a: np.nan}, warmup_bars=0)
+        assert np.isnan(panel["na"]).all()
+
+    def test_panel_keeps_finite_feature_untouched(self, bars):
+        panel = build_feature_panel(
+            bars, {"close": lambda h, a: h[-1].close}, warmup_bars=0)
+        assert np.isfinite(panel["close"]).all()
+
