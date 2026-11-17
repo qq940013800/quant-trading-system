@@ -1,6 +1,6 @@
 # QuantDinger Pro 待办清单
 
-> 最后更新：2026-11-14
+> 最后更新：2026-11-17
 > 状态：所有未完成事项、临时方案、技术债全部列入，必须逐个清零
 > 原则：不虚报进度，每一项都标注真实状态
 
@@ -97,6 +97,13 @@
 ---
 
 ## ✅ 已完成（最近更新，按时间倒序）
+
+### #328 行情校验非有限数值隔离守卫 ✅ 已完成
+- **完成时间**：2026-11-17
+- **内容**：`core/data/validator.py` 隔离循环原仅按区间比较判定，`+inf` 价格可满足 `low≤open≤high` 直接作为 clean bar 流入 ATR/收益/成本计算（NaN 因比较恒 False 被 `bad_ohlc` 兜住，但理由码不精确）。新增 `_is_finite_number` 与前置判定：open_/high/low/close/tick_volume 及 spread_points 任一为 NaN/±inf/非数值即隔离为 `non_finite_value`；`IsolatedBar` 新增 `detail` 字段（默认空串，向后兼容）记录命中字段。未改单调性硬失败、缺口检测与异常值判定口径。
+- **验证**：`tests/test_data_loader.py` 补 12 例（各价格字段 NaN/±inf、inf/NaN 成交量、NaN/inf 点差、inf 命中优先级、全有限不误判、既有理由 detail 为空）；数据相关 155 passed；研究层全量 **2309 passed**（156s，exit 0）。
+- **剩余风险/未验证**：`loader` 仍以 `float()` 直接构造 Bar，隔离发生在 `validate_bars` 阶段，绕过校验直接消费 `load_bars` 输出的调用方不受保护；未接真实 MT5 导出 CSV 含 inf/NaN 样本复验。
+- **仓库完整性修复（随本轮）**：`.gitignore` 第 33 行 `data/` 模式（未锚定）连带忽略了整个 `core/data/` 包，长期只有 `validator.py` 被单独纳入，导致新克隆缺 `bar/loader/splits/synthetic/timezone/__init__` 后 import 失败。本轮以 `git add -f` 补入这 6 个源码文件；`.gitignore` 本身属仓库级配置、不在可改目录清单内，未擅改，建议人工将 `data/` 改为 `/data/` 以免再次误忽略。
 
 ### #327 实盘上线就绪台账与分层验收清单 ✅ 已完成
 - **完成时间**：2026-11-14

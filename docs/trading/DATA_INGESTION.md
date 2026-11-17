@@ -55,12 +55,15 @@ spread_points     # 无数据为 None，回测成本模型退化为"平静档默
 | 规则 | 处理 |
 |---|---|
 | 时间戳单调递增 | 违反即 `ValidationError`（数据损坏，不自动修） |
-| OHLC 一致性（low≤o/c≤high） | 违反标记 `bad_ohlc=True`，该 bar 隔离到异常清单 |
-| 价格非负、close>0 | 违反隔离 |
+| 数值非有限（OHLC / tick_volume / spread 含 NaN、±inf 或非数值） | 隔离为 `non_finite_value`，`detail` 记录命中字段（逗号分隔）；先于区间判定，避免 NaN 因比较恒 False、+inf 满足 `low≤x≤high` 而漏网 |
+| OHLC 一致性（low≤o/c≤high） | 违反隔离为 `bad_ohlc`，该 bar 保留在异常清单（不删） |
+| 价格非负、close>0 | 违反隔离为 `nonpositive_price` |
 | 缺失 bar（应有 M5 间隔而无数据） | 生成**缺口清单**（起止 UTC、缺失根数）；**禁止用未来信息回填**（前视）；缺口由 `core/gap_normalizer.py` 按既有流程产出 gate 配置，经人工审核后入 configs |
 | 异常值（单 bar 涨跌 > N×滚动 ATR，N 取 CLEAN 分布分位） | 标记 `outlier=True` 但保留（不删文件、不改历史），回测可选过滤 |
 | 重复时间戳 | 去重保留首条并记录 |
-| spread 负值/缺失 | 缺失置 None；负值隔离 |
+| spread 负值/缺失 | 缺失置 None；负值隔离为 `negative_spread` |
+
+所有隔离只标记不删除；被隔离的 bar 不进入 clean 序列（`ValidationReport.isolated` 与总数差额即可用 bar 数）。
 
 校验报告 `ValidationReport`：总 bar 数 / 隔离数 / 缺口清单 / DST 切换日清单 / 异常值清单。任何"自动修数据"行为都必须是因果的（只用已收盘历史），且全程留痕。
 

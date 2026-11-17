@@ -9,6 +9,7 @@ LookAheadError wherever attempted.
 from __future__ import annotations
 
 import logging
+import math
 from typing import List, Sequence
 
 import numpy as np
@@ -35,6 +36,19 @@ def _positive_finite(name: str, val: float) -> float:
             f"{name} 必须为正的有限数值",
             {"layer": "data.validator", name: val})
     return float(val)
+
+
+def _is_finite_number(value: object) -> bool:
+    """True only for a real, finite number. Non-numeric / NaN / ±inf are False.
+
+    Used to quarantine bars whose numeric fields would poison every downstream
+    computation (NaN comparisons silently pass interval checks, inf survives
+    low<=x<=high).
+    """
+    try:
+        return math.isfinite(float(value))
+    except (TypeError, ValueError):
+        return False
 
 
 def assert_as_of(bars: Sequence[Bar], as_of: pd.Timestamp) -> None:
@@ -93,11 +107,23 @@ def validate_bars(
         prev = b.ts_utc
 
     # --- rule 2/3/7: isolate bad OHLC, non-positive price, negative spread ----
+    # Rule 2.0: non-finite numeric fields are quarantined first. NaN passes the
+    # low<=open<=high interval check only because every comparison is False,
+    # and +inf passes it outright; either would poison ATR / returns / costs.
     isolated: List[IsolatedBar] = []
     usable: List[Bar] = []
+    finite_fields = ("open_", "high", "low", "close", "tick_volume")
     for b in bars:
         reason = None
-        if not (b.low <= b.open_ <= b.high and b.low <= b.close <= b.high):
+        detail = ""
+        bad_fields = [name for name in finite_fields
+                      if not _is_finite_number(getattr(b, name))]
+        if b.spread_points is not None and not _is_finite_number(b.spread_points):
+            bad_fields.append("spread_points")
+        if bad_fields:
+            reason = "non_finite_value"
+            detail = ",".join(bad_fields)
+        elif not (b.low <= b.open_ <= b.high and b.low <= b.close <= b.high):
             reason = "bad_ohlc"
         elif b.close <= 0 or b.low < 0:
             reason = "nonpositive_price"
@@ -106,7 +132,8 @@ def validate_bars(
         if reason is None:
             usable.append(b)
         else:
-            isolated.append(IsolatedBar(ts_utc=b.ts_utc, reason=reason))
+            isolated.append(IsolatedBar(ts_utc=b.ts_utc, reason=reason,
+                                        detail=detail))
 
     # --- rule 4: gaps on the UTC grid, detection only, no filling ------------
     gaps: List[Gap] = []

@@ -125,6 +125,73 @@ def test_split_dataset_partitions_and_never_returns_silent(syn_bars, tmp_path):
     assert parts["HELD_OUT"] == []   # silent set never returned
 
 
+class TestNonFiniteBarIsolation:
+    """Non-finite numeric fields must be quarantined, never used as clean bars.
+
+    NaN slips past `low <= open <= high` because every comparison is False, and
+    +inf passes the interval check outright; both would poison ATR / returns /
+    cost models downstream.
+    """
+
+    @staticmethod
+    def _append(syn_bars, **overrides):
+        base = dict(symbol=syn_bars[0].symbol,
+                    ts_utc=syn_bars[-1].ts_utc + pd.Timedelta(minutes=5),
+                    ts_server=syn_bars[-1].ts_server,
+                    server_offset_hours=0.0,
+                    open_=100.0, high=101.0, low=99.0, close=100.5,
+                    tick_volume=1.0)
+        base.update(overrides)
+        return Bar(**base)
+
+    @pytest.mark.parametrize("field, value", [
+        ("open_", float("nan")),
+        ("high", float("nan")),
+        ("low", float("-inf")),
+        ("close", float("inf")),
+        ("close", float("nan")),
+        ("tick_volume", float("inf")),
+        ("tick_volume", float("nan")),
+    ])
+    def test_non_finite_price_or_volume_is_isolated(self, syn_bars, field, value):
+        bad = self._append(syn_bars, **{field: value})
+        report = validate_bars(syn_bars + [bad])
+        assert report.total_bars == len(syn_bars) + 1          # kept on record
+        hits = [iso for iso in report.isolated
+                if iso.reason == "non_finite_value"]
+        assert len(hits) == 1
+        assert hits[0].detail == field
+        # the poisoned bar never becomes a clean bar
+        assert report.total_bars - report.isolated_count == len(syn_bars)
+
+    @pytest.mark.parametrize("value", [float("nan"), float("inf")])
+    def test_non_finite_spread_is_isolated(self, syn_bars, value):
+        bad = self._append(syn_bars, spread_points=value)
+        report = validate_bars(syn_bars + [bad])
+        hits = [iso for iso in report.isolated
+                if iso.reason == "non_finite_value"]
+        assert len(hits) == 1
+        assert "spread_points" in hits[0].detail
+
+    def test_non_finite_check_precedes_interval_check(self, syn_bars):
+        # high=inf would satisfy low<=open<=high; must be flagged as non-finite,
+        # not slip through as a clean bar.
+        bad = self._append(syn_bars, high=float("inf"))
+        report = validate_bars(syn_bars + [bad])
+        assert [iso.reason for iso in report.isolated] == ["non_finite_value"]
+
+    def test_finite_bars_are_not_flagged(self, syn_bars):
+        report = validate_bars(syn_bars)
+        assert report.isolated_count == 0
+        assert not any(iso.reason == "non_finite_value" for iso in report.isolated)
+
+    def test_existing_reasons_keep_empty_detail(self, syn_bars):
+        bad = self._append(syn_bars, open_=100.0, high=101.0, low=102.0)
+        report = validate_bars(syn_bars + [bad])
+        iso = next(i for i in report.isolated if i.reason == "bad_ohlc")
+        assert iso.detail == ""
+
+
 class TestValidatorGuards:
     @pytest.mark.parametrize("kwargs", [
         {"bar_minutes": 0}, {"bar_minutes": -1}, {"bar_minutes": 1.5},
