@@ -143,6 +143,8 @@
 | 2026-10-27 | 后端代码环境变量名和数据库不匹配 | 先Read代码确认用的环境变量名（不是POSTGRES_PASSWORD） | 密码认证失败 |
 | 2026-10-27 | 手动stop+rm生产容器 | 禁止手动删容器，必须用 `docker compose up -d <service>` 恢复 | 后端服务瘫痪，花了半小时还没恢复 |
 | 2026-10-27 | 新容器没加入docker网络 | 用compose启动会自动加入网络，手动run要docker network connect | 502 Bad Gateway |
+| 2026-11-17 | PowerShell 把中文弯引号「」/“” 当作字符串定界符，`git commit -m "…「…」…"` 被截断成 pathspec 报错 | 提交信息先写入临时 `.txt`，再用 `git commit -F <file>`；消息里避免中文引号 | 提交失败一次，需重写提交 |
+| 2026-11-17 | `.gitignore` 中未锚定的 `data/` 模式连带忽略 `core/data/` 整包，仅个别文件被单独 add，新克隆 import 失败 | 用 `git add -f` 补入被误忽略的包内源码，并核查 `git ls-files <dir>` 与 `git check-ignore -v <path>`；模式本身建议人工改为 `/data/` | 仓库长期缺半个核心数据包 |
 
 ---
 
