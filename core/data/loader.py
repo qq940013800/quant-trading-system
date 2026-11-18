@@ -9,6 +9,7 @@ contract is unchanged.
 from __future__ import annotations
 
 import logging
+import math
 from pathlib import Path
 from typing import List, Optional
 
@@ -18,6 +19,28 @@ from .bar import Bar, ValidationError
 from .timezone import OffsetTable, to_utc
 
 log = logging.getLogger("core.data.loader")
+
+# Broker wall-clock/UTC offsets are tiny integers in practice; every live venue
+# sits inside ±14h. A non-finite or absurd value means a misconfigured --tz and
+# would silently shift *every* UTC stamp (AGENTS.md hard rule 6).
+_MAX_OFFSET_HOURS = 14.0
+
+
+def _validate_constant_offset(value, symbol: str) -> float:
+    """Effective constant broker offset, or ValidationError with context."""
+    try:
+        offset = float(value)
+    except (TypeError, ValueError):
+        raise ValidationError(
+            "tz_offset_hours must be a finite number",
+            {"symbol": symbol, "layer": "data.loader", "detail": repr(value)},
+        )
+    if not math.isfinite(offset) or abs(offset) > _MAX_OFFSET_HOURS:
+        raise ValidationError(
+            "tz_offset_hours out of broker range (|offset| <= 14h, finite)",
+            {"symbol": symbol, "layer": "data.loader", "detail": repr(value)},
+        )
+    return offset
 
 # MT5 history-center export header (order):
 #   DATE TIME OPEN HIGH LOW CLOSE TICKVOL VOL SPREAD
@@ -94,12 +117,17 @@ def load_bars(
         )
     spread_col = "spread" if "spread" in df.columns else None
 
+    # Constant fallback offset is only meaningful without an offset table; guard
+    # it once so one bad --tz cannot shift the whole feed silently.
+    constant_offset = (None if offset_table is not None
+                       else _validate_constant_offset(tz_offset_hours, symbol))
+
     bars: List[Bar] = []
     for i in range(len(df)):
         if dup_mask[i]:
             continue
         ts_server = stamp.iloc[i]
-        offset = offset_table.offset_at(ts_server) if offset_table else float(tz_offset_hours)
+        offset = offset_table.offset_at(ts_server) if offset_table else constant_offset
         ts_utc = to_utc(ts_server, offset)
 
         spread_raw = df[spread_col].iloc[i] if spread_col else None

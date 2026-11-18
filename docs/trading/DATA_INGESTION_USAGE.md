@@ -21,9 +21,9 @@
 |---|---|
 | `--data` | MT5 历史中心导出的 CSV（列：DATE TIME OPEN HIGH LOW CLOSE TICKVOL VOL SPREAD） |
 | `--out` | 归一化输出 CSV（列式列名见下；parquet 需 pyarrow，当前基线环境未装） |
-| `--tz EET` | 经纪商 profile：EET（冬季 UTC+2 / 夏季 UTC+3，跟随美国 DST）；GMT0=无 DST 恒定 0 |
+| `--tz EET` | 经纪商 profile：EET（冬季 UTC+2 / 夏季 UTC+3，跟随美国 DST）；GMT0=无 DST 恒定 0。**无默认值**：`--tz` / `--offset-table` / `--tz-offset-hours` 必须显式给出其中一个，省略即退出码 2 |
 | `--offset-table broker.json` | 经纪商校准过的 DST 切换表（优先级高于 `--tz`） |
-| `--tz-offset-hours 2.0` | 无 DST 券商的恒定偏移（兜底；禁止写死在代码里） |
+| `--tz-offset-hours 2.0` | 无 DST 券商的恒定偏移（兜底；禁止写死在代码里）。仅给此项时不构造 profile 表；取值必须有限且 `\|offset\| <= 14h`，否则校验失败（退出码 1） |
 | `--splits` | CLEAN/KNOWN 区间配置；HELD_OUT 区间内的 bar 直接丢弃，永不返回 |
 | `--bar-minutes / --outlier-window / --outlier-mult` | 网格步长与异常值判定参数（调用方传入，非模块内字面量） |
 

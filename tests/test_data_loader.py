@@ -210,3 +210,63 @@ class TestValidatorGuards:
         report = validate_bars(syn_bars, bar_minutes=5,
                                outlier_window=20, outlier_mult=4.0)
         assert report.total_bars == len(syn_bars)
+
+
+class TestBrokerOffsetGuards:
+    """hard rule 6：券商偏移必须显式且合理，一个坏 --tz 不得静默平移整条序列。"""
+
+    @pytest.mark.parametrize("bad", [
+        float("nan"), float("inf"), float("-inf"), 99.0, -20.0, "abc",
+    ])
+    def test_constant_offset_rejected(self, mt5_csv, bad):
+        with pytest.raises(ValidationError):
+            load_bars(mt5_csv, "XAUUSD", bad)
+
+    def test_constant_offset_in_range_accepted(self, mt5_csv):
+        bars = load_bars(mt5_csv, "XAUUSD", 2.0)
+        assert len(bars) == 5
+        assert bars[0].server_offset_hours == 2.0
+
+    def test_offset_table_wins_over_scalar(self, mt5_csv, eet_table):
+        # 表存在时标量只是占位，不应被误拦（既有调用形态不变）
+        bars = load_bars(mt5_csv, "XAUUSD", float("nan"), offset_table=eet_table)
+        assert len(bars) == 5
+        assert bars[0].ts_utc == pd.Timestamp("2024-01-02 07:30", tz="UTC")
+
+
+class TestCliOffsetContract:
+    """两个入口脚本的时区参数不得有默认值（曾经 run_live_data_test 默认 2.0）。"""
+
+    @staticmethod
+    def _load_script(name: str):
+        import importlib.util
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parents[1]
+        spec = importlib.util.spec_from_file_location(
+            f"_cli_contract_{name}", root / "scripts" / f"{name}.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    def test_live_data_test_tz_is_required(self):
+        mod = self._load_script("run_live_data_test")
+        with pytest.raises(SystemExit):
+            mod._build_parser().parse_args(["--csv", "a.csv", "--symbol", "XAUUSD"])
+        args = mod._build_parser().parse_args(
+            ["--csv", "a.csv", "--symbol", "XAUUSD", "--tz", "3.0"])
+        assert args.tz == 3.0
+
+    def test_ingest_has_no_timezone_default(self):
+        mod = self._load_script("ingest_xauusd")
+        args = mod._build_parser().parse_args(
+            ["--data", "in.csv", "--out", "out.csv"])
+        assert args.tz is None
+        assert args.tz_offset_hours is None
+        assert args.offset_table is None
+
+    def test_ingest_without_offset_source_exits(self, tmp_path):
+        mod = self._load_script("ingest_xauusd")
+        with pytest.raises(SystemExit):
+            mod.main(["--data", str(tmp_path / "missing.csv"),
+                      "--out", str(tmp_path / "out.csv")])

@@ -99,6 +99,15 @@
 
 ## ✅ 已完成（最近更新，按时间倒序）
 
+### #331 券商时区偏移去硬编码 + 有限性/区间守卫 ✅ 已完成
+- **完成时间**：2026-11-17
+- **缺口（硬规则 6 违规）**：`scripts/run_live_data_test.py` 的 `--tz` 带 `default=2.0`，不传参就把整条序列静默按 UTC+2 平移；`scripts/ingest_xauusd.py` 的 `--tz` 默认 `EET`，无 DST 券商仅给 `--tz-offset-hours` 时也会被隐式套上 EET profile 表。两者都能让「偏移与 MT5 侧一致」这条不变量在无提示下失效。
+- **落码**：`run_live_data_test.py` 抽出 `_build_parser()`，`--tz` 改 `required=True`；`ingest_xauusd.py` `--tz` 默认改 `None`，三个偏移来源全缺时 `parser.error` 以退出码 2 退出，并新增「仅常量偏移」分支（不构造 profile 表）。`core/data/loader.py` 新增 `_validate_constant_offset`：常量兜底偏移必须有限且 `|offset| <= 14h`，否则 `ValidationError` 带 symbol/layer/detail 上下文；偏移表存在时不校验该占位标量（既有调用形态不变）。
+- **测试**：`tests/test_data_loader.py` 补 11 例（`TestBrokerOffsetGuards`：NaN/±inf/99/-20/"abc" 拒绝、2.0 接受、偏移表优先不被标量误拦；`TestCliOffsetContract`：两个脚本解析器无时区默认、缺偏移来源退出码 2）。文件 36→47 例。
+- **真实入口复验**：用 6 根构造 CSV 实跑 `ingest_xauusd.py`（输出落 `experiments/`）：`--tz-offset-hours 2.0` 退出 0 且 09:00 server → 07:00 UTC（偏移正确应用）；`--tz-offset-hours 99` 退出 1 且日志带 `detail='99.0'`；`--tz EET` 退出 0；无任何偏移来源退出 2 并打印明确提示。
+- **验证**：`tests/test_data_loader.py` 47 passed；全量 **2330 passed**（161.84s，exit 0）。
+- **剩余风险/未验证**：`OffsetTable` 自身（JSON 表 / profile 常量）内的偏移值未做 `|offset| <= 14h` 校验，本次只守卫 loader 的常量兜底；`scripts/run_live_data_test.py` 的完整流程（含后续特征/止损/指标各步）未在真 CSV 上重跑，仅验证解析器契约与导入路径。
+
 ### #330 特征层非有限数值容错（分位秩窗口 / 面板溢出）✅ 已完成
 - **完成时间**：2026-11-17
 - **内容**：`core/features/base.py` 两处。①`expanding_percentile_rank` 原只剔除 NaN：窗口内 ±inf 会参与比较（`-inf` 恒 ≤ 当前值、抬高排名），当前值非有限时返回伪 1.0/0.0；改为窗口按 `np.isfinite` 过滤，当前值非有限返回 NaN。②`build_feature_panel` 原对特征返回值直接 `float()` 落列，±inf 会以伪造极值流入 z-score / 分位阈值；改为 ±inf 归一为 NaN 并记 warning（NaN 语义不变，仍表示「历史不足/不可用」）。未改 `@as_of` 因果守卫、warmup 语义与特征公式。

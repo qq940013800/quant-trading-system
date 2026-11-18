@@ -37,8 +37,10 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--data", required=True, help="raw MT5 export CSV path")
     p.add_argument("--symbol", default="XAUUSD")
     p.add_argument("--out", required=True, help="output normalized CSV path")
-    p.add_argument("--tz", default="EET",
-                   help="named broker profile: EET (UTC+2/+3 US-DST) or GMT0")
+    p.add_argument("--tz", default=None,
+                   help="named broker profile: EET (UTC+2/+3 US-DST) or GMT0; "
+                        "must be given explicitly together with --offset-table "
+                        "or --tz-offset-hours (never defaulted, hard rule 6)")
     p.add_argument("--offset-table", default=None,
                    help="broker-calibrated offset table JSON (overrides --tz)")
     p.add_argument("--tz-offset-hours", type=float, default=None,
@@ -54,20 +56,29 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv=None) -> int:
-    args = _build_parser().parse_args(argv)
+    parser = _build_parser()
+    args = parser.parse_args(argv)
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
 
     # --- offset resolution: table > profile > constant (never hardcoded) ------
+    if not args.offset_table and args.tz is None and args.tz_offset_hours is None:
+        # 硬规则 6：券商偏移必须与 MT5 侧显式一致，禁止靠默认值静默换时区
+        parser.error("one of --offset-table / --tz / --tz-offset-hours is required "
+                     "(broker offset is never defaulted)")
     if args.offset_table:
         table = OffsetTable.from_json(args.offset_table)
         fallback = table.winter_offset_hours
-    else:
+    elif args.tz is not None:
         table = OffsetTable.from_profile(args.tz)
         fallback = args.tz_offset_hours if args.tz_offset_hours is not None \
             else table.winter_offset_hours
+    else:
+        # 纯常量偏移（无 DST 券商）：不构造 profile 表，避免隐式套用 EET
+        table = None
+        fallback = args.tz_offset_hours
 
     try:
         bars = load_bars(args.data, args.symbol, fallback, offset_table=table)

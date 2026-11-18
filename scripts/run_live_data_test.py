@@ -371,12 +371,18 @@ def generate_report(all_results: list[TestResult]) -> str:
     return "\n".join(report_lines)
 
 
-def main():
+def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="实盘数据端到端测试")
     parser.add_argument("--csv", required=True, help="CSV数据文件路径")
     parser.add_argument("--symbol", required=True, help="交易品种")
-    parser.add_argument("--tz", type=float, default=2.0, help="经纪商时区偏移(小时)")
+    parser.add_argument("--tz", type=float, required=True,
+                        help="经纪商时区偏移(小时)，必须显式给出（禁止默认值，硬规则 6）")
     parser.add_argument("--verbose", action="store_true", help="详细输出")
+    return parser
+
+
+def main():
+    parser = _build_parser()
 
     args = parser.parse_args()
 
