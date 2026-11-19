@@ -99,6 +99,16 @@
 
 ## ✅ 已完成（最近更新，按时间倒序）
 
+### #332 OffsetTable 偏移区间守卫（补齐 #331 剩余风险）✅ 已完成
+- **完成时间**：2026-11-17
+- **缺口**：`#331` 只守了 `load_bars` 的常量兜底偏移，`core/data/timezone.py` 自身仍是裸 `float()`：JSON 校准表或 profile 常量里写 30、`NaN`、`"2.0"` 之类都会静默接受，随后把整条序列按错位偏移平移——同样是硬规则 6 的失效路径，且比 CLI 传参更隐蔽（表是一次性配置、长期复用）。
+- **落码**：`core/data/timezone.py` 新增 `_MAX_OFFSET_HOURS = 14.0` 与 `_offset_hours(field, value, profile=None)`：`float()` 失败或非有限或 `|offset| > 14h` 抛 `ValueError`，消息带字段名、原值与 `profile` 上下文。接入两处入口——`OffsetTable.__init__` 的 `winter_offset_hours` / `summer_offset_hours`，以及 `to_utc` 的逐 bar `offset_hours`（此处原本 `NaN` 会抛 `cannot convert float NaN to integer` 这类无上下文错误）。
+- **兼容性核查**：全仓库 `OffsetTable(` 构造点仅 `tests/test_data_timezone.py` 的 `from_json` 与 `OffsetTable.flat("GMT0", 0.0)`；既有自定义券商测试用 4.5/5.5，均在 ±14 内，未被新守卫打回。
+- **测试**：`tests/test_data_timezone.py` 新增 `TestOffsetRangeGuards` 14 例（`flat` 对 NaN/±inf/99/-20/"abc"/None 全部拒绝；±14h 边界放行；`from_json` 对 winter/summer 越界分别拒绝且断言错误消息含字段名；`to_utc` 对 NaN/inf/99/"abc" 拒绝）。文件 8→22 例。
+- **文档**：`docs/trading/DATA_INGESTION_USAGE.md` §3 补偏移值约束（有限且 `|offset| <= 14h`，越界抛 `ValueError` 且指明字段与 profile，不做静默修正）。
+- **验证**：`tests/test_data_timezone.py tests/test_data_loader.py` 69 passed；全量 **2344 passed**（163.90s，exit 0）。
+- **剩余风险/未验证**：`OffsetTable` 的 `transitions` 日期表仍未校验（非法日期/年份缺失只会在 `offset_at` 落到 winter 分支时表现为"偏移看起来正常"）；`ingest_xauusd.py` 的偏移解析在 `try` 块之前，`from_json` 抛 `ValueError` 时是 traceback 而非规范错误日志（退出码仍非 0，行为与改动前一致，未改）。
+
 ### #331 券商时区偏移去硬编码 + 有限性/区间守卫 ✅ 已完成
 - **完成时间**：2026-11-17
 - **缺口（硬规则 6 违规）**：`scripts/run_live_data_test.py` 的 `--tz` 带 `default=2.0`，不传参就把整条序列静默按 UTC+2 平移；`scripts/ingest_xauusd.py` 的 `--tz` 默认 `EET`，无 DST 券商仅给 `--tz-offset-hours` 时也会被隐式套上 EET profile 表。两者都能让「偏移与 MT5 侧一致」这条不变量在无提示下失效。

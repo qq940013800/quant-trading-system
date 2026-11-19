@@ -67,3 +67,37 @@ def test_flat_profile_no_dst():
     t = OffsetTable.flat("GMT0", 0.0)
     assert t.offset_at(pd.Timestamp("2024-01-01")) == 0.0
     assert t.offset_at(pd.Timestamp("2024-07-01")) == 0.0
+
+
+class TestOffsetRangeGuards:
+    """偏移必须是有限小时数且落在 ±14h；坏表/坏偏移不得静默平移时间轴。"""
+
+    @pytest.mark.parametrize("bad", [
+        float("nan"), float("inf"), float("-inf"), 99.0, -20.0, "abc", None,
+    ])
+    def test_flat_profile_rejects_bad_offset(self, bad):
+        with pytest.raises(ValueError):
+            OffsetTable.flat("BAD", bad)
+
+    def test_boundary_offsets_accepted(self):
+        assert OffsetTable.flat("MAX", 14.0).winter_offset_hours == 14.0
+        assert OffsetTable.flat("MIN", -14.0).winter_offset_hours == -14.0
+
+    @pytest.mark.parametrize("field", ["winter_offset_hours", "summer_offset_hours"])
+    def test_from_json_rejects_out_of_range(self, tmp_path, field):
+        cfg = {
+            "profile": "BAD-BROKER",
+            "winter_offset_hours": 2.0,
+            "summer_offset_hours": 3.0,
+            "transitions": {"2024": ["2024-03-10", "2024-11-03"]},
+        }
+        cfg[field] = 30.0
+        p = tmp_path / "bad.json"
+        p.write_text(json.dumps(cfg), encoding="utf-8")
+        with pytest.raises(ValueError, match=field):
+            OffsetTable.from_json(str(p))
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf"), 99.0, "abc"])
+    def test_to_utc_rejects_bad_offset(self, bad):
+        with pytest.raises(ValueError):
+            to_utc(pd.Timestamp("2024-01-02 09:30"), bad)

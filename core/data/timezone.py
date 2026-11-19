@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Dict, Tuple
@@ -21,6 +22,9 @@ from typing import Dict, Tuple
 import pandas as pd
 
 log = logging.getLogger("core.data.timezone")
+
+# Real broker offsets are small integers; ±14h covers every live venue.
+_MAX_OFFSET_HOURS = 14.0
 
 
 def _nth_sunday(year: int, month: int, n: int) -> date:
@@ -57,8 +61,10 @@ class OffsetTable:
         transitions: Dict[int, Tuple[date, date]],
     ):
         self.profile = profile
-        self.winter_offset_hours = float(winter_offset_hours)
-        self.summer_offset_hours = float(summer_offset_hours)
+        self.winter_offset_hours = _offset_hours(
+            "winter_offset_hours", winter_offset_hours, profile)
+        self.summer_offset_hours = _offset_hours(
+            "summer_offset_hours", summer_offset_hours, profile)
         # year -> (dst_start, dst_end); [start, end) summer window
         self.transitions = dict(transitions)
 
@@ -138,6 +144,28 @@ class OffsetTable:
         return any(d in win for win in self.transitions.values())
 
 
+def _offset_hours(field: str, value, profile: str | None = None) -> float:
+    """Broker offset guard: must be a finite hour count within ±14h.
+
+    Every live venue sits inside ±14h; a non-finite or absurd value means a
+    misconfigured table/profile and would silently shift every UTC stamp
+    (AGENTS.md hard rule 6). Fail loudly with the offending field instead.
+    """
+    try:
+        offset = float(value)
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"{field} must be a finite number of hours, got {value!r}"
+            + (f" (profile={profile})" if profile is not None else "")
+        )
+    if not math.isfinite(offset) or abs(offset) > _MAX_OFFSET_HOURS:
+        raise ValueError(
+            f"{field} out of broker range (|offset| <= 14h, finite), got {value!r}"
+            + (f" (profile={profile})" if profile is not None else "")
+        )
+    return offset
+
+
 def to_utc(ts_server: pd.Timestamp, offset_hours: float) -> pd.Timestamp:
     """Normalize broker wall-clock (naive) to aware UTC: ts_utc = ts_server - offset.
 
@@ -147,4 +175,5 @@ def to_utc(ts_server: pd.Timestamp, offset_hours: float) -> pd.Timestamp:
         raise ValueError(
             "ts_server must be naive broker wall-clock time",
         )
+    offset_hours = _offset_hours("offset_hours", offset_hours)
     return (ts_server - pd.Timedelta(hours=offset_hours)).tz_localize("UTC")

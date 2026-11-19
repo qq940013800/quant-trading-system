@@ -45,6 +45,8 @@
 
 Python 端这张表必须与 MQL5 EA 的 `InServerOffset` 配置指向同一份（硬规则 6）。
 
+偏移值约束：`winter_offset_hours` / `summer_offset_hours` 必须是有限小时数且 `|offset| <= 14h`（`to_utc` 的逐 bar 偏移同样校验）。越界或非有限（含 JSON 里的字符串、`null`）会抛 `ValueError` 并指明字段与 profile，不做静默修正。
+
 ## 4. split_dates.yaml 格式（--splits）
 
 ```yaml
