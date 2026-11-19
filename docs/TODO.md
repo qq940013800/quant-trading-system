@@ -1,10 +1,18 @@
 # QuantDinger Pro 待办清单
 
-> 最后更新：2026-11-17
+> 最后更新：2026-11-19
 > 状态：所有未完成事项、临时方案、技术债全部列入，必须逐个清零
 > 原则：不虚报进度，每一项都标注真实状态
 
 ---
+
+## ✅ 最近完成（2026-11-19）
+
+- ✅ **#336 demo 冒烟一键入口**：`backend_api_python/scripts/demo_trading_smoke.py` + `tests/test_demo_trading_smoke.py`（12 passed）。
+  硬规则：凭据 `environment` 非 demo/testnet 直接拒绝（退出码 2），实盘凭据即使加 `--allow-orders` 也不下单。
+  OKX demo（cred id=2）实测：只读 + 5 USDT post-only 下单/查询/撤销全 PASS，`pending_orders=0`。
+  未覆盖：swap 开仓（demo `acctLv=1` 仍抛 `OKX_SWAP_ACCOUNT_MODE_REQUIRED`）、成交路径（post-only 未吃单）。
+  口径见 `docs/trading/DEMO_SMOKE.md`。
 
 ## ✅ 最近完成（2026-10-28）
 
@@ -36,6 +44,7 @@
   - ✅ 持仓口径对齐凭证库主链，排除余额现金误列（#295）；quick-trade 行情缺失时数量换算返回 0 走下游拒单，避免 USDT 金额误当 base 数量（#297）
   - ✅ 只读 GET 有限退避 / POST 下单撤单不重试 / 错误码分流（#202/#203）
   - ✅ 认证 token：dev-token 假登录 → 真实自动登录，401 循环登出消除（E009）；本地网络访问 OKX 被拒已解除（E007）
+  - ✅ 模拟盘冒烟入口固化：`scripts/demo_trading_smoke.py` 拒绝 live 凭据、只跑 demo（#336，口径见 `docs/trading/DEMO_SMOKE.md`）
 - **剩余阻塞 / 未验证**：
   - ⏳ **永续（swap）开仓**：demo 简单账户 `acctLv=1`，`account_configuration.py:137` fail-closed 抛 `OKX_SWAP_ACCOUNT_MODE_REQUIRED`；现货可成交。解阻塞需在 demo 切保证金账户模式，或策略只跑现货——账户模式决策待拍板
   - ⏳ **V2 合约层**：历史版本脚本 manifest 仍是 sp500 池，候选按 manifest 解析；3 条 crypto 快照要真实成交需重编译脚本版本（合约层改动，停止条件待确认）
