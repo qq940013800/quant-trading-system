@@ -18,6 +18,7 @@ import json
 import os
 import sys
 import time
+from decimal import Decimal, ROUND_CEILING
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -37,6 +38,11 @@ from app.services.live_trading.spot_wallet_snapshot import list_spot_wallet_posi
 
 SECRET_KEYS = ("api_key", "apiKey", "secret_key", "secret", "passphrase", "password")
 SIMULATED_ENVIRONMENTS = ("demo", "testnet")
+
+# Exchange-level minimum order amount in quote currency (USDT), measured on OKX demo
+# 2026-11-19: 0.99 USDT -> sCode 51020 "minimum order amount"; 1.00 USDT -> accepted.
+# This floor is not published in instrument metadata, so it has to live here.
+EXCHANGE_MIN_NOTIONAL_USDT = {"okx": Decimal("1.0")}
 
 
 def mask_secret(value: Any) -> str:
@@ -72,15 +78,68 @@ def require_simulated_credential(config: Dict[str, Any]) -> str:
     return environment
 
 
-def order_notional_ok(price: float, quantity: float, max_usdt: float) -> Tuple[bool, str]:
+def order_notional_ok(price: float, quantity: float, max_usdt: float, contract_value: str = "") -> Tuple[bool, str]:
     qty = float(quantity or 0.0)
     px = float(price or 0.0)
     if qty <= 0 or px <= 0:
         return False, "limit_price and limit_quantity are required"
-    notional = qty * px
+    notional = float(order_notional_usdt(price=px, quantity=qty, contract_value=contract_value))
     if notional > float(max_usdt or 0.0):
         return False, f"notional {notional:.8f} > max_usdt {float(max_usdt or 0.0):.8f}"
     return True, f"notional={notional:.8f}"
+
+
+def exchange_min_notional_usdt(exchange_id: Any) -> Decimal:
+    return EXCHANGE_MIN_NOTIONAL_USDT.get(str(exchange_id or "").strip().lower(), Decimal("0"))
+
+
+def order_notional_usdt(*, price: Any, quantity: Any, contract_value: Any = "") -> Decimal:
+    """Quote-currency notional. Swap quantity is contracts, so ctVal is part of the product."""
+    cv = Decimal(str(contract_value or "1") or "1")
+    return Decimal(str(price or 0)) * Decimal(str(quantity or 0)) * cv
+
+
+def instrument_limits(client: Any, *, symbol: str, market_type: str) -> Dict[str, str]:
+    """Read minSz/lotSz/tickSz/ctVal from the venue's public instrument endpoint."""
+    getter = getattr(client, "get_instrument", None)
+    if not callable(getter):
+        return {}
+    inst_type = "SPOT" if market_type == "spot" else "SWAP"
+    inst_id = str(symbol).replace("/", "-")
+    if market_type != "spot" and not inst_id.upper().endswith("-SWAP"):
+        inst_id = f"{inst_id}-SWAP"
+    try:
+        raw = getter(inst_type=inst_type, inst_id=inst_id) or {}
+    except Exception as exc:
+        raise LiveTradingError(f"DEMO_SMOKE_INSTRUMENT_UNAVAILABLE: {type(exc).__name__}: {exc}") from exc
+    return {k: str(raw.get(k) or "") for k in ("minSz", "lotSz", "tickSz", "ctVal")}
+
+
+def min_order_quantity(
+    *,
+    price: Any,
+    min_notional: Any,
+    min_size: Any = "",
+    lot_size: Any = "",
+    contract_value: Any = "",
+) -> Decimal:
+    """Smallest wet-legal quantity whose notional reaches the venue minimum.
+
+    Spot quantity is base units; swap quantity is contracts, so one contract is
+    worth ``price * ctVal``. Round up to the lot step so the venue accepts it.
+    """
+    px = Decimal(str(price or 0))
+    if px <= 0:
+        raise ValueError("price must be positive")
+    cv = Decimal(str(contract_value or "1") or "1")
+    lot = Decimal(str(lot_size or "0") or "0")
+    qty = max(Decimal(str(min_notional or 0)), Decimal("0")) / (px * cv)
+    qty = max(qty, Decimal(str(min_size or "0") or "0"))
+    if qty <= 0:
+        raise ValueError("no positive lower bound for order size")
+    if lot > 0:
+        qty = (qty / lot).to_integral_value(rounding=ROUND_CEILING) * lot
+    return qty
 
 
 def demo_header(client: Any) -> Optional[str]:
@@ -157,6 +216,7 @@ def run_steps(
     limit_quantity: float,
     max_usdt: float,
     allow_orders: bool,
+    min_notional: bool = False,
 ) -> List[Dict[str, Any]]:
     steps: List[Dict[str, Any]] = []
 
@@ -194,10 +254,72 @@ def run_steps(
             )
             record(f"position_{side}", "PASS", f"size={size}")
 
+    swap_mode_blocked = False
+    if market_type != "spot":
+        config_fn = getattr(client, "get_account_config", None)
+        account = config_fn() if callable(config_fn) else {}
+        level = str((account or {}).get("acctLv") or "").strip()
+        swap_mode_blocked = level == "1"
+        detail = f"acctLv={level or '?'} posMode={(account or {}).get('posMode', '')}"
+        if swap_mode_blocked:
+            detail += (
+                " — swap orders need acctLv>=2; the API refuses the switch (51070),"
+                " upgrade the demo account in the OKX demo web/app first"
+            )
+        record(
+            "swap_account_mode",
+            ("FAIL" if allow_orders else "WARN") if swap_mode_blocked else "PASS",
+            detail,
+        )
+
     if not allow_orders:
         record("limit_roundtrip", "SKIP", "set --allow-orders and DEMO_SMOKE_ALLOW_ORDERS=1")
+    elif swap_mode_blocked:
+        record("limit_roundtrip", "SKIP", "blocked by swap_account_mode; no order was sent")
     else:
-        ok, reason = order_notional_ok(limit_price, limit_quantity, max_usdt)
+        quantity = float(limit_quantity or 0.0)
+        contract_value = ""
+        if min_notional:
+            limits: Dict[str, str] = {}
+            problem = ""
+            try:
+                limits = instrument_limits(client, symbol=symbol, market_type=market_type)
+            except LiveTradingError as exc:
+                problem = str(exc)
+            if not problem and not limits.get("minSz"):
+                problem = f"incomplete instrument metadata: {limits}"
+            if not problem and market_type != "spot" and not limits.get("ctVal"):
+                problem = f"swap metadata missing ctVal: {limits}"
+            if problem:
+                quantity = 0.0
+                record("min_notional", "FAIL", problem)
+            else:
+                contract_value = limits.get("ctVal", "") if market_type != "spot" else ""
+                try:
+                    quantity = float(
+                        min_order_quantity(
+                            price=limit_price,
+                            min_notional=float(exchange_min_notional_usdt(config.get("exchange_id"))),
+                            min_size=limits.get("minSz", ""),
+                            lot_size=limits.get("lotSz", ""),
+                            contract_value=contract_value,
+                        )
+                    )
+                except (ValueError, ArithmeticError) as exc:
+                    quantity = 0.0
+                    record("min_notional", "FAIL", f"{type(exc).__name__}: {exc}")
+                else:
+                    notional = order_notional_usdt(
+                        price=limit_price, quantity=quantity, contract_value=contract_value
+                    )
+                    record(
+                        "min_notional",
+                        "PASS",
+                        f"minSz={limits.get('minSz')} lotSz={limits.get('lotSz')} "
+                        f"ctVal={limits.get('ctVal') or '-'} qty={quantity} notional={notional:.8f}",
+                    )
+
+        ok, reason = order_notional_ok(limit_price, quantity, max_usdt, contract_value)
         if not ok:
             record("limit_roundtrip", "FAIL", f"order rejected by local guard: {reason}")
         else:
@@ -209,7 +331,7 @@ def run_steps(
                     client,
                     symbol=symbol,
                     side="buy",
-                    quantity=limit_quantity,
+                    quantity=quantity,
                     price=limit_price,
                     market_type=market_type,
                     exchange_config=config,
@@ -243,6 +365,8 @@ def run_steps(
                     "PASS",
                     f"{reason} order={order_id or client_order_id} status={status} filled={filled} avg={avg}",
                 )
+            except Exception as exc:
+                record("limit_roundtrip", "FAIL", f"{type(exc).__name__}: {str(exc)[:400]}")
             finally:
                 if order_id and not cancelled:
                     try:
@@ -276,6 +400,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--limit-price", type=float, default=0.0)
     parser.add_argument("--limit-quantity", type=float, default=0.0)
     parser.add_argument("--max-usdt", type=float, default=5.0)
+    parser.add_argument(
+        "--min-notional",
+        action="store_true",
+        help="Derive the smallest venue-legal quantity from instrument limits and the exchange minimum notional",
+    )
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
 
@@ -297,6 +426,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             limit_quantity=args.limit_quantity,
             max_usdt=args.max_usdt,
             allow_orders=allow_orders,
+            min_notional=bool(args.min_notional),
         )
     except LiveTradingError as exc:
         print(f"smoke refused: {exc}", file=sys.stderr)

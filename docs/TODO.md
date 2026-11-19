@@ -8,6 +8,13 @@
 
 ## ✅ 最近完成（2026-11-19）
 
+- ✅ **#337 最小名义额实测与合约前置条件固化**：实测 OKX 现货最小名义额 **1.00 USDT**
+  （0.50/0.61/0.99 均 `51020` 拒，1.00 成功），此前“5 USDT”口径作废；新增 `--min-notional`
+  由 minSz/lotSz/ctVal 推导最小合法数量（现货 `qty=2e-05 → 1.00 USDT` 实测下单/撤销 PASS）。
+  合约侧：demo `acctLv=1`，`POST /api/v5/account/set-account-level` 切 2/3/4 全部 `51070` 拒，
+  只能在 OKX demo 网页/App 升级 → 只读记 WARN、要求下单记 FAIL 且不发单（`swap_account_mode` 步骤）。
+  单测 19 passed。
+
 - ✅ **#336 demo 冒烟一键入口**：`backend_api_python/scripts/demo_trading_smoke.py` + `tests/test_demo_trading_smoke.py`（12 passed）。
   硬规则：凭据 `environment` 非 demo/testnet 直接拒绝（退出码 2），实盘凭据即使加 `--allow-orders` 也不下单。
   OKX demo（cred id=2）实测：只读 + 5 USDT post-only 下单/查询/撤销全 PASS，`pending_orders=0`。
@@ -47,6 +54,7 @@
   - ✅ 模拟盘冒烟入口固化：`scripts/demo_trading_smoke.py` 拒绝 live 凭据、只跑 demo（#336，口径见 `docs/trading/DEMO_SMOKE.md`）
 - **剩余阻塞 / 未验证**：
   - ⏳ **永续（swap）开仓**：demo 简单账户 `acctLv=1`，`account_configuration.py:137` fail-closed 抛 `OKX_SWAP_ACCOUNT_MODE_REQUIRED`；现货可成交。解阻塞需在 demo 切保证金账户模式，或策略只跑现货——账户模式决策待拍板
+    - 2026-11-19 实测：API `POST /api/v5/account/set-account-level` 切 `acctLv=2/3/4` 全被拒 `51070`（需在 OKX 官网/App 升级），**只能由账户持有人手动升级 demo 账户**；代码侧已 fail-closed 且冒烟显式报 `swap_account_mode`，升级后复跑同一命令即可验收
   - ⏳ **V2 合约层**：历史版本脚本 manifest 仍是 sp500 池，候选按 manifest 解析；3 条 crypto 快照要真实成交需重编译脚本版本（合约层改动，停止条件待确认）
   - ⏳ **fills→`qd_strategy_trades` 账本归集 + 周期对账**：触实盘账本路径，待拍板（#155/#108）
   - ⏳ **容器镜像**：常驻后端进程/镜像未含 #295/#297/#299/#300 改动；HTTP 网关带登录态端到端下单未在容器复验
