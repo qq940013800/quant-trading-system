@@ -99,6 +99,16 @@
 
 ## ✅ 已完成（最近更新，按时间倒序）
 
+### #335 实盘门禁权威归属核查（只读）✅ 核查完成，处置待人工决策
+- **完成时间**：2026-11-19
+- **结论**：7 个门禁模块中 **0 个在交易路径上生效**。唯一拦单的是后端 `backend_api_python/app/services/live_trading/account_risk.py`（`accountRisk.*` 违规码），由 `pending_order_worker.py:1825-1848` 在每笔下单前调用；core 侧 7 个闸只被测试与一个报表脚本引用。
+- **引用图（非测试）**：`pretrade_gate` ← 仅 `gate_shadow`；`gate_shadow` ← 0；`verification_middleware` ← 仅 `gatekeeper`；`gatekeeper` ← 仅 `scripts/generate_gatekeeper_report.py`；`economics_gate` / `deployment_guard` / `approval_gate` ← 各 0。
+- **勘误 #333**：先前"四套门禁在跑"的判断基于模块 docstring 与既有设计文档，**不是引用图**，应更正为"有实现、无生产接线"；`docs/design/design-occam-pruning.md` 的"已接线对照组"同样需按此修正。
+- **额外发现**：`gatekeeper._gate_one_strategy`（`:142-149`）把 `pbo 0.15 / DSR 1.5 / trials 10` 与两串写死收益喂给验证中间件 —— 报表里的"允许上线"不构成任何检查结论（演示级实现）。`docs/agent/MCP_SETUP.md:49` 称 `approval_gate` "已固化"与实现不符（无调用方）。
+- **文档**：`docs/design/design-live-gate-authority.md`（逐条证据表 + P1-P4 处置方案）。
+- **待决策**：P1 承认 `account_risk` 为权威闸并定其词表/限额为契约；P2 `pretrade_gate`+`gate_shadow` 走 shadow→cutover（改实盘前置路径，需人工确认，且需先做字段级限额对照，本轮仅比对违规码名）；P3 `gatekeeper` 假数据换真实来源或标注"不构成上线依据"；P4 `economics_gate`/`deployment_guard`/`approval_gate` 三个月内接线或出归档清单（不删除）。
+- **未验证**：`account_risk` 的 `limits` 与 core `RiskLimits` 字段语义是否同构（未逐字段核对）。
+
 ### #334 regime 状态词表单一来源（奥卡姆"简化"步骤）🔄 部分完成
 - **完成时间**：2026-11-19
 - **问题（grep 可复核）**：同一"市场状态"概念有四套拼写——`core/regime/rules.py:22` 的 `trend/mean_reversion/ranging`（权威）、`core/selector/blend.py:42` 本地复制的短键表、策略 `regime_weights` 的 `trend/mr/range`、`core/registry/strategy_router.py:28` 的 `trend/range/volatile/quiet`，以及 `strategy_matcher` docstring 的 `trending/ranging/...`。真实危害是**静默失配**：`range`/`ranging` 或 `mr`/`mean_reversion` 写错时查表返回 0 权重而非报错，审计链看不出是拼写问题。

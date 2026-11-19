@@ -42,12 +42,12 @@ python scripts/audit_orphan_modules.py --root D:\Trader --fail-over <预算>
 
 悬空清单（按行数降序）：`experiment.strategy_lifecycle`(601)、`models.ml_trend_strategy`(499)、`debug.system_diagnoser`(395)、`experiment.auto_optimizer`(375)、`experiment.ab_test`(334)、`features.patterns`(316)、`explainability.decision_explainer`(283)、`registry.strategy_matcher`(266)、`logging.audit_logger`(259)、`execution.spot_ownership`(202)、`backtest.integration`(181)、`execution.gate_shadow`(175)、`registry.deployment_guard`(115)、`control.approval_gate`(109)、`models.gbm`(102)、`models.meta_label`(61)、`models.drift`(42)。
 
-已接线（对照组，说明"接线"是真的存在）：`risk.protection`、`execution.pretrade_gate`、`integration.gatekeeper`、`integration.verification_middleware`、`execution.economics_gate` 均有非测试调用方——这也正是第 3 条问题所在：**能跑的门禁有四条，不跑的门禁有三条**。
+**勘误（#335，2026-11-19）**：本行原写"`pretrade_gate`/`gatekeeper`/`verification_middleware`/`economics_gate` 均有非测试调用方"，该判断基于模块 docstring 与既有设计文档，**不是引用图**。按引用图复核后：`pretrade_gate` 仅被 `gate_shadow` 引用、`gate_shadow` 无生产引用方、`verification_middleware` 仅被 `gatekeeper` 引用、`gatekeeper` 仅被 `scripts/generate_gatekeeper_report.py` 引用、`economics_gate` 无生产引用方。唯一在交易路径上生效的闸是**后端** `backend_api_python/app/services/live_trading/account_risk.py`（`pending_order_worker.py:1825-1848`）。详见 `docs/design/design-live-gate-authority.md`。真正"接线"的对照组此时只剩 `risk.protection`。
 
 ## 3. 由度量推出的三个结论
 
 1. **20% 的 core 不参与任何决策**。它们不是错代码，而是"未被需求证实的实体"。每新增一个纯函数切片前，必须先答"它的调用方是谁、什么时候接线"；答不出就进 `docs/TODO.md` 的候选池，而不是直接落码。
-2. **同一概念多实现是最大的隐性成本**：准入门（4 条在跑 + 3 条悬空）、时区偏移（load 层与表层两处守卫，已由 #331/#332 统一口径）、非有限数值（数据层 #328 / 特征层 #330 各自一套，口径已对齐但实现分散）、regime 词表三套。剃刀在这里不是删代码，而是**收敛到单一裁决入口**。
+2. **同一概念多实现是最大的隐性成本**：准入门（7 条实现，交易路径上生效 0 条，真正拦单的是后端 `account_risk`，见 #335）、时区偏移（load 层与表层两处守卫，已由 #331/#332 统一口径）、非有限数值（数据层 #328 / 特征层 #330 各自一套，口径已对齐但实现分散）、regime 词表（已由 #334 收敛到 `SHORT_KEYS`/`normalize_state`）。剃刀在这里不是删代码，而是**先定权威、再收敛到单一裁决入口**。
 3. **测试配额被悬空能力占用**。15,224 行测试里，悬空模块对应测试仍在消耗回归时间（全量已到 2344 例 / 164s）。回归时长是决策速度的直接成本，属于"加速"步骤要治理的对象。
 
 ## 4. 执行顺序（含人工门）
@@ -58,7 +58,7 @@ python scripts/audit_orphan_modules.py --root D:\Trader --fail-over <预算>
 
 **P1（待排期，多数不需要人工门）**
 - `regime` 词表合一：先出权威词表 ADR（规则引擎 / Router / Matcher 三套对齐），随后其余两处改为引用同一枚举。属纯函数层改动，可自主执行。
-- 门禁收敛：以已接线的 `pretrade_gate` 为唯一裁决入口，`gate_shadow`（影子对照）保留为"旁路观察"，`deployment_guard` / `approval_gate` 明确归类为"部署与审批"而非交易准入，避免四个入口都能否决。
+- 门禁收敛（已被 #335 修正方向）：不是"以 `pretrade_gate` 为唯一入口"，因为它本身未接线；先承认后端 `account_risk` 为唯一权威闸，再决定 `pretrade_gate`+`gate_shadow` 是否走 shadow→cutover（改实盘前置路径，需人工门），`deployment_guard`/`approval_gate`/`economics_gate` 明确归类（部署/审批/边际经济）并给出接线或归档结论。详见 `docs/design/design-live-gate-authority.md`。
 - 悬空模块三选一决策（逐模块，需 RES 给需求方结论）：**接线 / 明确归档 / 退役候选**。退役涉及删文件 → **必须人工执行**，本 Agent 只出清单。
 
 **P2（需人工门）**
