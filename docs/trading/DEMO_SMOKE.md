@@ -132,12 +132,25 @@ SKIP limit_roundtrip          blocked by swap_account_mode; no order was sent
 
 - **合约（swap）被账户模式阻塞**：demo 账户 `acctLv=1`（简单/现货模式），下单路径在
   `account_configuration.py:137` fail-closed 抛 `OKX_SWAP_ACCOUNT_MODE_REQUIRED`。
-  2026-11-19 实测：API `POST /api/v5/account/set-account-level` 切 `acctLv=2/3/4` **全部被拒**
-  `51070 "You do not meet the requirements for switching to this account mode. Please upgrade
-  your account mode on the OKX website or app."` —— 只能由账户持有人在 OKX demo 网页/App 手动升级。
+  2026-11-19 实测（三条独立证据）：
+  1. `POST /api/v5/account/set-account-level` 切 `acctLv=2/3/4` **全部被拒**
+     `51070 "You do not meet the requirements for switching to this account mode. Please upgrade
+     your account mode on the OKX website or app."` —— 该接口本身不提供跨模式升级。
+  2. 绕过脚本直接打交易所（`POST /api/v5/trade/order`，`BTC-USDT-SWAP`、`tdMode=cross`、
+     `posSide=net`、`sz=minSz=0.01`、`px=30000` 远端限价）→ `sCode 51010
+     "You can't complete this request under your current account mode."`。
+     **即 51010 是交易所侧硬拒，不是本地闸门误判**；脚本的 fail-closed 方向正确，无需放宽。
+  3. demo 网页逐项排查（个人资料页 / 偏好设置 / 交易 ▾ 下拉 / 下单面板齿轮 / 资产管理·模拟交易 /
+     右上角图标簇 / 右侧工具栏 / 资产页 / `demo-trading` 入口）均**没有账户模式入口**；
+     同一 UID 的**实盘账户已持有多笔永续仓位（50x）**，说明实盘 `acctLv` 已 ≥2、与 demo 账户模式相互独立，
+     demo 不存在「跟着实盘升级」的捷径。
   脚本把这一步显式成 `swap_account_mode` 步骤：只读时记 WARN，要求下单时记 FAIL 且**不发单**
   （`limit_roundtrip` 记 SKIP），不会把账户侧限制伪装成通过。
-  账号升级后复跑同一条命令即可验收合约往返。
+- **demo 现货侧的旁证（2026-11-19）**：在 demo 现货页开通「借币交易」（杠杆）后，可用额度从
+  ~4,156 USDT 变为 ~883,670 USDT，而 `GET /api/v5/account/config` 仍返回 `acctLv=1`。
+  说明 OKX demo 的「现货模式」允许币币杠杆，但**不允许永续**；杠杆成交路径同样未验证。
+- **升级路径结论**：demo 永续只能在 OKX **手机 App**（或官网旧版设置面板）里改账户模式，
+  网页 demo 工作区当前无入口。升级后复跑同一条命令即可验收合约往返。
 - **未覆盖**：成交路径（`filled>0`）。本轮全是 post-only 远端挂单后撤销，没有真实吃单，
   因此 `fills → qd_strategy_trades` 归集未经过本入口验证。
 - 本轮观察到一次 `OKX readonly GET transient network error (attempt 0)` 但随后 PASS，

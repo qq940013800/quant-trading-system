@@ -15,6 +15,15 @@
   只能在 OKX demo 网页/App 升级 → 只读记 WARN、要求下单记 FAIL 且不发单（`swap_account_mode` 步骤）。
   单测 19 passed。
 
+- ✅ **#338 合约阻塞定性到交易所层（51010）**：绕过脚本直打 OKX demo
+  `POST /api/v5/trade/order`（`BTC-USDT-SWAP`、`tdMode=cross`、`posSide=net`、`sz=minSz=0.01`、`px=30000` 远端限价）
+  → `sCode 51010 "You can't complete this request under your current account mode."`，
+  证明不是本地闸门误判，fail-closed 方向正确、无需放宽。账户侧排查：demo 网页 9 处入口
+  （个人资料/偏好设置/交易▾/下单面板齿轮/资产管理·模拟交易/右上角图标簇/右侧工具栏/资产页/`demo-trading`）
+  均无账户模式入口；同 UID 实盘已持 5 笔永续（50x）→ 实盘 `acctLv≥2`、与 demo 模式相互独立，无“跟随实盘”捷径。
+  旁证：demo 现货开通「借币交易」后可用额度 4,156→883,670 模拟 USDT，`acctLv` 仍=1（现货可杠杆、永续不可）。
+  结论：demo 永续只能走 OKX 手机 App 改账户模式；已回填 `docs/trading/DEMO_SMOKE.md`。
+
 - ✅ **#336 demo 冒烟一键入口**：`backend_api_python/scripts/demo_trading_smoke.py` + `tests/test_demo_trading_smoke.py`（12 passed）。
   硬规则：凭据 `environment` 非 demo/testnet 直接拒绝（退出码 2），实盘凭据即使加 `--allow-orders` 也不下单。
   OKX demo（cred id=2）实测：只读 + 5 USDT post-only 下单/查询/撤销全 PASS，`pending_orders=0`。
@@ -55,6 +64,7 @@
 - **剩余阻塞 / 未验证**：
   - ⏳ **永续（swap）开仓**：demo 简单账户 `acctLv=1`，`account_configuration.py:137` fail-closed 抛 `OKX_SWAP_ACCOUNT_MODE_REQUIRED`；现货可成交。解阻塞需在 demo 切保证金账户模式，或策略只跑现货——账户模式决策待拍板
     - 2026-11-19 实测：API `POST /api/v5/account/set-account-level` 切 `acctLv=2/3/4` 全被拒 `51070`（需在 OKX 官网/App 升级），**只能由账户持有人手动升级 demo 账户**；代码侧已 fail-closed 且冒烟显式报 `swap_account_mode`，升级后复跑同一命令即可验收
+    - 2026-11-19 追加（#338）：直打交易所下永续单 → `sCode 51010 "You can't complete this request under your current account mode."`，确认是交易所侧硬拒；demo 网页 9 处入口均无账户模式开关，同 UID 实盘已持永续（`acctLv≥2`，与 demo 独立）。**剩余唯一路径：OKX 手机 App 内切换 demo 账户模式**（`Menu → 设置 → 交易模式/账户模式`，切换前需空仓无挂单）
   - ⏳ **V2 合约层**：历史版本脚本 manifest 仍是 sp500 池，候选按 manifest 解析；3 条 crypto 快照要真实成交需重编译脚本版本（合约层改动，停止条件待确认）
   - ⏳ **fills→`qd_strategy_trades` 账本归集 + 周期对账**：触实盘账本路径，待拍板（#155/#108）
   - ⏳ **容器镜像**：常驻后端进程/镜像未含 #295/#297/#299/#300 改动；HTTP 网关带登录态端到端下单未在容器复验
