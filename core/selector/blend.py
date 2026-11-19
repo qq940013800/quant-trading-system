@@ -29,7 +29,7 @@ from typing import Dict, List, Optional
 
 import pandas as pd
 
-from ..regime import STATES
+from ..regime import SHORT_KEYS, STATES
 from ..regime.output import RegimeOutput
 from ..strategies.signal import StrategySignal
 from .audit import SelectionRecord, write_selection
@@ -37,9 +37,9 @@ from .weights import DeadbandWeightState, blend_strength
 
 logger = logging.getLogger("core.selector")
 
-# Signal/审计快照标准短键（与单专家策略 regime_weights 口径一致）；
-# 内部 regime 计算与 selection.regime_probs 仍用 STATES 长键。
-_STATE_TO_SHORT = dict(zip(STATES, ("trend", "mr", "range")))
+# Signal/审计快照标准短键由 core.regime.SHORT_KEYS 唯一定义（与单专家策略
+# regime_weights 口径一致）；内部 regime 计算与 selection.regime_probs 仍用 STATES 长键。
+_STATE_TO_SHORT = SHORT_KEYS
 
 
 class BlendConfigError(ValueError):

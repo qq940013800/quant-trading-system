@@ -15,12 +15,15 @@ from __future__ import annotations
 
 from .output import RegimeOutput
 from .rules import (
+    SHORT_KEYS,
+    STATE_ALIASES,
     STATE_MEAN_REVERSION,
     STATE_RANGING,
     STATE_TREND,
     STATES,
     RuleThresholds,
     derive_thresholds,
+    normalize_state,
 )
 from .classifier import RegimeClassifier
 from .gmm import GMMRegimeModel, has_gmm
@@ -33,6 +36,9 @@ __all__ = [
     "STATE_TREND",
     "STATE_MEAN_REVERSION",
     "STATE_RANGING",
+    "STATE_ALIASES",
+    "SHORT_KEYS",
+    "normalize_state",
     "STATES",
     "RuleThresholds",
     "derive_thresholds",

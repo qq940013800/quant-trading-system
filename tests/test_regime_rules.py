@@ -130,3 +130,40 @@ class TestRuleThresholdsGuards:
     def test_valid_thresholds_accepted(self):
         t = self._make()
         assert t.adx_q_lo == 15.0 and t.q_hi == 0.70
+
+
+class TestRegimeVocabulary:
+    """状态词表唯一来源：短键契约固定，历史拼写只在入口归一化。"""
+
+    def test_short_keys_cover_states_one_to_one(self):
+        from core.regime.rules import SHORT_KEYS, STATES
+        assert set(SHORT_KEYS) == set(STATES)
+        assert SHORT_KEYS == {
+            STATE_TREND: "trend",
+            STATE_MEAN_REVERSION: "mr",
+            STATE_RANGING: "range",
+        }
+
+    @pytest.mark.parametrize("spelling,expected", [
+        ("trend", STATE_TREND),
+        ("TRENDING", STATE_TREND),
+        (" mean_reversion ", STATE_MEAN_REVERSION),
+        ("mean-reversion", STATE_MEAN_REVERSION),
+        ("mr", STATE_MEAN_REVERSION),
+        ("range", STATE_RANGING),
+        ("ranging", STATE_RANGING),
+    ])
+    def test_legacy_spellings_normalize(self, spelling, expected):
+        from core.regime.rules import normalize_state
+        assert normalize_state(spelling) == expected
+
+    def test_short_keys_round_trip_through_aliases(self):
+        from core.regime.rules import SHORT_KEYS, STATES, normalize_state
+        for state in STATES:
+            assert normalize_state(SHORT_KEYS[state]) == state
+
+    @pytest.mark.parametrize("bad", ["volatile", "quiet", "", None, 3, "trendy"])
+    def test_unknown_state_rejected_with_context(self, bad):
+        from core.regime.rules import normalize_state
+        with pytest.raises(ValueError, match="未知 regime 状态"):
+            normalize_state(bad)

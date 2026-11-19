@@ -99,6 +99,16 @@
 
 ## ✅ 已完成（最近更新，按时间倒序）
 
+### #334 regime 状态词表单一来源（奥卡姆"简化"步骤）🔄 部分完成
+- **完成时间**：2026-11-19
+- **问题（grep 可复核）**：同一"市场状态"概念有四套拼写——`core/regime/rules.py:22` 的 `trend/mean_reversion/ranging`（权威）、`core/selector/blend.py:42` 本地复制的短键表、策略 `regime_weights` 的 `trend/mr/range`、`core/registry/strategy_router.py:28` 的 `trend/range/volatile/quiet`，以及 `strategy_matcher` docstring 的 `trending/ranging/...`。真实危害是**静默失配**：`range`/`ranging` 或 `mr`/`mean_reversion` 写错时查表返回 0 权重而非报错，审计链看不出是拼写问题。
+- **更深的结构缺陷**：router 的 4 态枚举把方向轴（`trend`/`range`）与波动轴（`volatile`/`quiet`）压平成一个枚举，且**没有** `mean_reversion` 态——均值回归只能借 `range` 表达，"趋势+高波动"无法表达。
+- **已落码（D1）**：`core/regime/rules.py` 新增 `SHORT_KEYS`（`STATES→短键`唯一契约）+ `STATE_ALIASES` + `normalize_state(value)`（历史拼写归一，未知值抛 `ValueError` 列允许集合，不静默回退）；`core/regime/__init__.py` 导出三者；`core/selector/blend.py` 删除本地 `dict(zip(STATES, ...))` 改为引用 `SHORT_KEYS`，**行为零变化**。
+- **测试**：`tests/test_regime_rules.py::TestRegimeVocabulary` 9 例（短键与 STATES 一一对应且值固定；7 种历史拼写归一；短键经别名回环；`volatile`/`quiet`/空串/None/数字全部被拒并带上下文）。`test_regime_rules.py + test_selector_blend.py` 43 passed；改前四文件 60 passed。
+- **文档**：`docs/design/design-regime-vocabulary.md`（证据表、D1/D2/D3 决策、验证影响面、剩余风险）。
+- **待决策（需 RES 结论，未落码）**：D2 把 router 枚举拆为 `direction_state ∈ STATES` + `vol_band ∈ {low,medium,high}`（会改动 `regime_profile` 键结构与既有 router 权重表，属需人工确认范围）；D3 用 `normalize_state` 校验 matcher 画像字符串（需先盘点历史配置实际取值，否则 `volatile` 会被新校验拒绝）。
+- **风险提示**：`normalize_state` 会拒绝 `volatile`/`quiet`，**不可**直接接到 router 配置解析上——必须以 D2 拆分为前提。
+
 ### #333 奥卡姆剃刀 × 马斯克五步：悬空模块审计工具与瘦身准则 ✅ 已完成
 - **完成时间**：2026-11-19
 - **方法**：把"该不该做/该不该留"从品味变成度量。奥卡姆判据落到四类可数实体（模块/枚举词表/阈值常量/门禁入口），马斯克五步按序执行（质疑需求→删除→简化→加速→自动化），且明确剃刀只作用于冗余表达、不作用于证据链（审计/快照属不变量 2 的载体）。

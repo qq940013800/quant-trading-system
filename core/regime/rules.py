@@ -24,6 +24,42 @@ STATE_MEAN_REVERSION = "mean_reversion"
 STATE_RANGING = "ranging"
 STATES: tuple[str, str, str] = (STATE_TREND, STATE_MEAN_REVERSION, STATE_RANGING)
 
+# 策略 regime_weights / 审计快照的短键契约（与 STATES 一一对应，值域固定）：
+#   trend -> "trend" / mean_reversion -> "mr" / ranging -> "range"
+# 这里是与单专家策略、selection 快照约定的唯一来源，调用方不得再各自维护映射表。
+SHORT_KEYS: dict[str, str] = {
+    STATE_TREND: "trend",
+    STATE_MEAN_REVERSION: "mr",
+    STATE_RANGING: "range",
+}
+
+# 历史拼写 → 权威状态。仅用于**入口归一化**（配置/存档/外部输入），
+# 计算路径内不做拼写猜测：状态一旦进入决策，必须是 STATES 之一。
+STATE_ALIASES: dict[str, str] = {
+    "trend": STATE_TREND,
+    "trending": STATE_TREND,
+    "mean_reversion": STATE_MEAN_REVERSION,
+    "mean-reversion": STATE_MEAN_REVERSION,
+    "mr": STATE_MEAN_REVERSION,
+    "ranging": STATE_RANGING,
+    "range": STATE_RANGING,
+}
+
+
+def normalize_state(value: str) -> str:
+    """把历史拼写（trending / mr / range …）归一为 STATES 之一。
+
+    未知值抛 ValueError 并列出允许集合；不做静默回退，避免拼写错误
+    被当成"某个状态"参与加权（硬规则 9：异常必须带上下文）。
+    """
+    if isinstance(value, str):
+        alias = STATE_ALIASES.get(value.strip().lower())
+        if alias is not None:
+            return alias
+    raise ValueError(
+        f"未知 regime 状态 {value!r}；允许 {tuple(STATE_ALIASES)}"
+    )
+
 # 理论常量（R/S 分析理论分界）：Hurst=0.5 ⇔ 随机游走。不是绩效参数。
 MR_HURST_THRESHOLD = 0.5
 
